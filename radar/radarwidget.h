@@ -16,6 +16,6 @@ public:
 private:
 
     void drawBase();
-    int data[100];
+    float data[180];
     float insideAngle;
 };
