@@ -2,13 +2,22 @@
 #include <FL/fl_draw.H>
 #include <math.h>
 
+#define MAX_ANGLES 360
+
 RadarWidget::RadarWidget(int x, int y, int w, int h, const char *label)
     : Fl_Widget(x, y, w, h, label) {
-        insideAngle = 30.0;
-        for(int i = 0; i < 180; i++)
+        insideAngle = 90.0;
+        originX = w / 2.0;
+        originY = h / 2.0;
+
+        for(int i = 0; i < MAX_ANGLES; i++)
         {
-            data[i] = 0.0;
+            data[i].valid = false;
+            data[i].screenX = 0.0;
+            data[i].screenY = 0.0;
         }
+
+        fl_font(FL_TIMES, 12);
     }
 
 int RadarWidget::handle(int event) {
@@ -23,14 +32,23 @@ int RadarWidget::handle(int event) {
                 insideAngle -= 5;
                 redraw();
             }
+            if(key == 'w') {
+                originY -= 5.0;
+                redraw();
+            }
+            else if(key == 's') {
+                originY += 5.0;
+                redraw();
+            }
+
         }
         break;
     }
 }
 
 void RadarWidget::insertDataPoint(int index, float distance) {
-    printf("setting %d to %f\n", index, distance);
-    data[index] = distance;
+    data[index].valid = true;
+    data[index].distance = distance;
     redraw();
 }
 
@@ -44,31 +62,56 @@ void RadarWidget::drawBase() {
     float outsideAngle = (180.0 - insideAngle) / 2;
     outsideAngle *= (M_PI / 180.0); // convert to radians
     float yPos = w() * 0.5 * tan(outsideAngle);
-    fl_line(w()/2.0, h(), 0, h()-yPos);
-    fl_line(w()/2.0, h(), w(), h()-yPos);
 
-    float radius = w() / 8.0;
+    float radius = w() / 16.0;
     float scale = 10.0; // 10mm per arc
     float ratio = radius / scale;
 
+    fl_line(originX, originY, 0, originY - yPos);
+    fl_line(originX, originY, w(), originY - yPos);
+
+    char scaleBuffer[10];
+
     for(int i = 0; i < 8; i++) {
         fl_begin_line();
-        fl_arc(w()/2.0, h(), (float)i * radius, (180.0 / M_PI) * (0 + outsideAngle), (180.0 - ((180.0 / M_PI) * outsideAngle)));
+        fl_arc(originX, originY, (float)(i + 1) * radius, (180.0 / M_PI) * (0 + outsideAngle), (180.0 - ((180.0 / M_PI) * outsideAngle)));
         fl_end_line();
+
     }
 
-    for(int i = 0; i < 180; i++) {
-        if(data[i] > 0.0)
+    int lastValidIndex = -1;
+
+    for(int i = 0; i < MAX_ANGLES; i++) {
+        if(data[i].valid)
         {
+            fl_color(FL_RED);
             // y = b sin alpha
             // x = b cos alpha
             // alpha = angle of range finder
             // b = distance
-            float pointX = (w() / 2.0) + (data[i] * (cos((float)i * (M_PI / 180.0))));
-            float pointY = h() - (ratio * (data[i] * (sin((float)i * (M_PI / 180.0)))));
-            printf("(%f, %f)\n", pointX, pointY);
-            fl_circle(pointX, pointY, 5);
+            data[i].screenX = originX + (ratio * (data[i].distance * (cos((float)i * (M_PI / 180.0)))));
+            data[i].screenY = originY - (ratio * (data[i].distance * (sin((float)i * (M_PI / 180.0)))));
+            fl_circle(data[i].screenX, data[i].screenY, 1);
+
+            if(lastValidIndex >= 0)
+            {
+                fl_line(data[i].screenX, data[i].screenY, data[lastValidIndex].screenX, data[lastValidIndex].screenY);
+            }
+
+            lastValidIndex = i;
         }
+    }
+
+    fl_color(FL_GREEN);
+
+    // draw the scale markers last
+    for(int i = 0; i < 8; i++) {
+        sprintf(scaleBuffer, "%.1f", (i+1) * scale);
+
+        int textHeight = 0, textWidth = 0;
+        fl_measure(scaleBuffer, textHeight, textWidth, 0);
+        fl_draw(scaleBuffer, originX - textWidth, originY - ((float)(i+1) * radius) - 1.0);
+
     }
 }
 

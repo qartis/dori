@@ -14,8 +14,18 @@ public:
 
 
 private:
+    struct DataPoint {
+        bool valid;
+        float screenX;
+        float screenY;
+        float distance;
+    };
+
 
     void drawBase();
-    float data[180];
+    struct DataPoint data[360];
     float insideAngle;
+
+    float originX;
+    float originY;
 };
