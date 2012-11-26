@@ -1,5 +1,5 @@
 #include <FL/Fl.H>
-#include <FL/Fl_Window.H>
+#include <FL/Fl_Double_Window.H>
 #include "radarwidget.h"
 
 void readingTimer(void *data) {
@@ -18,7 +18,7 @@ void readingTimer(void *data) {
 
 
 int main(int argc, char **argv) {
-    Fl_Window *window = new Fl_Window(600,600);
+    Fl_Window *window = new Fl_Double_Window(600,600);
     RadarWidget *radar = new RadarWidget(0, 0, window->w(), window->h(), NULL);
     Fl::add_timeout(2.0, readingTimer, (void*)radar);
     window->end();
