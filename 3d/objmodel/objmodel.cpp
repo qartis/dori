@@ -39,6 +39,7 @@ void ObjModel::draw(float x, float y, float z) {
     for(int i = 0; i < faces.size(); i++) {
         glBegin(GL_POLYGON);
 
+        glColor3f(1/6.0*i, 0, 0);
         glVertex3f(+ verts[faces[i].a].x,
                 y + verts[faces[i].a].y,
                 z + verts[faces[i].a].z);
