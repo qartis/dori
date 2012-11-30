@@ -58,15 +58,13 @@ int viewport::handle(int event) {
         }
         break;
         case FL_MOUSEWHEEL: {
-            position.z -= Fl::event_dy();
+            position.z -= 0.5 * Fl::event_dy();
             redraw();
             return 1;
         }
         break;
     }
 }
-
-
 
 void viewport::draw() {
     if (!valid()) {
@@ -82,7 +80,7 @@ void viewport::draw() {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glViewport(0,0,w(),h());
-    gluPerspective(45.0, (float)w()/(float)h(), 1.0, 10.0);
+    gluPerspective(45.0, (float)w()/(float)h(), 0.1, 100.0);
 
     glTranslatef(0.0 + position.x, 0.0 + position.y, -5.0 + position.z);
     glRotatef(rotation.x, 1.0, 0.0, 0.0);
