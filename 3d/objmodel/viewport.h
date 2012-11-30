@@ -8,9 +8,13 @@ class viewport : public Fl_Gl_Window {
 
 public:
     viewport(int x, int y, int w, int h, const char *l);
+    virtual int handle(int event);
 
     ObjModel *model;
 
 private:
     void draw();
+
+    Vector3f position;
+    Vector3f rotation;
 };
