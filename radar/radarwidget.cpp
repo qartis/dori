@@ -4,21 +4,22 @@
 
 #define MAX_ANGLES 360
 
-RadarWidget::RadarWidget(int x, int y, int w, int h, const char *label)
-    : Fl_Widget(x, y, w, h, label) {
-        insideAngle = 90.0;
-        originX = w / 2.0;
-        originY = h / 2.0;
+RadarWidget::RadarWidget(int x, int y, int w, int h, const char *label) : Fl_Widget(x, y, w, h, label) {
+    insideAngle = 90.0;
+    originX = w / 2.0;
+    originY = h / 2.0;
+    completeRedraw = false;
 
-        for(int i = 0; i < MAX_ANGLES; i++)
-        {
-            data[i].valid = false;
-            data[i].screenX = 0.0;
-            data[i].screenY = 0.0;
-        }
-
-        fl_font(FL_TIMES, 12);
+    for(int i = 0; i < MAX_ANGLES; i++)
+    {
+        data[i].valid = false;
+        data[i].changed = false;
+        data[i].screenX = 0.0;
+        data[i].screenY = 0.0;
     }
+
+    fl_font(FL_TIMES, 12);
+}
 
 int RadarWidget::handle(int event) {
     switch(event) {
@@ -26,18 +27,22 @@ int RadarWidget::handle(int event) {
             int key = Fl::event_key();
             if(key == FL_Up) {
                 insideAngle += 5;
+                completeRedraw = true;
                 redraw();
             }
             else if(key == FL_Down) {
                 insideAngle -= 5;
+                completeRedraw = true;
                 redraw();
             }
             if(key == 'w') {
                 originY -= 5.0;
+                completeRedraw = true;
                 redraw();
             }
             else if(key == 's') {
                 originY += 5.0;
+                completeRedraw = true;
                 redraw();
             }
 
@@ -48,6 +53,7 @@ int RadarWidget::handle(int event) {
 
 void RadarWidget::insertDataPoint(int index, float distance) {
     data[index].valid = true;
+    data[index].changed = true;
     data[index].distance = distance;
     redraw();
 }
@@ -89,9 +95,12 @@ void RadarWidget::drawBase() {
             // x = b cos alpha
             // alpha = angle of range finder
             // b = distance
-            data[i].screenX = originX + (ratio * (data[i].distance * (cos((float)i * (M_PI / 180.0)))));
-            data[i].screenY = originY - (ratio * (data[i].distance * (sin((float)i * (M_PI / 180.0)))));
-            fl_circle(data[i].screenX, data[i].screenY, 1);
+            if(data[i].changed || completeRedraw) {
+                data[i].changed = false;
+                data[i].screenX = originX + (ratio * (data[i].distance * (cos((float)i * (M_PI / 180.0)))));
+                data[i].screenY = originY - (ratio * (data[i].distance * (sin((float)i * (M_PI / 180.0)))));
+                fl_circle(data[i].screenX, data[i].screenY, 1);
+            }
 
             if(lastValidIndex >= 0)
             {
@@ -102,12 +111,13 @@ void RadarWidget::drawBase() {
         }
     }
 
+    completeRedraw = false;
+
     fl_color(FL_GREEN);
 
     // draw the scale markers last
     for(int i = 0; i < 8; i++) {
         sprintf(scaleBuffer, "%.1f", (i+1) * scale);
-
         int textHeight = 0, textWidth = 0;
         fl_measure(scaleBuffer, textHeight, textWidth, 0);
         fl_draw(scaleBuffer, originX - textWidth, originY - ((float)(i+1) * radius) - 1.0);

@@ -9,7 +9,7 @@ void readingTimer(void *data) {
     if (scanf("%d %f", &index, &distance) == 2) {
         radar->insertDataPoint(index, distance);
         radar->redraw();
-        Fl::repeat_timeout(0.05, readingTimer, data);
+        Fl::repeat_timeout(0.01, readingTimer, data);
     }
     else {
         printf("done reading\n");

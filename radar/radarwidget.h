@@ -16,11 +16,13 @@ public:
 private:
     struct DataPoint {
         bool valid;
+        bool changed;
         float screenX;
         float screenY;
         float distance;
     };
 
+    bool completeRedraw;
 
     void drawBase();
     struct DataPoint data[360];
