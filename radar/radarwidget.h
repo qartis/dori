@@ -1,6 +1,8 @@
 #include <FL/Fl.H>
 #include <FL/Fl_Widget.H>
 
+#define MAX_ANGLES 360
+
 class RadarWidget : public Fl_Widget {
 
 public:
@@ -22,12 +24,22 @@ private:
         float distance;
     };
 
+    typedef enum {
+        UPWARD,
+        DOWNWARD
+    } direction ;
+
+    direction sweepDirection;
+
     bool completeRedraw;
 
     void drawBase();
-    struct DataPoint data[360];
+    struct DataPoint data[MAX_ANGLES];
     float insideAngle;
 
     float originX;
     float originY;
+    float scale;
+
+    int curPointIndex;
 };

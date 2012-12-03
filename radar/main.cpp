@@ -9,13 +9,12 @@ void readingTimer(void *data) {
     if (scanf("%d %f", &index, &distance) == 2) {
         radar->insertDataPoint(index, distance);
         radar->redraw();
-        Fl::repeat_timeout(0.01, readingTimer, data);
+        Fl::repeat_timeout(0.3, readingTimer, data);
     }
     else {
         printf("done reading\n");
     }
 }
-
 
 int main(int argc, char **argv) {
     Fl_Window *window = new Fl_Double_Window(600,600);
