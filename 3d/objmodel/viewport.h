@@ -10,11 +10,12 @@ public:
     viewport(int x, int y, int w, int h, const char *l);
     virtual int handle(int event);
 
-    ObjModel *model;
+    void addModel(ObjModel& model);
 
 private:
     void draw();
 
-    Vector3f position;
-    Vector3f rotation;
+    Vector3f deltaPosition;
+
+    std::vector<ObjModel> models;
 };

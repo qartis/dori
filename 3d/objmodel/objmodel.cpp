@@ -16,7 +16,7 @@ void ObjModel::load(const char * filename) {
         // including the character that defines what the line describes
         if(num_read >= 4 && num_read <= 5) {
             if(type == 'v') { // processing a vertex
-                Vector3f vec = {a, b, c};
+                Vector3f vec(a, b, c);
                 verts.push_back(vec);
             }
             else if(type == 'f') { // processing a face
@@ -39,7 +39,7 @@ void ObjModel::draw(float x, float y, float z) {
     for(int i = 0; i < faces.size(); i++) {
         glBegin(GL_POLYGON);
         glColor3f(0.5 + (i / 2000.0), 0.0, 0.0);
-        glVertex3f(+ verts[faces[i].a].x,
+        glVertex3f(x + verts[faces[i].a].x,
                 y + verts[faces[i].a].y,
                 z + verts[faces[i].a].z);
 
