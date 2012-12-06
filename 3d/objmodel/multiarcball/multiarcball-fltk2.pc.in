@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: @PACKAGE_NAME@
+Description: Multiple Toolkit Arcball
+Requires: @PACKAGE_NAME@
+Version: @PACKAGE_VERSION@
+Libs: @FL2_LDFLAGS@ -L${libdir} -lfltkarcball -l3dmath
+Cflags: @FL2_CXXFLAGS@ -I${includedir}/@PACKAGE_NAME@

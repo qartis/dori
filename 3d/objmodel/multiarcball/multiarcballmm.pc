@@ -1,0 +1,11 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: multiarcball
+Description: Multiple Toolkit Arcball
+Requires: gtkglextmm-1.2 multiarcball
+Version: 0.2.3
+Libs: -L${libdir} -lgtkmmarcball
+Cflags: -I${includedir}/multiarcball

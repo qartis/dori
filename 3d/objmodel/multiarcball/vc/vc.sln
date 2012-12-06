@@ -1,0 +1,55 @@
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libfltk", "libfltk.vcproj", "{59415ADA-4377-47F6-9CE5-7E2AC5864975}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libgtkmm", "libgktmm.vcproj", "{71193BC0-DD35-485A-943C-C877C47024D4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmath", "libmath.vcproj", "{27FE8D26-8E3F-4540-ABAA-A2E3600016FC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testfltk", "testfltk.vcproj", "{C23ACE73-274F-477B-90B6-D01AAD5DCD8B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testgtkmm", "testgktmm.vcproj", "{29CA7758-AC49-4988-90EA-25A95AFF9838}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libfltk2", "libfltk2.vcproj", "{DBEA7A20-1C8A-4B5B-AA38-355A96C24AA6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testfltk2", "testfltk2.vcproj", "{A2A47486-7E2D-4050-94D3-6A5FD74C4904}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{59415ADA-4377-47F6-9CE5-7E2AC5864975}.Debug|Win32.ActiveCfg = Debug|Win32
+		{59415ADA-4377-47F6-9CE5-7E2AC5864975}.Debug|Win32.Build.0 = Debug|Win32
+		{59415ADA-4377-47F6-9CE5-7E2AC5864975}.Release|Win32.ActiveCfg = Release|Win32
+		{59415ADA-4377-47F6-9CE5-7E2AC5864975}.Release|Win32.Build.0 = Release|Win32
+		{71193BC0-DD35-485A-943C-C877C47024D4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{71193BC0-DD35-485A-943C-C877C47024D4}.Debug|Win32.Build.0 = Debug|Win32
+		{71193BC0-DD35-485A-943C-C877C47024D4}.Release|Win32.ActiveCfg = Release|Win32
+		{71193BC0-DD35-485A-943C-C877C47024D4}.Release|Win32.Build.0 = Release|Win32
+		{27FE8D26-8E3F-4540-ABAA-A2E3600016FC}.Debug|Win32.ActiveCfg = Debug|Win32
+		{27FE8D26-8E3F-4540-ABAA-A2E3600016FC}.Debug|Win32.Build.0 = Debug|Win32
+		{27FE8D26-8E3F-4540-ABAA-A2E3600016FC}.Release|Win32.ActiveCfg = Release|Win32
+		{27FE8D26-8E3F-4540-ABAA-A2E3600016FC}.Release|Win32.Build.0 = Release|Win32
+		{C23ACE73-274F-477B-90B6-D01AAD5DCD8B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C23ACE73-274F-477B-90B6-D01AAD5DCD8B}.Debug|Win32.Build.0 = Debug|Win32
+		{C23ACE73-274F-477B-90B6-D01AAD5DCD8B}.Release|Win32.ActiveCfg = Release|Win32
+		{C23ACE73-274F-477B-90B6-D01AAD5DCD8B}.Release|Win32.Build.0 = Release|Win32
+		{29CA7758-AC49-4988-90EA-25A95AFF9838}.Debug|Win32.ActiveCfg = Debug|Win32
+		{29CA7758-AC49-4988-90EA-25A95AFF9838}.Debug|Win32.Build.0 = Debug|Win32
+		{29CA7758-AC49-4988-90EA-25A95AFF9838}.Release|Win32.ActiveCfg = Release|Win32
+		{29CA7758-AC49-4988-90EA-25A95AFF9838}.Release|Win32.Build.0 = Release|Win32
+		{DBEA7A20-1C8A-4B5B-AA38-355A96C24AA6}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DBEA7A20-1C8A-4B5B-AA38-355A96C24AA6}.Debug|Win32.Build.0 = Debug|Win32
+		{DBEA7A20-1C8A-4B5B-AA38-355A96C24AA6}.Release|Win32.ActiveCfg = Release|Win32
+		{DBEA7A20-1C8A-4B5B-AA38-355A96C24AA6}.Release|Win32.Build.0 = Release|Win32
+		{A2A47486-7E2D-4050-94D3-6A5FD74C4904}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A2A47486-7E2D-4050-94D3-6A5FD74C4904}.Debug|Win32.Build.0 = Debug|Win32
+		{A2A47486-7E2D-4050-94D3-6A5FD74C4904}.Release|Win32.ActiveCfg = Release|Win32
+		{A2A47486-7E2D-4050-94D3-6A5FD74C4904}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

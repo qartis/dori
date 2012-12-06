@@ -1,0 +1,11 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: multiarcball
+Description: Multiple Toolkit Arcball
+Requires: multiarcball
+Version: 0.2.3
+Libs: -Wl,-rpath,/usr/lib -lfltk2_gl -lGLU -lGL -lfltk2 -Wl,-O1,--sort-common,--as-needed,-z,relro,--hash-style=gnu -lX11 -lXi -lXinerama -lXft -ldl -lpthread -lm -lXext -lsupc++  -L${libdir} -lfltkarcball -l3dmath
+Cflags: -I/usr/include/freetype2 -march=x86-64 -mtune=generic -O2 -pipe -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2 -Wno-non-virtual-dtor -g -O2 -I${includedir}/multiarcball

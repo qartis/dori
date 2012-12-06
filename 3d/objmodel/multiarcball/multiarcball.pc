@@ -1,0 +1,11 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: multiarcball
+Description: Multiple Toolkit Arcball
+Requires: 
+Version: 0.2.3
+Libs: -L${libdir} -l3dmath
+Cflags: -I${includedir}/multiarcball

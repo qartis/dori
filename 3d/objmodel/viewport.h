@@ -1,11 +1,20 @@
 #include <FL/Fl.H>
-#include <FL/Fl_Gl_Window.H>
-#include <FL/gl.h>
-#include <GL/glu.h>
 #include "objmodel.h"
+#include "FlGlArcballWindow.h"
 
-class viewport : public Fl_Gl_Window {
+class viewport : public FlGlArcballWindow {
+  public:
+    viewport(int W,int H,const char*L=0);
 
+    virtual void draw();
+    void addModel(ObjModel& model);
+    
+  private:
+    std::vector<ObjModel> models;
+};
+/*
+
+class viewport : public FLGlArcballWindow {  
 public:
     viewport(int x, int y, int w, int h, const char *l);
     virtual int handle(int event);
@@ -17,5 +26,5 @@ private:
 
     Vector3f deltaPosition;
 
-    std::vector<ObjModel> models;
 };
+*/

@@ -88,6 +88,8 @@ static void quaternion(GLfloat* q, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
   q[8] = 2*xz + 2*wy;
   q[9] = 2*yz - 2*wx;
   q[10]= 1 - 2*x2 - 2*y2;
+
+  q[3]= 5.0;
 }
 
 // reset the rotation matrix
@@ -100,6 +102,7 @@ static void quatidentity(GLfloat* q)
 // copy a rotation matrix
 static void quatcopy(GLfloat* dst, GLfloat* src)
 { dst[0]=src[0]; dst[1]=src[1]; dst[2]=src[2];
+    dst[3]=src[3]; 
   dst[4]=src[4]; dst[5]=src[5]; dst[6]=src[6];
   dst[8]=src[8]; dst[9]=src[9]; dst[10]=src[10]; }
 
