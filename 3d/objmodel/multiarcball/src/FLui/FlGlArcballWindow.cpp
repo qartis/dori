@@ -163,8 +163,8 @@ int FlGlArcballWindow::handle(int event) {
     }
   }
   if(FL_MOUSEWHEEL==event){
-    if(Fl::event_dy()<0)transform./*post_*/scale(XYZ(.9,.9,.9));
-    else if(Fl::event_dy()>0)transform./*post_*/scale(XYZ(1.1,1.1,1.1));
+    if(Fl::event_dy()>0)transform./*post_*/scale(XYZ(.9,.9,.9));
+    else if(Fl::event_dy()<0)transform./*post_*/scale(XYZ(1.1,1.1,1.1));
     redraw();
     return 1;
   }
