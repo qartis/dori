@@ -1,4 +1,0 @@
-- add documentation
-- add more complex examples
-----------------------------------------
-- may be impliment on_expose_event or draw metods in widget classes with addition draw_view for client
