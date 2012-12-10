@@ -1,6 +1,7 @@
 #include <FL/Fl.H>
 #include "objmodel.h"
 #include "FlGlArcballWindow.h"
+#include "fl_gl_contour.h"
 
 class viewport : public FlGlArcballWindow {
   public:
@@ -11,20 +12,6 @@ class viewport : public FlGlArcballWindow {
     
   private:
     std::vector<ObjModel> models;
+
+    fl_gl_contour *contour;
 };
-/*
-
-class viewport : public FLGlArcballWindow {  
-public:
-    viewport(int x, int y, int w, int h, const char *l);
-    virtual int handle(int event);
-
-    void addModel(ObjModel& model);
-
-private:
-    void draw();
-
-    Vector3f deltaPosition;
-
-};
-*/
