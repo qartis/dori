@@ -9,9 +9,16 @@ class viewport : public FlGlArcballWindow {
 
     virtual void draw();
     void addModel(ObjModel& model);
-    
-  private:
-    std::vector<ObjModel> models;
 
+  private:
+    virtual int handle(int event);
+
+    std::vector<ObjModel> models;
     fl_gl_contour *contour;
+    int graphType2d;
+    int graphType3d;
+
+    int gridXCells;
+    int gridYCells;
+    int gridZCells;
 };

@@ -76,7 +76,7 @@ public:
     void set_number_y_grid(gm_uint u){ ycells 	= u;};
     void set_number_z_grid(gm_uint u){ _lvls 	= u;};
     void set_submesh_limits(int,int,real);
-    void set_palette(gm_uint);
+    int set_palette(gm_uint);
     // get
     gm_uint get_max_vertex(void){ return EMAX;};
     gm_real get_grid_limits(int _i, int _j){return _m_grid_limits[_i][_j];};

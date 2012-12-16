@@ -56,6 +56,7 @@ public:
     void set_color(unsigned int);
     // get
     gm_rgb get_color(double);
+    unsigned int  get_palette();
     void initialize(double mn, double mx, unsigned int l){zmin=mn; zmax=mx; _lvls=l;};
 
 //private:

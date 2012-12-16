@@ -58,6 +58,10 @@ void fl_palette::set_color(unsigned int u){
     }
 };
 
+unsigned int fl_palette::get_palette() {
+    return _ipalette;
+}
+
 void fl_palette::update_palette_(void){
     double lv;
     _color_palette.clear();

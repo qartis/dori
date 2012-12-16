@@ -67,8 +67,6 @@ public:
     void drawGridPoints(void);
     void drawobjects(void);
 //    void redraw(void){draw();};
-    void graph_2d(bool _b){ 	_if_2d=_b;};
-    void graph_3d(bool _b){ 	_if_3d=_b;};
     void graph_cut(bool _b){ 	_draw_cut = _b;};
     void graph_dat(bool _b){ 	_draw_dat = _b;};
     void graph_mpt(bool _b){ 	_draw_mpt = _b;};
@@ -95,10 +93,33 @@ public:
     void pany(float _f){	yshift=_f;};
     void actualize(void){	_mth_act=3;};
     //
-    void intp_method(gm_int _i){  intp_meth = _i;};
-    void graph_method(gm_int _i){ graph_meth = _i;};
-    void graph_3d(gm_int _i){ _gph_3d = _i;};
-    void graph_2d(gm_int _i){ _gph_2d = _i;};
+    int  intp_method(gm_int _i) {
+        if(_i == intp_meth)  {
+            return 0;
+        }
+        intp_meth = _i;
+
+        return 1;
+    }
+
+    // return 1 if changed, 0 if unchanged
+    int graph_3d(gm_int _i) {
+        if(_i == _gph_3d) {
+            return 0;
+        }
+        _gph_3d = _i;
+
+        return 1;
+    };
+
+    int graph_2d(gm_int _i) {
+        if(_i == _gph_2d) {
+            return 0;
+        }
+        _gph_2d = _i;
+        return 1;
+    };
+
 
 #if HAVE_GL
     void drawMesh(gm_bool);
@@ -111,18 +132,15 @@ public:
     void drawMap() {	printf("Is not posible start any OpenGL device interface\n");}
 #endif /* HAVE_GL */
 #if HAVE_GL
-    void draw();    
+    void draw();
 #endif /* HAVE_GL */
-
-protected:
-    int handle(int);
 
 private:
     gm_real _xi, _xf, _yi, _yf;
-    gm_int graph_meth, intp_meth, _gph_2d, _gph_3d;
+    gm_int intp_meth, _gph_2d, _gph_3d;
     unsigned int _mth_act;
     
-    bool _depth, gm_light, _if_2d, _if_3d;
+    bool _depth, gm_light;
     bool is_n_data, _draw_mpt, _draw_cut;
     bool  _draw_dat, _draw_box, _draw_pal;            //
         

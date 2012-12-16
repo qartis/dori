@@ -921,8 +921,12 @@ void fl_contour::add_3d_triangle_mesh_(void){
     _triangle_mesh.push_back(_Trg);
 }
 
-void fl_contour::set_palette(gm_uint u){
+int fl_contour::set_palette(gm_uint u){
+    if(u == _cpalette.get_palette()) {
+        return 0;
+    }
     _cpalette.set_color(u);
+    return 1;
 }
 
 void fl_contour::update_palette_(void){
