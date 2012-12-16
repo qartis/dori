@@ -121,46 +121,53 @@ int FlGlArcballWindow::handle(int event) {
     }  
   }
   {
-    if ( Fl::event_button() == FL_LEFT_MOUSE || Fl::event_button1()){
-      if(FL_PUSH==event){
-	      cursor(CursorZoomW);
-        b_zoom_frame=true;
-        mouse.x = d.x = Fl::event_x();
-        mouse.y = d.y = Fl::event_y();
-      }else if(FL_DRAG==event){
-        d.x = Fl::event_x();
-        d.y = Fl::event_y();
-      }else  if(FL_RELEASE==event && b_zoom_frame){
-	      cursor(CursorDefault);
-        b_zoom_frame=false;
-        d.x = Fl::event_x();
-        d.y = Fl::event_y();
-        redraw();
+      if ( Fl::event_button() == FL_LEFT_MOUSE || Fl::event_button1()){
+          if ( event == FL_PUSH || event == FL_RELEASE || event == FL_DRAG ){
+              if (Fl::event_state(FL_SHIFT)) {
+                  if(FL_PUSH==event){
+                      cursor(CursorZoomW);
+                      b_zoom_frame=true;
+                      mouse.x = d.x = Fl::event_x();
+                      mouse.y = d.y = Fl::event_y();
+                  }else if(FL_DRAG==event){
+                      d.x = Fl::event_x();
+                      d.y = Fl::event_y();
+                  }else  if(FL_RELEASE==event && b_zoom_frame){
+                      cursor(CursorDefault);
+                      b_zoom_frame=false;
+                      d.x = Fl::event_x();
+                      d.y = Fl::event_y();
+                      redraw();
 
-        double sx =::fabs(d.x-mouse.x);
-        double sy =::fabs(d.y-mouse.y);
-        double zx;
+                      double sx =::fabs(d.x-mouse.x);
+                      double sy =::fabs(d.y-mouse.y);
+                      double zx;
 
-        if(sx > 5 && sy > 5 && sx / sy < 13. && sy / sx < 13.){
-          if (sx / sy >= (double) w () / (double) h ()) zx = (double) w () / sx;
-          else zx = (double) h () / sy;
-          transform.translate(2.*Rmax*(w()-(mouse.x+d.x))/2./(double)h(),
-                              -2.*Rmax*(h()-(mouse.y + d.y))/2./(double)h(),0.);
-          transform.scale (zx, zx, zx);
-        }
+                      if(sx > 5 && sy > 5 && sx / sy < 13. && sy / sx < 13.){
+                          if (sx / sy >= (double) w () / (double) h ()) zx = (double) w () / sx;
+                          else zx = (double) h () / sy;
+                          transform.translate(2.*Rmax*(w()-(mouse.x+d.x))/2./(double)h(),
+                                              -2.*Rmax*(h()-(mouse.y + d.y))/2./(double)h(),0.);
+                          transform.scale (zx, zx, zx);
+                      }
+                  }
+                  redraw_overlay();
+              }
+              else {
+                  handle_pan(mvct::XY((double)Fl::event_x()/w(),(double)Fl::event_y()/h()),FL_PUSH==event,FL_RELEASE==event);
+                  redraw();
+              }
+              return 1;
+          }
+      }else if ( Fl::event_button() == FL_MIDDLE_MOUSE || Fl::event_button2()){
+          if ( event == FL_PUSH || event == FL_RELEASE || event == FL_DRAG ){
+              /*else if (( Fl::event_button() == FL_RIGHT_MOUSE ) && ) handle_dolly(mvct::XY((double)Fl::event_x()/w(),(double)Fl::event_y()/h()),FL_PUSH==event,FL_RELEASE==event);
+                else*/ if (Fl::event_state(FL_CTRL)) handle_zoom(mvct::XY((double)Fl::event_x()/w(),(double)Fl::event_y()/h()),FL_PUSH==event,FL_RELEASE==event);
+              else handle_rotate(mvct::XY((double)Fl::event_x()/w(),(double)Fl::event_y()/h()),FL_PUSH==event,FL_RELEASE==event);
+              redraw();
+              return 1;
+          }
       }
-      redraw_overlay();
-	    return 1;
-    }else if ( Fl::event_button() == FL_MIDDLE_MOUSE || Fl::event_button2()){
-      if ( event == FL_PUSH || event == FL_RELEASE || event == FL_DRAG ){
-        if (Fl::event_state(FL_SHIFT)) handle_pan(mvct::XY((double)Fl::event_x()/w(),(double)Fl::event_y()/h()),FL_PUSH==event,FL_RELEASE==event);
-        /*else if (( Fl::event_button() == FL_RIGHT_MOUSE ) && ) handle_dolly(mvct::XY((double)Fl::event_x()/w(),(double)Fl::event_y()/h()),FL_PUSH==event,FL_RELEASE==event);*/
-        else if (Fl::event_state(FL_CTRL)) handle_zoom(mvct::XY((double)Fl::event_x()/w(),(double)Fl::event_y()/h()),FL_PUSH==event,FL_RELEASE==event);
-        else handle_rotate(mvct::XY((double)Fl::event_x()/w(),(double)Fl::event_y()/h()),FL_PUSH==event,FL_RELEASE==event);
-        redraw();
-        return 1;
-      }
-    }
   }
   if(FL_MOUSEWHEEL==event){
     if(Fl::event_dy()>0)transform./*post_*/scale(XYZ(.9,.9,.9));
