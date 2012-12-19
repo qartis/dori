@@ -19,8 +19,6 @@ void Fl_Compass::draw(void)
     int W = w();
     int H = h();
 
-    draw_box(box(), X, Y, W, H, color());
-
     X += Fl::box_dx(box());
     Y += Fl::box_dy(box());
     W -= Fl::box_dw(box());
@@ -39,6 +37,10 @@ void Fl_Compass::draw(void)
     fl_scale(d, d);
 
     fl_color(active()?FL_BLACK:FL_INACTIVE_COLOR);
+
+    fl_begin_loop();
+    fl_circle(0.0, 0.0, 0.5);
+    fl_end_loop();
 
     fl_begin_loop();
     fl_circle(0.0, 0.0, 0.45);
