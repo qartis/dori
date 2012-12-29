@@ -12,15 +12,15 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+char *col0_headey;
+char *col1_header;
+char *col2_header;
 #define COL0_HEADER "type"
-#define COL1_HEADER "value1"
-#define COL2_HEADER "value2"
+#define COL1_HEADER "val1"
+#define COL2_HEADER "val2"
 
 #define PORT 1337
 #define SERVER "localhost"
-
-static char* columnLookupQuery = "pragma table_info(records);";
-static char* defaultQuery = "select * from records;";
 
 static void performQuery(void *tableview, void *str) {
     TableView *tview = (TableView*)tableview;
@@ -37,55 +37,62 @@ static void handleFD(int fd, void *data) {
     TableView* tview = (TableView*)data;
     char *buffer = tview->buffer;
     char c;
-    int nbytes = read(fd, &c, 1);
-    if(nbytes <= 0) {
+    char type[BUFLEN];
+    char col1[BUFLEN];
+    char col2[BUFLEN];
+    int rc;
+    char *ptr;
+
+    rc = read(fd, &c, 1);
+    if (rc <= 0) {
         return;
     }
 
     tview->buffer[tview->bufReadIndex] = c;
 
-    if(c == '^' || c== '!') {
-        // if we're not in live mode
-        // clear out the old results
-        if(!tview->liveMode) {
-            for(int i = 1; i < tview->totalRows; i++) {
-                for(int j = 0; j < tview->totalCols; j++) {
-                    tview->remove(tview->widgets[i][j]);
-                }
-            }
-            tview->totalRows = 1;
-            tview->bufReadIndex = 0;
-            tview->bufMsgStartIndex = 0;
-            tview->bufReadIndex = 0;
-            tview->redraw();
-        }
-        if(c == '!') {
-            tview->queryInput->color(FL_RED);
-        }
-        else {
+    static int clear = 0;
+
+    switch (c) {
+    case '!':
+        tview->queryInput->color(FL_RED);
+        tview->redraw();
+        break;
+    case '^':
+        clear = 1;
+        break;
+
+    case '@':
+        tview->redraw();
+    case '{':
+        if (clear == 1) {
             tview->queryInput->color(FL_WHITE);
+            if (!tview->liveMode) {
+                for (int i = 1; i < tview->totalRows; i++) {
+                    for (int j = 0; j < tview->totalCols; j++) {
+                        tview->remove(tview->widgets[i][j]);
+                    }
+                }
+                tview->totalRows = 1;
+                tview->bufReadIndex = 0;
+                tview->bufMsgStartIndex = 0;
+                tview->bufReadIndex = 0;
+            }
+            tview->redraw();
+            clear = 0;
         }
-    }
-    // start of data
-    else if(c == '{') {
         tview->bufMsgStartIndex = tview->bufReadIndex+1;
-    }
-    else if(c == '}') {
+        break;
+
+    case '}':
         tview->buffer[tview->bufReadIndex] = '\0';
 
         // parse data
         // reset colour
-        tview->queryInput->color(FL_WHITE);
-
-        char type[BUFLEN];
-        char col1[BUFLEN];
-        char col2[BUFLEN];
-        char col3[BUFLEN];
+        //tview->queryInput->color(FL_WHITE);
 
         buffer = &tview->buffer[tview->bufMsgStartIndex];
 
         // most of the stuff below is hardcoded and temporary
-        char *ptr = NULL;
         ptr = strtok(buffer,",");
         strcpy(type, ptr);
 
@@ -103,22 +110,19 @@ static void handleFD(int fd, void *data) {
 
         tview->bufMsgStartIndex = 0;
         tview->bufReadIndex = 0;
-        tview->redraw();
-    }
-    else if(c == '\0') {
+        break;
+
+    case '\0':
         return;
     }
 
     tview->bufReadIndex++;
 }
 
-TableView::TableView(int x, int y, int w, int h, const char *label) : liveMode(false), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), totalRows(0), totalCols(0), Fl_Scroll(x, y, w, h, label) {
-    char *sqliteErrMsg = 0;
-    int sqliteResult = 0;
-
+TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Scroll(x, y, w, h, label), totalRows(0), totalCols(0), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), liveMode(false)
+{
     queryInput = new TableInput(w * 0.2, 0, w * 0.8, CELLHEIGHT, "Search Query:");
     queryInput->callback = performQuery;
-    queryInput->value(defaultQuery);
 
     end(); // don't add the cell widgets to the table view automatically
 
@@ -182,7 +186,7 @@ TableView::TableView(int x, int y, int w, int h, const char *label) : liveMode(f
         exit(0);
     }
 
-    performQuery(this, defaultQuery);
+    queryInput->performQuery();
 
     Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
 }

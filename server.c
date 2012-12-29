@@ -29,6 +29,11 @@ void error(const char *str)
     exit(1);
 }
 
+void dberror(sqlite3 *db)
+{
+    printf("db error: %s\n", sqlite3_errmsg(db));
+}
+
 int strprefix(const char *a, const char *b)
 {
     return strncmp(a, b, strlen(b));
@@ -42,7 +47,6 @@ void remove_client(int fd)
     
     for (i = 0; i < nlives; i++) {
         if (lives[i].fd == fd) {
-            printf("removed live '%s' for fd %d\n", lives[i].query, lives[i].fd);
             memcpy(&lives[i], &lives[i + 1],
                     (nlives - i - 1) * sizeof(lives[0]));
             nlives--;
@@ -136,8 +140,10 @@ void runsql(char *query, int fd)
     printfd(fd, "^");
     rc = sqlite3_exec(db, query, sqlite_cb, &fd, NULL);
     if (rc != SQLITE_OK) {
-        perror(sqlite3_errmsg(db));
-        printfd(fd, "%c%s", '!', sqlite3_errmsg(db));
+        dberror(db);
+        printfd(fd, "%d!", sqlite3_errcode(db));
+    } else {
+        printfd(fd, "@");
     }
 
     if (select && live) {
@@ -151,7 +157,9 @@ void runsql(char *query, int fd)
             error(sqlite3_errmsg(db));
 
         for (i = 0; i < nlives; i++) {
-            rc = sqlite3_exec(db_tmp, lives[i].query, sqlite_live_cb, &lives[i].fd, NULL);
+            rc = sqlite3_exec(db_tmp, lives[i].query, sqlite_live_cb,
+                &lives[i].fd, NULL);
+
             if (rc != SQLITE_OK)
                 error(sqlite3_errmsg(db));
         }
@@ -179,7 +187,8 @@ int main()
         error("tcp socket");
 
     optval = 1;
-    setsockopt(tcpfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    setsockopt(tcpfd, SOL_SOCKET, SO_REUSEADDR,
+        &optval, sizeof(optval));
 
     memset(&servaddr, '\0', sizeof(servaddr));
     servaddr.sin_family = AF_INET;

@@ -8,6 +8,7 @@ public:
 
     // overridden functions
     virtual int handle(int event);
+    void performQuery(void);
 
     void (*callback)(void*, void*);
 
