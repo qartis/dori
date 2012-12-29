@@ -127,15 +127,18 @@ void runsql(char *query, int fd)
     char *select = strcasestr(query, "select");
 
     if ((insert && select) || (!insert && !select))
-        error("unknown query type");
+        perror("unknown query type");
 
     char *live = strstr(query, " live");
     if (live)
         *live = '\0';
 
+    printfd(fd, "^");
     rc = sqlite3_exec(db, query, sqlite_cb, &fd, NULL);
-    if (rc != SQLITE_OK)
-        error(sqlite3_errmsg(db));
+    if (rc != SQLITE_OK) {
+        perror(sqlite3_errmsg(db));
+        printfd(fd, "%c%s", '!', sqlite3_errmsg(db));
+    }
 
     if (select && live) {
         printf("adding live query %s %d\n", query, fd);

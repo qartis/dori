@@ -10,12 +10,13 @@
 #define CELLWIDTH 200
 #define CELLHEIGHT 25
 
+#define BUFLEN 128
+
 class TableView : public Fl_Scroll {
 
 public:
     TableView(int x, int y, int w, int h, const char *label);
 
-// overridden functions
     virtual int handle(int event);
     //virtual void draw();
     Fl_Widget* widgets[MAXROWS][MAXCOLS];
@@ -23,9 +24,15 @@ public:
     int totalCols;
     sqlite3 *db;
     TableInput *queryInput;
+    char buffer[BUFLEN];
+    int bufMsgStartIndex;
+    int bufReadIndex;
+    int sockfd;
+
+    bool liveMode;
+
+    void enableWidget(int row, int col, const char *label);
 
 private:
-
-    //sqlite specific
 
 };

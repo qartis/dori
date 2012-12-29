@@ -4,74 +4,115 @@
 #include <FL/Fl_Float_Input.H>
 #include <FL/Fl_Tile.H>
 #include <FL/Fl_Box.H>
+#include <errno.h>
 #include <math.h>
 #include <sqlite3.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+
+#define COL0_HEADER "type"
+#define COL1_HEADER "value1"
+#define COL2_HEADER "value2"
+
+#define PORT 1337
+#define SERVER "localhost"
 
 static char* columnLookupQuery = "pragma table_info(records);";
 static char* defaultQuery = "select * from records;";
 
-static int populateColumnNames(void *tableview, int argc, char **argv, char **colName){
-    TableView *tview = (TableView*)tableview;
-    for(int i=0; i < argc; i++){
-        if(strcmp(colName[i],"name") == 0) {
-            Fl_Widget *widget = tview->widgets[0][tview->totalCols];
-            widget->box(FL_BORDER_BOX);
-            widget->copy_label(argv[i]);
-            tview->add(widget);
-            tview->totalCols++;
-        }
-    }
-
-    tview->totalRows = 1;
-    return 0;
-}
-
-static int populateRows(void *tableview, int argc, char **argv, char **colName){
-    TableView *tview = (TableView*)tableview;
-    for(int i=0; i < argc; i++){
-        Fl_Widget *widget = tview->widgets[tview->totalRows][i];
-        widget->box(FL_BORDER_BOX);
-        widget->color(FL_WHITE);
-        widget->copy_label(argv[i]);
-        tview->add(widget);
-    }
-    tview->totalRows++;
-    return 0;
-}
-
 static void performQuery(void *tableview, void *str) {
     TableView *tview = (TableView*)tableview;
-    // clear out the old results
-    for(int i = 0; i < tview->totalRows; i++) {
-        for(int j = 0; j < tview->totalCols; j++) {
-            tview->remove(tview->widgets[i][j]);
-        }
+    char *query = (char *)str;
+    printf("performing query: %s\n", query);
+    int nbytes = write(tview->sockfd, query, strlen(query));
+    if(nbytes < 0) {
+        printf("error writing to socket: %d\n", errno);
+        exit(0);
     }
-
-    tview->totalRows = tview->totalCols = 0;
-
-    char *sqliteErrMsg = 0;
-    int sqliteResult = 0;
-
-    tview->queryInput->color(FL_WHITE);
-
-    sqliteResult = sqlite3_exec(tview->db, columnLookupQuery, populateColumnNames, tview, &sqliteErrMsg);
-    if(sqliteResult != SQLITE_OK) {
-        printf("sqlite error: %s\n", sqliteErrMsg);
-        tview->queryInput->color(FL_RED);
-    }
-
-    sqliteResult = sqlite3_exec(tview->db, (char *)str, populateRows, tview, &sqliteErrMsg);
-    if(sqliteResult != SQLITE_OK) {
-        printf("sqlite error: %s\n", sqliteErrMsg);
-        tview->queryInput->color(FL_RED);
-    }
-
-    tview->redraw();
 }
 
+static void handleFD(int fd, void *data) {
+    TableView* tview = (TableView*)data;
+    char *buffer = tview->buffer;
+    char c;
+    int nbytes = read(fd, &c, 1);
+    if(nbytes <= 0) {
+        return;
+    }
 
-TableView::TableView(int x, int y, int w, int h, const char *label) : totalRows(0), totalCols(0), Fl_Scroll(x, y, w, h, label) {
+    tview->buffer[tview->bufReadIndex] = c;
+
+    if(c == '^' || c== '!') {
+        // if we're not in live mode
+        // clear out the old results
+        if(!tview->liveMode) {
+            for(int i = 1; i < tview->totalRows; i++) {
+                for(int j = 0; j < tview->totalCols; j++) {
+                    tview->remove(tview->widgets[i][j]);
+                }
+            }
+            tview->totalRows = 1;
+            tview->bufReadIndex = 0;
+            tview->bufMsgStartIndex = 0;
+            tview->bufReadIndex = 0;
+            tview->redraw();
+        }
+        if(c == '!') {
+            tview->queryInput->color(FL_RED);
+        }
+        else {
+            tview->queryInput->color(FL_WHITE);
+        }
+    }
+    // start of data
+    else if(c == '{') {
+        tview->bufMsgStartIndex = tview->bufReadIndex+1;
+    }
+    else if(c == '}') {
+        tview->buffer[tview->bufReadIndex] = '\0';
+
+        // parse data
+        // reset colour
+        tview->queryInput->color(FL_WHITE);
+
+        char type[BUFLEN];
+        char col1[BUFLEN];
+        char col2[BUFLEN];
+        char col3[BUFLEN];
+
+        buffer = &tview->buffer[tview->bufMsgStartIndex];
+
+        // most of the stuff below is hardcoded and temporary
+        char *ptr = NULL;
+        ptr = strtok(buffer,",");
+        strcpy(type, ptr);
+
+        ptr = strtok(NULL,",");
+        strcpy(col1, ptr);
+
+        ptr = strtok(NULL,",");
+        strcpy(col2, ptr);
+
+        tview->enableWidget(tview->totalRows, 0, type);
+        tview->enableWidget(tview->totalRows, 1, col1);
+        tview->enableWidget(tview->totalRows, 2, col2);
+
+        tview->totalRows++;
+
+        tview->bufMsgStartIndex = 0;
+        tview->bufReadIndex = 0;
+        tview->redraw();
+    }
+    else if(c == '\0') {
+        return;
+    }
+
+    tview->bufReadIndex++;
+}
+
+TableView::TableView(int x, int y, int w, int h, const char *label) : liveMode(false), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), totalRows(0), totalCols(0), Fl_Scroll(x, y, w, h, label) {
     char *sqliteErrMsg = 0;
     int sqliteResult = 0;
 
@@ -87,57 +128,63 @@ TableView::TableView(int x, int y, int w, int h, const char *label) : totalRows(
         }
     }
 
-    sqliteResult = sqlite3_open("dori.db", &db);
-    if(sqliteResult) {
-        printf("sqlite error: %s\n", sqlite3_errmsg(db));
-        sqlite3_close(db);
-    }
+    // enable the column header widgets
+    enableWidget(0, 0, COL0_HEADER);
+    enableWidget(0, 1, COL1_HEADER);
+    enableWidget(0, 2, COL2_HEADER);
 
-    sqliteResult = sqlite3_exec(db, "pragma table_info(records);", populateColumnNames, this, &sqliteErrMsg);
-    if(sqliteResult != SQLITE_OK) {
-        printf("sqlite error: %s\n", sqliteErrMsg);
-        sqlite3_close(db);
-    }
-
-    sqliteResult = sqlite3_exec(db, "select * from records;", populateRows, this, &sqliteErrMsg);
-    if(sqliteResult != SQLITE_OK) {
-        printf("sqlite error: %s\n", sqliteErrMsg);
-        sqlite3_close(db);
-    }
-
-    //sqlite3_close(db);
+    totalCols = MAXCOLS;
 
     /*
-    int cellw = 80;
-    int cellh = 25;
-    int xx = x, yy = y;
-    Fl_Tile *tile = new Fl_Tile(x,y,cellw*cols,cellh*rows);
-    // Create widgets
-    for ( int r=0; r<rows; r++ ) {
-        for ( int c=0; c<cols; c++ ) {
-            if ( r==0 ) {
-                Fl_Box *box = new Fl_Box(xx,yy,cellw,cellh,header[c]);
-                box->box(FL_BORDER_BOX);
-                entries[r][c] = (void*)box;
-            } else if ( c==0 ) {
-                Fl_Input *in = new Fl_Input(xx,yy,cellw,cellh);
-                in->box(FL_BORDER_BOX);
-                in->value("");
-                entries[r][c] = (void*)in;
-            } else {
-                Fl_Float_Input *in = new Fl_Float_Input(xx,yy,cellw,cellh);
-                in->box(FL_BORDER_BOX);
-                in->value("0.00");
-                entries[r][c] = (void*)in;
-            }
-            xx += cellw;
-        }
-        xx = x;
-        yy += cellh;
+       sqliteResult = sqlite3_open("dori.db", &db);
+       if(sqliteResult) {
+       printf("sqlite error: %s\n", sqlite3_errmsg(db));
+       sqlite3_close(db);
+       }
+
+       sqliteResult = sqlite3_exec(db, "pragma table_info(records);", populateColumnNames, this, &sqliteErrMsg);
+       if(sqliteResult != SQLITE_OK) {
+       printf("sqlite error: %s\n", sqliteErrMsg);
+       sqlite3_close(db);
+       }
+
+       sqliteResult = sqlite3_exec(db, "select * from records;", populateRows, this, &sqliteErrMsg);
+       if(sqliteResult != SQLITE_OK) {
+       printf("sqlite error: %s\n", sqliteErrMsg);
+       sqlite3_close(db);
+       }
+       */
+
+    struct sockaddr_in serv_addr;
+    struct hostent *server = NULL;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if(sockfd < 0) {
+        printf("error opening socket\n");
+        exit(0);
     }
-    tile->end();
-    end();
-    */
+    printf("sockfd set: %d\n", sockfd);
+
+    server = gethostbyname(SERVER);
+    if(server == NULL) {
+        printf("error, no such host\n");
+        exit(0);
+    }
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr,
+          (char *)&serv_addr.sin_addr.s_addr,
+          server->h_length);
+    serv_addr.sin_port = htons(PORT);
+
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
+        printf("error connecting to server\n");
+        exit(0);
+    }
+
+    performQuery(this, defaultQuery);
+
+    Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
 }
 
 int TableView::handle(int event) {
@@ -145,22 +192,21 @@ int TableView::handle(int event) {
     case FL_KEYDOWN:
     case FL_SHORTCUT: {
         int key = Fl::event_key();
-        /*
-           if(key == 'h') {
-           int startPoint = curPointIndex;
-           do {
-           curPointIndex++;
-
-           if(curPointIndex > MAX_ANGLES) {
-           curPointIndex = 0;
-           }
-           } while(!data[curPointIndex].valid && curPointIndex != startPoint);
-           redraw();
-           return 1;
-           }
-           */
+        if(key == ' ') {
+            //liveMode = true;
+        }
     }
     default:
         return Fl_Scroll::handle(event);
     }
 }
+
+void TableView::enableWidget(int row, int col, const char *label) {
+    Fl_Widget *widget = widgets[row][col];
+    widget->box(FL_BORDER_BOX);
+    widget->color(FL_WHITE);
+    widget->copy_label(label);
+    add(widget);
+}
+
+
