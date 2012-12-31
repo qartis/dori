@@ -15,11 +15,12 @@
 #define COL0_HEADER "type"
 #define COL1_HEADER "val1"
 #define COL2_HEADER "val2"
+#define COL3_HEADER "timestamp"
 
 #define PORT 1337
 #define SERVER "localhost"
 
-#define CELLWIDTH 190
+#define CELLWIDTH 150
 #define CELLHEIGHT 25
 
 static void performQuery(void *tableview, void *str) {
@@ -39,6 +40,7 @@ static void handleFD(int fd, void *data) {
     char type[BUFLEN];
     char col1[BUFLEN];
     char col2[BUFLEN];
+    char time[BUFLEN];
     int rc;
 
     rc = read(fd, &c, 1);
@@ -102,11 +104,12 @@ static void handleFD(int fd, void *data) {
         }
 
         // most of the stuff below is hardcoded and temporary
-        sscanf(buffer, "%[^,],%[^,],%[^,]",type, col1, col2);
+        sscanf(buffer, "%[^,],%[^,],%[^,],%[^,]",type, col1, col2, time);
 
         tview->enableWidget(tview->totalRows, 0, type);
         tview->enableWidget(tview->totalRows, 1, col1);
         tview->enableWidget(tview->totalRows, 2, col2);
+        tview->enableWidget(tview->totalRows, 3, time);
 
         tview->totalRows++;
 
@@ -138,6 +141,7 @@ TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Scroll(
     enableWidget(0, 0, COL0_HEADER);
     enableWidget(0, 1, COL1_HEADER);
     enableWidget(0, 2, COL2_HEADER);
+    enableWidget(0, 3, COL3_HEADER);
 
     totalCols = MAXCOLS;
 

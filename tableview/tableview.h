@@ -5,7 +5,7 @@
 
 // hard limits on data size to keep things simple
 #define MAXROWS 5200
-#define MAXCOLS 3
+#define MAXCOLS 4
 
 #define BUFLEN 128
 

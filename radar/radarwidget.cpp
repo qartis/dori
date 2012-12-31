@@ -4,6 +4,8 @@
 
 #define MAX_ARCS 12
 
+#define RADAR_TYPE "radar"
+
 static void resetCallback(void *widget) {
     if(widget == NULL) {
         perror("widget = NULL in radar reset callback");
@@ -45,7 +47,10 @@ static void dataCallback(void *data, void *widget) {
     int time = 0;
 
     sscanf(buffer, "%[^,], %f, %f, %d", type, &angle, &distance, &time);
-    //printf("type: %s, angle: %f, distance: %f, time: %d\n", type, angle, distance, time);
+
+    if(strcmp(type, RADAR_TYPE) != 0) {
+        return;
+    }
 
     radar->data[(int)angle].valid = true;
     radar->data[(int)angle].changed = true;
@@ -247,5 +252,4 @@ void RadarWidget::draw() {
         sprintf(textBuffer, "%s %d%c, %fmm", "Current point:", curPointIndex, 0x00B0, data[curPointIndex].distance);
         fl_draw(textBuffer, 0, textHeight * 2);
     }
-
 }
