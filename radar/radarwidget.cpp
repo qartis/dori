@@ -4,7 +4,57 @@
 
 #define MAX_ARCS 12
 
-RadarWidget::RadarWidget(int x, int y, int w, int h, const char *label) : Fl_Widget(x, y, w, h, label) {
+static void resetCallback(void *widget) {
+    if(widget == NULL) {
+        perror("widget = NULL in radar reset callback");
+        return;
+    }
+
+    RadarWidget *radar = (RadarWidget *)widget;
+
+    for(int i = 0; i < MAX_ANGLES; i++)
+    {
+        radar->data[i].valid = false;
+        radar->data[i].changed = false;
+        radar->data[i].screenX = 0.0;
+        radar->data[i].screenY = 0.0;
+    }
+
+    radar->redraw();
+}
+static void dataCallback(void *data, void *widget) {
+    // data should be a string something like "type|value1|value2"
+    // for the radar this will look like "laser|45|12.31"
+
+    if(widget == NULL) {
+        perror("widget = NULL in radar data callback");
+        return;
+    }
+
+    if(data == NULL) {
+        perror("data = NULL in radar data callback");
+        return;
+    }
+
+    RadarWidget *radar = (RadarWidget *)widget;
+
+    char* buffer = (char*)data;
+    char type[32];
+    float angle = 0;
+    float distance = 0;
+    int time = 0;
+
+    sscanf(buffer, "%[^,], %f, %f, %d", type, &angle, &distance, &time);
+    //printf("type: %s, angle: %f, distance: %f, time: %d\n", type, angle, distance, time);
+
+    radar->data[(int)angle].valid = true;
+    radar->data[(int)angle].changed = true;
+    radar->data[(int)angle].distance = distance;
+
+    radar->redraw();
+}
+
+RadarWidget::RadarWidget(int x, int y, int w, int h, const char *label) : Fl_Widget(x, y, w, h, label), tableViewWindow(w, h), tableView(0, 0, w, h)  {
     insideAngle = 90.0;
     originX = w / 2.0;
     originY = h;// / 2.0;
@@ -12,7 +62,6 @@ RadarWidget::RadarWidget(int x, int y, int w, int h, const char *label) : Fl_Wid
     scale = 2.0;
     curPointIndex = 0;
 
-    sweepDirection = DOWNWARD;
     for(int i = 0; i < MAX_ANGLES; i++)
     {
         data[i].valid = false;
@@ -21,13 +70,26 @@ RadarWidget::RadarWidget(int x, int y, int w, int h, const char *label) : Fl_Wid
         data[i].screenY = 0.0;
     }
 
-    fl_font(FL_TIMES, 12);
+    tableViewWindow.position(x+w, y);
+    tableView.parentWidget = this;
+    tableView.widgetDataCallback = dataCallback;
+    tableView.widgetResetCallback = resetCallback;
 }
 
 int RadarWidget::handle(int event) {
     switch(event) {
-        case FL_KEYDOWN: {
+        case FL_KEYDOWN:
+        case FL_SHORTCUT: {
             int key = Fl::event_key();
+            if(key == (FL_F + 1)) {
+                if(!tableViewWindow.shown()) {
+                    tableViewWindow.show();
+                }
+                else {
+                    tableViewWindow.hide();
+                }
+                return 1;
+            }
             if(key == 'h') {
                 int startPoint = curPointIndex;
                 do {
@@ -52,13 +114,13 @@ int RadarWidget::handle(int event) {
                 redraw();
                 return 1;
             }
-            if(key == FL_Up) {
+            if(key == FL_Down) {
                 insideAngle += 5;
                 completeRedraw = true;
                 redraw();
                 return 1;
             }
-            else if(key == FL_Down) {
+            else if(key == FL_Up) {
                 insideAngle -= 5;
                 completeRedraw = true;
                 redraw();
@@ -92,19 +154,14 @@ int RadarWidget::handle(int event) {
                 redraw();
                 return 1;
             }
+            return 1;
         }
-        break;
+        default:
+            return Fl_Widget::handle(event);
     }
 }
 
-void RadarWidget::insertDataPoint(int index, float distance) {
-    data[index].valid = true;
-    data[index].changed = true;
-    data[index].distance = distance;
-    redraw();
-}
-
-void RadarWidget::drawBase() {
+void RadarWidget::draw() {
     fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), FL_BLACK);
     fl_color(FL_GREEN);
 
@@ -120,7 +177,7 @@ void RadarWidget::drawBase() {
 
     fl_line(originX, originY, 0, originY - yPos);
     fl_line(originX, originY, w(), originY - yPos);
-
+    
     char textBuffer[100];
 
     for(int i = 0; i < MAX_ARCS; i++) {
@@ -133,16 +190,8 @@ void RadarWidget::drawBase() {
     fl_color(FL_RED);
 
     int startPoint = 0;
-    int endPoint = MAX_ANGLES;
-    int modifier = 1;
 
-    if(sweepDirection == DOWNWARD) {
-        startPoint = MAX_ANGLES;
-        endPoint = 0;
-        modifier = -1;
-    }
-
-    for(int i = startPoint; i != endPoint; i += modifier) {
+    for(int i = startPoint; i < MAX_ANGLES; i++) {
         if(data[i].valid) {
             // y = b sin alpha
             // x = b cos alpha
@@ -158,6 +207,7 @@ void RadarWidget::drawBase() {
                 data[i].changed = false;
                 data[i].screenX = originX + (ratio * (data[i].distance * (cos((float)i * (M_PI / 180.0)))));
                 data[i].screenY = originY - (ratio * (data[i].distance * (sin((float)i * (M_PI / 180.0)))));
+
             }
 
             fl_circle(data[i].screenX, data[i].screenY, 1);
@@ -197,9 +247,5 @@ void RadarWidget::drawBase() {
         sprintf(textBuffer, "%s %d%c, %fmm", "Current point:", curPointIndex, 0x00B0, data[curPointIndex].distance);
         fl_draw(textBuffer, 0, textHeight * 2);
     }
-}
 
-void RadarWidget::draw() {
-    drawBase();
 }
-

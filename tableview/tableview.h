@@ -5,20 +5,18 @@
 
 // hard limits on data size to keep things simple
 #define MAXROWS 5200
-#define MAXCOLS 6
-
-#define CELLWIDTH 200
-#define CELLHEIGHT 25
+#define MAXCOLS 3
 
 #define BUFLEN 128
 
 class TableView : public Fl_Scroll {
 
 public:
-    TableView(int x, int y, int w, int h, const char *label);
+    TableView(int x, int y, int w, int h, const char *label = NULL);
 
     virtual int handle(int event);
-    //virtual void draw();
+    void enableWidget(int row, int col, const char *label = NULL);
+
     Fl_Widget* widgets[MAXROWS][MAXCOLS];
     int totalRows;
     int totalCols;
@@ -31,7 +29,9 @@ public:
 
     bool liveMode;
 
-    void enableWidget(int row, int col, const char *label);
+    void (*widgetDataCallback)(void*, void*);
+    void (*widgetResetCallback)(void*);
+    void *parentWidget;
 
 private:
 

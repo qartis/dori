@@ -124,6 +124,7 @@ int sqlite_cb(void *arg, int nrows, char **cols, char **rows)
 
 void runsql(char *query, int fd)
 {
+    printf("running query: %s\n", query);
     int rc;
     int i;
 

@@ -1,5 +1,7 @@
 #include <FL/Fl.H>
 #include <FL/Fl_Widget.H>
+#include <FL/Fl_Window.H>
+#include "../tableview/tableview.h"
 
 #define MAX_ANGLES 360
 
@@ -10,12 +12,10 @@ public:
 
     void insertDataPoint(int index, float distance);
 
-// overridden functions
+    // overridden functions
     virtual int handle(int event);
     virtual void draw();
 
-
-private:
     struct DataPoint {
         bool valid;
         bool changed;
@@ -24,17 +24,11 @@ private:
         float distance;
     };
 
-    typedef enum {
-        UPWARD,
-        DOWNWARD
-    } direction ;
+    struct DataPoint data[MAX_ANGLES];
 
-    direction sweepDirection;
-
+private:
     bool completeRedraw;
 
-    void drawBase();
-    struct DataPoint data[MAX_ANGLES];
     float insideAngle;
 
     float originX;
@@ -42,4 +36,7 @@ private:
     float scale;
 
     int curPointIndex;
+
+    Fl_Window tableViewWindow;
+    TableView tableView;
 };

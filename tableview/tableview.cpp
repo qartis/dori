@@ -12,9 +12,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-char *col0_headey;
-char *col1_header;
-char *col2_header;
 #define COL0_HEADER "type"
 #define COL1_HEADER "val1"
 #define COL2_HEADER "val2"
@@ -22,10 +19,12 @@ char *col2_header;
 #define PORT 1337
 #define SERVER "localhost"
 
+#define CELLWIDTH 190
+#define CELLHEIGHT 25
+
 static void performQuery(void *tableview, void *str) {
     TableView *tview = (TableView*)tableview;
     char *query = (char *)str;
-    printf("performing query: %s\n", query);
     int nbytes = write(tview->sockfd, query, strlen(query));
     if(nbytes < 0) {
         printf("error writing to socket: %d\n", errno);
@@ -41,7 +40,6 @@ static void handleFD(int fd, void *data) {
     char col1[BUFLEN];
     char col2[BUFLEN];
     int rc;
-    char *ptr;
 
     rc = read(fd, &c, 1);
     if (rc <= 0) {
@@ -78,6 +76,12 @@ static void handleFD(int fd, void *data) {
                 tview->bufReadIndex = 0;
             }
             tview->redraw();
+
+            if(tview->widgetResetCallback != NULL) {
+                tview->widgetResetCallback(tview->parentWidget);
+            }
+
+
             clear = 0;
         }
         tview->bufMsgStartIndex = tview->bufReadIndex+1;
@@ -92,15 +96,13 @@ static void handleFD(int fd, void *data) {
 
         buffer = &tview->buffer[tview->bufMsgStartIndex];
 
+        // pass the new data to our widget (radar, 3d, etc)
+        if(tview->widgetDataCallback != NULL) {
+            tview->widgetDataCallback(buffer, tview->parentWidget);
+        }
+
         // most of the stuff below is hardcoded and temporary
-        ptr = strtok(buffer,",");
-        strcpy(type, ptr);
-
-        ptr = strtok(NULL,",");
-        strcpy(col1, ptr);
-
-        ptr = strtok(NULL,",");
-        strcpy(col2, ptr);
+        sscanf(buffer, "%[^,],%[^,],%[^,]",type, col1, col2);
 
         tview->enableWidget(tview->totalRows, 0, type);
         tview->enableWidget(tview->totalRows, 1, col1);
@@ -119,9 +121,9 @@ static void handleFD(int fd, void *data) {
     tview->bufReadIndex++;
 }
 
-TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Scroll(x, y, w, h, label), totalRows(0), totalCols(0), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), liveMode(false)
+TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Scroll(x, y, w, h, label), totalRows(0), totalCols(0), db(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), liveMode(false), widgetDataCallback(NULL), parentWidget(NULL)
 {
-    queryInput = new TableInput(w * 0.2, 0, w * 0.8, CELLHEIGHT, "Search Query:");
+    queryInput = new TableInput(w * 0.2, 0, w * 0.75, CELLHEIGHT, "Search Query:");
     queryInput->callback = performQuery;
 
     end(); // don't add the cell widgets to the table view automatically
@@ -167,7 +169,6 @@ TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Scroll(
         printf("error opening socket\n");
         exit(0);
     }
-    printf("sockfd set: %d\n", sockfd);
 
     server = gethostbyname(SERVER);
     if(server == NULL) {
@@ -208,7 +209,9 @@ int TableView::handle(int event) {
 void TableView::enableWidget(int row, int col, const char *label) {
     Fl_Widget *widget = widgets[row][col];
     widget->box(FL_BORDER_BOX);
-    widget->color(FL_WHITE);
+    if(row > 0) {
+        widget->color(FL_WHITE);
+    }
     widget->copy_label(label);
     add(widget);
 }
