@@ -145,26 +145,6 @@ TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Scroll(
 
     totalCols = MAXCOLS;
 
-    /*
-       sqliteResult = sqlite3_open("dori.db", &db);
-       if(sqliteResult) {
-       printf("sqlite error: %s\n", sqlite3_errmsg(db));
-       sqlite3_close(db);
-       }
-
-       sqliteResult = sqlite3_exec(db, "pragma table_info(records);", populateColumnNames, this, &sqliteErrMsg);
-       if(sqliteResult != SQLITE_OK) {
-       printf("sqlite error: %s\n", sqliteErrMsg);
-       sqlite3_close(db);
-       }
-
-       sqliteResult = sqlite3_exec(db, "select * from records;", populateRows, this, &sqliteErrMsg);
-       if(sqliteResult != SQLITE_OK) {
-       printf("sqlite error: %s\n", sqliteErrMsg);
-       sqlite3_close(db);
-       }
-       */
-
     struct sockaddr_in serv_addr;
     struct hostent *server = NULL;
 

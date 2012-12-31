@@ -4,7 +4,7 @@
 
 #define MAX_ARCS 12
 
-#define RADAR_TYPE "radar"
+#define RADAR_TYPE "laser"
 
 static void resetCallback(void *widget) {
     if(widget == NULL) {
@@ -49,6 +49,7 @@ static void dataCallback(void *data, void *widget) {
     sscanf(buffer, "%[^,], %f, %f, %d", type, &angle, &distance, &time);
 
     if(strcmp(type, RADAR_TYPE) != 0) {
+        printf("type: %s\n", type);
         return;
     }
 
@@ -244,12 +245,10 @@ void RadarWidget::draw() {
         fl_draw(textBuffer, originX - textWidth / 2.0, originY - ((float)(i+1) * radius) - 1.0);
     }
 
-    // position & orientation text:
-    sprintf(textBuffer, "%s", "DORI Position: 49.216448, -123.069127"); // sample long / lat
-    fl_draw(textBuffer, 0, textHeight);
-
     if(data[curPointIndex].valid) {
+        fl_measure(textBuffer, textWidth, textHeight, 0);
         sprintf(textBuffer, "%s %d%c, %fmm", "Current point:", curPointIndex, 0x00B0, data[curPointIndex].distance);
-        fl_draw(textBuffer, 0, textHeight * 2);
+        fl_draw(textBuffer, 0, textHeight);
     }
+
 }
