@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <termios.h>
+#include <termio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -29,7 +30,8 @@ typedef enum {
 
 static STATE cur_state;
 
-inline int strcasestart(const char *buf1, const char *buf2){
+inline int strcasestart(const char *buf1, const char *buf2)
+{
     return strncasecmp(buf1, buf2, strlen(buf2)) == 0;
 }
 
@@ -54,28 +56,33 @@ size_t slow_write(int fd, uint8_t * buf, size_t count)
     return count;
 }
 
-void eat_leading_newlines(char **str) {
-    while(**str == 0xa || **str== 0xd) {
+void eat_leading_newlines(char **str)
+{
+    while (**str == 0xa || **str == 0xd) {
         (*str)++;
     }
 }
-void eat_trailing_newlines(char **str) {
+
+void eat_trailing_newlines(char **str)
+{
     int i;
 
     i = strlen(*str) - 1;
 
-    while(i >= 0 && ((*str)[i] == 0xa || (*str)[i] == 0xd)) {
+    while (i >= 0 && ((*str)[i] == 0xa || (*str)[i] == 0xd)) {
         (*str)[i] = '\0';
         i--;
     }
 }
 
-void cleanup_string(char **str) {
+void cleanup_string(char **str)
+{
     eat_leading_newlines(str);
     eat_trailing_newlines(str);
 }
 
-void parse_response(char *response) {
+void parse_response(char *response)
+{
     int i;
     int temp;
 
@@ -84,16 +91,16 @@ void parse_response(char *response) {
     printf("< %s\n", response);
 
     // check for server reply
-    if(cur_state == DATA_MODE_CONNECTING) {
-        if(strstr(response, connected_response)) {
+    if (cur_state == DATA_MODE_CONNECTING) {
+        if (strstr(response, connected_response)) {
             printf("connection established\n");
             cur_state = DATA_MODE_CONNECTED;
         }
     }
-    if(strstr(response, error)) {
+    if (strstr(response, error)) {
         //printf("error detected\n");
     }
-    if(strstr(response, no_carrier)) {
+    if (strstr(response, no_carrier)) {
         printf("disconnected\n");
         cur_state = WAITING;
         return;
@@ -110,25 +117,25 @@ void parse_command(int modemFD, char *command, char *at_commands)
     int i;
     int total_output_commands;
 
-    if(command == NULL || at_commands == NULL) {
+    if (command == NULL || at_commands == NULL) {
         printf("error: command or at_commands NULL\n");
         return;
     }
 
     int length = strlen(command);
 
-    switch(cur_state) {
+    switch (cur_state) {
     case DATA_MODE_CONNECTING:
-        return; // don't parse commands while we're trying to connect
+        return;                 // don't parse commands while we're trying to connect
         break;
     case DATA_MODE_CONNECTED:
         // if we're connected and we entered the disconnect command
         // then we'll handle writing the d/c message
-        if(strcasecmp(command, disconnect) == 0) {
+        if (strcasecmp(command, disconnect) == 0) {
             slow_write(modemFD, disconnect_AT, strlen(disconnect_AT));
             fflush(fdopen(modemFD, "r+"));
 
-            sleep(1); // sleep for a second
+            sleep(1);           // sleep for a second
 
             fflush(fdopen(modemFD, "r+"));
             slow_write(modemFD, disconnect_AT, strlen(disconnect_AT));
@@ -142,19 +149,18 @@ void parse_command(int modemFD, char *command, char *at_commands)
         return;
         break;
     default:
-        if(strcasestart(command, "AT")) {
+        if (strcasestart(command, "AT")) {
             at_commands[length] = '\r';
-            at_commands[length+1] = '\0';
+            at_commands[length + 1] = '\0';
             // we don't need to parse AT commands, return
             return;
         }
         break;
     }
 
-    if(cmd != command) {
+    if (cmd != command) {
         strcpy(cmd, command);
     }
-
     // break up the commands and the arguments
     ptr = strtok(cmd, " ");
     if (ptr != NULL) {
@@ -180,18 +186,20 @@ void parse_command(int modemFD, char *command, char *at_commands)
             strcpy(arg2, default_port);
             num_args = 2;
         } else if (num_args == 1) {
-            printf("error: incorrect number of arguments for command: %s\n", cmd);
+            printf("error: incorrect number of arguments for command: %s\n",
+                   cmd);
             return;
         }
 
-        sprintf(at_commands, "AT+CGDCONT=1,\"IP\",\"internet.fido.ca\",,\rAT%%CGPCO=1,\"PAP,fido,fido\",2\rAT$DESTINFO=\"%s\",1,%s,1\rATD*97#\r", arg1, arg2);
+        sprintf(at_commands,
+                "AT+CGDCONT=1,\"IP\",\"internet.fido.ca\",,\rAT%%CGPCO=1,\"PAP,fido,fido\",2\rAT$DESTINFO=\"%s\",1,%s,1\rATD*97#\r",
+                arg1, arg2);
 
         cur_state = DATA_MODE_CONNECTING;
         printf("attempting to connect to %s:%s\n", arg1, arg2);
-    }
-    else {
+    } else {
         printf("error: unrecognized command: %s\n", cmd);
-        at_commands[0] = '\0'; // don't send anything to the modem
+        at_commands[0] = '\0';  // don't send anything to the modem
         return;
     }
 }
@@ -200,29 +208,29 @@ int modem_init()
 {
     int num_bytes;
     int modemFD;
+    struct termios tp;
 
-    //struct termios tp;
-    modemFD = open("/dev/serial/by-id/usb-067b_0609-if00-port0", O_RDWR | O_NOCTTY);
+    modemFD =
+        open("/dev/serial/by-id/usb-067b_0609-if00-port0", O_RDWR | O_NOCTTY);
     if (modemFD < 0) {
         perror("failed to open modem FD");
         return -1;
     }
+    // terminal settings
+    tcflush(modemFD, TCIOFLUSH);
+    ioctl(modemFD, TCGETS, &tp);
+    cfmakeraw(&tp);
+    cfsetspeed(&tp, 9600);
+    ioctl(modemFD, TCSETS, &tp);
 
-    /*
-       tcflush(modemFD, TCIOFLUSH);
-       tcgetattr(modemFD, &tp);
-       cfsetspeed(&tp, 9600);
-       tcsetattr(modemFD, TCSANOW, &tp);
-       */
-
-#ifdef AT_SYNC_BAUD
+#if AT_SYNC_BAUD
     num_bytes = slow_write(modemFD, baudsync, strlen(baudsync));
     if (num_bytes <= 0) {
         perror("error sending baudsync command");
     }
 #endif
 
-#ifdef AT_ECHO
+#if AT_ECHO
     num_bytes = slow_write(modemFD, noecho, strlen(noecho));
     if (num_bytes <= 0) {
         perror("error sending echo disable command");
@@ -272,7 +280,7 @@ int main()
             }
             // remove the newline
             //buf[num_bytes-1] = '\r';
-            buf[num_bytes-1] = '\0';
+            buf[num_bytes - 1] = '\0';
             //printf("> ");
             parse_command(modemFD, buf, buf);
 
