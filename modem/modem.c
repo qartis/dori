@@ -132,13 +132,11 @@ void parse_command(int modemFD, char *command, char *at_commands)
         // if we're connected and we entered the disconnect command
         // then we'll handle writing the d/c message
         if (strcasecmp(command, disconnect) == 0) {
-            slow_write(modemFD, disconnect_AT, strlen(disconnect_AT));
-            fflush(fdopen(modemFD, "r+"));
-
             sleep(1);           // sleep for a second
 
             fflush(fdopen(modemFD, "r+"));
             slow_write(modemFD, disconnect_AT, strlen(disconnect_AT));
+            sleep(1);           // sleep for a second
 
             at_commands[0] = '\0';
             printf("sent d/c signal\n");
