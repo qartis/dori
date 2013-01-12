@@ -222,7 +222,7 @@ void parse_command(int modemFD, char *command, char *at_commands)
         // don't parse commands while we're trying to connect
         break;
     case DATA_MODE_CONNECTED:
-        printf("we're in data_mode_connected\n");
+        printf("state: data_mode_connected\n");
         // if we're connected and we entered the disconnect command
         // then we'll handle writing the d/c message
         if (strcasecmp(command, disconnect) == 0) {
@@ -266,7 +266,6 @@ void parse_command(int modemFD, char *command, char *at_commands)
             at_commands[0] = '\0';
         }
         else {
-            printf("not a special command\n");
             // otherwise if we just entered data to be sent
             // then just set the output to be the input
             at_commands = command;
