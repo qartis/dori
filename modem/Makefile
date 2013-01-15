@@ -1,6 +1,6 @@
 all: modem
 
-main: modem.c
+modem: modem.c
 	gcc -g -Wall -Wextra modem.c -o modem
 
 test: modem

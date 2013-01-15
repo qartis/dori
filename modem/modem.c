@@ -34,7 +34,7 @@ typedef enum {
     DATA_MODE_DISCONNECTING,
 } STATE;
 
-static STATE cur_state;
+static STATE cur_state = WAITING;
 
 inline int strcasestart(const char *buf1, const char *buf2)
 {

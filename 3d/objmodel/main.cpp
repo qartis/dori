@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
 
     if(argc > 1)
     {
+
         model1.load(argv[1]);
         myviewport.addModel(model1);
 
@@ -21,6 +22,8 @@ int main(int argc, char **argv) {
             model2.load(argv[2]);
             myviewport.addModel(model2);
         }
+
+        ObjModel* robot = myviewport.getModel("robot.obj");
     }
 
     myviewport.Rmax=1.5;

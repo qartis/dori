@@ -4,7 +4,8 @@
 
 #define BUFF_SIZE 64
 
-void ObjModel::load(const char * filename) {
+void ObjModel::load(const char * file) {
+    strcpy(filename, file);
     fp = fopen(filename, "rt");
 
     char line[BUFF_SIZE];
@@ -28,35 +29,42 @@ void ObjModel::load(const char * filename) {
                 face.d = (int)d - 1;
                 faces.push_back(face);
 
-//                printf("%d %d %d %d\n", face.a, face.b, face.c, face.d);
+                //printf("%d %d %d %d\n", face.a, face.b, face.c, face.d);
             }
         }
     }
 }
 
-void ObjModel::draw(float x, float y, float z) {
-    float finalX = 0.0, finalY = 0.0, finalZ = 0.0;
+void ObjModel::draw() {
+    glPushMatrix();
+
+    glTranslatef(xPos, yPos, zPos);
+    glRotatef(xRot, 1.0, 0.0, 0.0);
+    glRotatef(yRot, 0.0, 1.0, 0.0);
+    glRotatef(zRot, 0.0, 0.0, 1.0);
+
     for(int i = 0; i < faces.size(); i++) {
         glBegin(GL_POLYGON);
         glColor3f(0.5 + (i / 2000.0), 0.0, 0.0);
-        glVertex3f(x + verts[faces[i].a].x,
-                y + verts[faces[i].a].y,
-                z + verts[faces[i].a].z);
+        glVertex3f(verts[faces[i].a].x,
+                   verts[faces[i].a].y,
+                   verts[faces[i].a].z);
 
-        glVertex3f(x + verts[faces[i].b].x,
-                   y + verts[faces[i].b].y,
-                   z + verts[faces[i].b].z);
+        glVertex3f(verts[faces[i].b].x,
+                   verts[faces[i].b].y,
+                   verts[faces[i].b].z);
 
-        glVertex3f(x + verts[faces[i].c].x,
-                   y + verts[faces[i].c].y,
-                   z + verts[faces[i].c].z);
+        glVertex3f(verts[faces[i].c].x,
+                   verts[faces[i].c].y,
+                   verts[faces[i].c].z);
 
         if(faces[i].count == 4) {
-            glVertex3f(x + verts[faces[i].d].x,
-                       y + verts[faces[i].d].y,
-                       z + verts[faces[i].d].z);
+            glVertex3f(verts[faces[i].d].x,
+                       verts[faces[i].d].y,
+                       verts[faces[i].d].z);
         }
         glEnd();
     }
+    glPopMatrix();
 }
 
