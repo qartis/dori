@@ -10,7 +10,12 @@ public:
     virtual int handle(int event);
     void performQuery(void);
 
-    void (*callback)(void*, void*);
+    void (*callback)(void*, char*);
+
+    bool isLiveMode();
+    char* getSearchString();
+
+    int getLimit();
 
 private:
 };

@@ -1,7 +1,7 @@
 #include "tableinput.h"
 #include <ctype.h>
 
-static const char *defaultQuery = "select * from records";
+static const char *defaultQuery = "select * from records live";
 
 TableInput::TableInput(int x, int y, int w, int h, const char *label)
     : Fl_Input(x, y, w, h, label), callback(NULL)
@@ -12,7 +12,39 @@ TableInput::TableInput(int x, int y, int w, int h, const char *label)
 void TableInput::performQuery(void)
 {
     if (callback)
-        callback(this->parent(), (char *)this->value());
+        callback(this->parent(), this->getSearchString());
+}
+
+bool TableInput::isLiveMode() {
+    if(strstr(value(), "live")) {
+        return true;
+    }
+    return false;
+}
+
+int TableInput::getLimit() {
+    const char *pos = strstr(value(), " limit ");
+    if(pos) {
+        pos += strlen(" limit ");
+        int limit = atoi(pos);
+        return limit;
+    }
+
+    return -1;
+}
+
+
+
+char* TableInput::getSearchString() {
+    static char buf[256];
+    strcpy(buf, value());
+
+    char *pos = strstr(buf, "live");
+    if(pos) {
+        *pos = '\0';
+    }
+
+    return buf;
 }
 
 int TableInput::handle(int event) {

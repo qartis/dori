@@ -1,12 +1,17 @@
 #include <FL/Fl.H>
 #include <FL/Fl_Double_Window.H>
+#include <FL/Fl_Table.H>
 #include "tableview.h"
 
 int main(int argc, char **argv) {
-    Fl_Window *window = new Fl_Double_Window(600,600);
-    TableView *tableview = new TableView(0, 0, window->w(), window->h(), NULL);
+    TableView *tableview = new TableView(0, 0, 600, 600, NULL);
     (void)tableview;
-    window->end();
-    window->show(argc, argv);
+
+    Table* table = new Table(0, 20, tableview->w(), tableview->h() - 20);
+    tableview->table = table;
+
+
+    tableview->end();
+    tableview->show(argc, argv);
     return Fl::run();
 }

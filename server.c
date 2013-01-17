@@ -14,14 +14,9 @@
 #define BUFLEN 4096
 
 sqlite3 *db;
-sqlite3 *db_tmp;
 
-
-struct live {
-    const char *query;
-    int fd;
-} lives[MAX];
-int nlives;
+static int fds[128];
+static int nfds;
 
 void error(const char *str)
 {
@@ -44,13 +39,14 @@ void remove_client(int fd)
     int i;
 
     close(fd);
-    
-    for (i = 0; i < nlives; i++) {
-        if (lives[i].fd == fd) {
-            memcpy(&lives[i], &lives[i + 1],
-                    (nlives - i - 1) * sizeof(lives[0]));
-            nlives--;
+
+    for (i = 0; i < nfds; i++) {
+        if (fds[i] == fd) {
+            memmove(&fds[i], &fds[i + 1],
+                    (nfds - i - 1) * sizeof(fds[0]));
+            nfds--;
             i--;
+            break;
         }
     }
 }
@@ -81,92 +77,39 @@ int printfd(int fd, const char *fmt, ...)
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
 
-    safe_write(fd, buf, strlen(buf));    
+    safe_write(fd, buf, strlen(buf));
+
+    return strlen(buf);
 }
 
-int sqlite_live_cb(void *arg, int nrows, char **cols, char **rows)
+int sqlite_live_cb(void *arg, int ncols, char **cols, char **rows)
 {
+    (void)rows;
+
     int *fd = arg;
     int i;
 
-    printfd(*fd, "live row: {");
-
-    for (i = 0; i < nrows; i++) {
-        if (i)
-            printfd(*fd, ",");
-
+    for (i = 0; i < ncols; i++) {
         printfd(*fd, "%s", cols[i]);
+        write(*fd, "", 1);
     }
-
-    printfd(*fd, "}\n");
 
     return 0;
 }
 
-int sqlite_cb(void *arg, int nrows, char **cols, char **rows)
+int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 {
+    (void)rows;
+
     int *fd = arg;
     int i;
 
-    printfd(*fd, "result row: {");
-
-    for (i = 0; i < nrows; i++) {
-        if (i)
-            printfd(*fd, ",");
-
+    for (i = 0; i < ncols; i++) {
         printfd(*fd, "%s", cols[i]);
+        write(*fd, "", 1);
     }
-
-    printfd(*fd, "}\n");
 
     return 0;
-}
-
-void runsql(char *query, int fd)
-{
-    printf("running query: %s\n", query);
-    int rc;
-    int i;
-
-    char *insert = strcasestr(query, "insert");
-    char *select = strcasestr(query, "select");
-
-    if ((insert && select) || (!insert && !select))
-        perror("unknown query type");
-
-    char *live = strstr(query, " live");
-    if (live)
-        *live = '\0';
-
-    printfd(fd, "^");
-    rc = sqlite3_exec(db, query, sqlite_cb, &fd, NULL);
-    if (rc != SQLITE_OK) {
-        dberror(db);
-        printfd(fd, "%d!", sqlite3_errcode(db));
-    } else {
-        printfd(fd, "@");
-    }
-
-    if (select && live) {
-        printf("adding live query %s %d\n", query, fd);
-        lives[nlives].query = strdup(query);
-        lives[nlives].fd = fd;
-        nlives++;
-    } else if (insert) {
-        rc = sqlite3_exec(db_tmp, query, NULL, NULL, NULL);
-        if (rc != SQLITE_OK)
-            error(sqlite3_errmsg(db));
-
-        for (i = 0; i < nlives; i++) {
-            rc = sqlite3_exec(db_tmp, lives[i].query, sqlite_live_cb,
-                &lives[i].fd, NULL);
-
-            if (rc != SQLITE_OK)
-                error(sqlite3_errmsg(db));
-        }
-
-        sqlite3_exec(db_tmp, "delete from records", NULL, NULL, NULL);
-    }
 }
 
 int main()
@@ -181,7 +124,6 @@ int main()
     char buf[BUFLEN];
 
     sqlite3_open("db", &db);
-    sqlite3_open("db_tmp", &db_tmp);
 
     tcpfd = socket(AF_INET, SOCK_STREAM, 0);
     if (tcpfd == -1)
@@ -206,6 +148,7 @@ int main()
 
     FD_ZERO(&master);
     FD_SET(tcpfd, &master);
+    FD_SET(0, &master);
     maxfd = tcpfd;
 
     for (;;) {
@@ -215,7 +158,36 @@ int main()
         if (rc == -1)
             error("select");
 
-        for (fd = 0; fd <= maxfd; fd++) {
+        if(FD_ISSET(0, &readfds)) {
+            char buf[256];
+            read(0, buf, sizeof(buf));
+            char *types[] = {
+                "gps", "laser", "accel", "temp"
+            };
+            int type = rand() % 4;
+            int a, b, c;
+            a = rand() % 100;
+            b = rand() % 100;
+            c = rand() % 100;
+
+            sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', '%d', '%d', '%d')", types[type], a, b, c);
+            sqlite3_exec(db, buf, NULL, NULL, NULL);
+            int64_t rowid = sqlite3_last_insert_rowid(db);
+            printf("new row: rowid: %ld, %s, %d, %d, %d\n", rowid, types[type], a, b, c);
+            sprintf(buf, "SELECT rowid, * FROM records WHERE rowid = '%ld';", rowid);
+
+
+            int i;
+            for (i = 0; i < nfds; i++) {
+                rc = sqlite3_exec(db, buf, sqlite_live_cb,
+                                  &fds[i], NULL);
+
+                if (rc != SQLITE_OK)
+                    error(sqlite3_errmsg(db));
+            }
+        }
+        // for server connections
+        for (fd = 1; fd <= maxfd; fd++) {
             if (!FD_ISSET(fd, &readfds)) {
                 continue;
             }
@@ -223,6 +195,9 @@ int main()
             if (fd == tcpfd) {
                 len = sizeof(clientaddr);
                 newfd = accept(tcpfd, (struct sockaddr *)&clientaddr, &len);
+                fds[nfds++] = newfd;
+
+                sqlite3_exec(db, "SELECT rowid, * FROM RECORDS", sqlite_cb, &newfd, NULL);
 
                 if (newfd > maxfd)
                     maxfd = newfd;
@@ -241,7 +216,8 @@ int main()
                     FD_CLR(fd, &master);
                     remove_client(fd);
                 } else {
-                    runsql(buf, fd);
+                    printf("client sent data\n");
+                    exit(-1);
                 }
             }
         }

@@ -3,7 +3,9 @@
 #include <FL/Fl_Input.H>
 #include <FL/Fl_Float_Input.H>
 #include <FL/Fl_Tile.H>
+#include <FL/fl_ask.H>
 #include <FL/Fl_Box.H>
+#include <FL/Fl_Button.H>
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>
@@ -13,137 +15,116 @@
 #include <netdb.h>
 
 #define COL0_HEADER "type"
-#define COL1_HEADER "val1"
-#define COL2_HEADER "val2"
-#define COL3_HEADER "timestamp"
+#define COL1_HEADER "a"
+#define COL2_HEADER "b"
+#define COL3_HEADER "c"
+#define COL4_HEADER "timestamp"
 
 #define PORT 1337
-#define SERVER "localhost"
+#define SERVER "127.0.0.1"
 
-#define CELLWIDTH 150
+#define CELLWIDTH 115
 #define CELLHEIGHT 25
 
-static void performQuery(void *tableview, void *str) {
+int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
+{
+    (void)rows;
+
+    TableView *tview = (TableView*)arg;
+
+    char buf[256];
+
+    sprintf(buf, "%s,%s,%s,%s,%s", cols[0], cols[1], cols[2], cols[3], cols[4]);
+
+    tview->table->add_row(buf);
+
+    return 0;
+}
+
+
+static void performQuery(void *tableview, char *str) {
     TableView *tview = (TableView*)tableview;
-    char *query = (char *)str;
-    int nbytes = write(tview->sockfd, query, strlen(query));
-    if(nbytes < 0) {
-        printf("error writing to socket: %d\n", errno);
-        exit(0);
+    tview->widgetResetCallback(tview);
+
+    int err = sqlite3_exec(tview->db, str, sqlite_cb, tview, NULL);
+    if(err != SQLITE_OK) {
+        tview->queryInput->color(FL_RED);
+        tview->queryInput->redraw();
+    }
+    else {
+        tview->queryInput->color(FL_WHITE);
+        tview->queryInput->redraw();
     }
 }
 
+static void clearTable(void *tableview) {
+    TableView *tview = (TableView*)tableview;
+    int i;
+
+    printf("rows to remove: %d\n", tview->table->rows());
+    for(i = 0; i < tview->table->rows(); i++) {
+        printf("removing row %d\n", i);
+        tview->table->remove_row(i);
+    }
+    
+    // set to 1 so we don't overwrite headers
+    tview->totalRows = 1;
+}
+
+
+
 static void handleFD(int fd, void *data) {
     TableView* tview = (TableView*)data;
-    char *buffer = tview->buffer;
-    char c;
-    char type[BUFLEN];
-    char col1[BUFLEN];
-    char col2[BUFLEN];
-    char time[BUFLEN];
-    int rc;
+    static char field[6][BUFLEN];
+    char query[BUFLEN];
+    static int index = 0;
 
-    rc = read(fd, &c, 1);
+    static char buf[BUFLEN];
+    int rc;
+    static int count = 0;
+
+    rc = read(fd, buf + count, sizeof(buf) - count);
     if (rc <= 0) {
         return;
     }
 
-    tview->buffer[tview->bufReadIndex] = c;
+    count += rc;
 
-    static int clear = 0;
+    char * pos;
+    
+    while((pos = (char *)memchr(buf, '\0', count)) != NULL) {
+        memcpy(field[index], buf, pos - buf + 1);
+        count -= (pos - buf + 1);
+        memmove(buf, pos + 1, count);
+        index++;
+        if(index == 6) {
+            //printf("inserting record %s %s %s %s %s %s\n", field[0], field[1], field[2], field[3], field[4], field[5]);
+            sprintf(query, "INSERT INTO records (rowid, type, a, b, c, time) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');", field[0], field[1], field[2], field[3], field[4], field[5]);
+            sqlite3_exec(tview->db, query, NULL, NULL, NULL);
+            //printf("insert: %s\n", sqlite3_errstr(sqlite3_errcode(tview->db)));
+            index = 0;
 
-    switch (c) {
-    case '!':
-        tview->queryInput->color(FL_RED);
-        tview->redraw();
-        break;
-    case '^':
-        clear = 1;
-        break;
-
-    case '@':
-        tview->redraw();
-    case '{':
-        if (clear == 1) {
-            tview->queryInput->color(FL_WHITE);
-            if (!tview->liveMode) {
-                for (int i = 1; i < tview->totalRows; i++) {
-                    for (int j = 0; j < tview->totalCols; j++) {
-                        tview->remove(tview->widgets[i][j]);
+            /*
+            if(tview->queryInput->isLiveMode()) {
+                sqlite3_exec(tview->db_tmp, query, NULL, NULL, NULL);
+                sqlite3_exec(tview->db_tmp, tview->queryInput->getSearchString(), sqlite_cb, tview, NULL);
+                sqlite3_exec(tview->db_tmp, "DELETE FROM records;", NULL, NULL, NULL);
+                int limit = tview->queryInput->getLimit();
+                if(limit >= 0) {
+                    if(tview->totalRows > limit) {
                     }
                 }
-                tview->totalRows = 1;
-                tview->bufReadIndex = 0;
-                tview->bufMsgStartIndex = 0;
-                tview->bufReadIndex = 0;
             }
-            tview->redraw();
-
-            if(tview->widgetResetCallback != NULL) {
-                tview->widgetResetCallback(tview->parentWidget);
-            }
-
-
-            clear = 0;
+            */
         }
-        tview->bufMsgStartIndex = tview->bufReadIndex+1;
-        break;
-
-    case '}':
-        tview->buffer[tview->bufReadIndex] = '\0';
-
-        // parse data
-        // reset colour
-        //tview->queryInput->color(FL_WHITE);
-
-        buffer = &tview->buffer[tview->bufMsgStartIndex];
-
-        // pass the new data to our widget (radar, 3d, etc)
-        if(tview->widgetDataCallback != NULL) {
-            tview->widgetDataCallback(buffer, tview->parentWidget);
-        }
-
-        // most of the stuff below is hardcoded and temporary
-        sscanf(buffer, "%[^,],%[^,],%[^,],%[^,]",type, col1, col2, time);
-
-        tview->enableWidget(tview->totalRows, 0, type);
-        tview->enableWidget(tview->totalRows, 1, col1);
-        tview->enableWidget(tview->totalRows, 2, col2);
-        tview->enableWidget(tview->totalRows, 3, time);
-
-        tview->totalRows++;
-
-        tview->bufMsgStartIndex = 0;
-        tview->bufReadIndex = 0;
-        break;
-
-    case '\0':
-        return;
     }
-
-    tview->bufReadIndex++;
 }
 
-TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Scroll(x, y, w, h, label), totalRows(0), totalCols(0), db(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), liveMode(false), widgetDataCallback(NULL), parentWidget(NULL)
+
+TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), totalRows(0), totalCols(0), db(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), widgetDataCallback(NULL), parentWidget(NULL)
 {
     queryInput = new TableInput(w * 0.2, 0, w * 0.75, CELLHEIGHT, "Search Query:");
     queryInput->callback = performQuery;
-
-    end(); // don't add the cell widgets to the table view automatically
-
-    for(int i = 0; i < MAXROWS; i++) {
-        for(int j = 0; j < MAXCOLS; j++) {
-            widgets[i][j] = new Fl_Box(CELLWIDTH * j, queryInput->y() + queryInput->h() + (CELLHEIGHT * i), CELLWIDTH, CELLHEIGHT);
-        }
-    }
-
-    // enable the column header widgets
-    enableWidget(0, 0, COL0_HEADER);
-    enableWidget(0, 1, COL1_HEADER);
-    enableWidget(0, 2, COL2_HEADER);
-    enableWidget(0, 3, COL3_HEADER);
-
-    totalCols = MAXCOLS;
 
     struct sockaddr_in serv_addr;
     struct hostent *server = NULL;
@@ -171,9 +152,16 @@ TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Scroll(
         exit(0);
     }
 
-    queryInput->performQuery();
+    widgetResetCallback = clearTable;
+
 
     Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
+
+    sqlite3_open("", &db);
+    sqlite3_exec(db, "CREATE TABLE records(type, a, b, c, time timestamp);", NULL, NULL, NULL);
+
+    sqlite3_open("", &db_tmp);
+    sqlite3_exec(db_tmp, "CREATE TABLE records(type, a, b, c, time timestamp);", NULL, NULL, NULL);
 }
 
 int TableView::handle(int event) {
@@ -181,23 +169,20 @@ int TableView::handle(int event) {
     case FL_KEYDOWN:
     case FL_SHORTCUT: {
         int key = Fl::event_key();
-        if(key == ' ') {
-            //liveMode = true;
+        if(key == (FL_F + 1)) {
+            if(!widgetWindow->shown()) {
+                widgetWindow->show();
+            }
+            else {
+                widgetWindow->hide();
+            }
         }
     }
     default:
-        return Fl_Scroll::handle(event);
+        return Fl_Window::handle(event);
     }
 }
 
 void TableView::enableWidget(int row, int col, const char *label) {
-    Fl_Widget *widget = widgets[row][col];
-    widget->box(FL_BORDER_BOX);
-    if(row > 0) {
-        widget->color(FL_WHITE);
-    }
-    widget->copy_label(label);
-    add(widget);
 }
-
 
