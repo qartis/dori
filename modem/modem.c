@@ -1,4 +1,8 @@
 #include <stdio.h>
+#include <sys/stat.h>
+#include <ctype.h>
+#include <sys/time.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -6,150 +10,261 @@
 #include <termio.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define BUFFER_SIZE 256
 #define AT_NO_ECHO 0
 #define AT_SYNC_BAUD 0
 
-// user commands
-static char *connect = "connect";
-static char *disconnect = "disconnect";
-static char *file = "file";
+int modemFD;
 
-// AT commands + params
-static char *disconnect_AT = "+++";
-static char *baudsync = "at\rat\rat\r";
-static char *noecho = "ate0\r";
-static char *destinfo = "DESTINFO";
-static char *default_server = "qartis.com";
-static char *default_port = "30000";
-static char *error = "ERROR";
-static char *no_carrier = "NO CARRIER";
-static char *connected_response = "PONG";
+volatile int delay;
+volatile int ping_time = 10;
+volatile int ping_counter;
 
-typedef enum {
-    WAITING = 0,
-    DATA_MODE_CONNECTING,
-    DATA_MODE_CONNECTED,
-    DATA_MODE_DISCONNECTING,
-} STATE;
-
-static STATE cur_state = WAITING;
+volatile int uploading;
+volatile int flag_ok;
+volatile int flag_error;
+volatile int flag_nocarrier;
+volatile int flag_connect;
+volatile int flag_http;
+volatile int received;
+volatile int ignore;
 
 inline int strcasestart(const char *buf1, const char *buf2)
 {
     return strncasecmp(buf1, buf2, strlen(buf2)) == 0;
 }
 
-size_t safe_read(int fd, uint8_t * buf, size_t readmax)
+int streq(const char *a, const char *b)
 {
-    if(buf == NULL) {
-        return -1;
-    }
-    int length = 0;
-    char new_char = '\0';
-    //we don't try and assemble packets when we're in data mode
-    if(cur_state == DATA_MODE_CONNECTED) {
-        length = read(fd, buf, readmax);
-    }
-    else {
-        while (new_char != '\n') {
-            read(fd, &new_char, 1);
-            buf[length++] = new_char;
-        }
-    }
-
-    buf[length] = '\0';
-    return length;
+    return strcmp(a, b) == 0;
 }
-size_t slow_write(int fd, uint8_t * buf, size_t count)
+
+size_t slow_write(int fd, char *buf, size_t count)
 {
-    int i = 0;
+    unsigned i = 0;
     size_t rc;
 
+    flag_ok = 0;
+    flag_error = 0;
+    flag_nocarrier = 0;
+    flag_connect = 0;
+    flag_http = 0;
+
     while (i < count) {
-        rc = write(fd, buf + i, 1);
-        if (rc < 0) {
-            return -1;
+        rc = write(fd, (uint8_t *)buf + i, 1);
+        if (rc < 1) {
+            perror("write");
+            exit(1);
         }
-        usleep(5000); // was set to 5000 for file transfer test
+        usleep(900); // was set to 5000 for file transfer test
 
         if (buf[i] == '\r') {
-            usleep(50000);
+            usleep(900);
         }
+
+        if(uploading) {
+            printf("sleeping..\n");
+            sleep(delay);
+            printf("woke up..\n");
+        }
+
         i++;
     }
-
-    fflush(fdopen(fd, "r+")); // TODO: cleanup FILE* from fdopen
 
     return i;
 }
 
-void eat_leading_newlines(char **str)
+
+void disconnect()
 {
-    while (**str == 0xa || **str == 0xd) {
-        (*str)++;
+    uploading = 0;
+    printf("disconnecting..\n");
+    sleep(4);
+    slow_write(modemFD, "+++", 3);
+    sleep(2);
+    slow_write(modemFD, "+++", 3);
+    sleep(1);
+
+    uint16_t retry = 100;
+    while (!flag_nocarrier && --retry) {
+        usleep(100000);
+        //printf("retry %d\n", retry);
+    }
+
+    if (retry == 0) {
+        printf("failed to disconnect\n");
+    } else {
+        printf("successfully disconnected\n");
     }
 }
 
-void eat_trailing_newlines(char **str)
+void connect()
 {
-    int i;
+    char buf[128];
 
-    i = strlen(*str) - 1;
+    for(;;) {
+        printf("preparing to connect\n");
 
-    while (i >= 0 && ((*str)[i] == 0xa || (*str)[i] == 0xd)) {
-        (*str)[i] = '\0';
-        i--;
+        //autobaud
+        slow_write(modemFD, "AT\r", 3);
+        usleep(50000);
+
+        sprintf(buf, "AT+CGDCONT=1,\"IP\",\"internet.fido.ca\",,\r");
+        slow_write(modemFD, buf, strlen(buf));
+        uint8_t retry = 255;
+        while ((!flag_ok && !flag_error) && --retry) {
+            usleep(50000);
+        }
+
+        if(retry == 0) {
+            printf("didn't get an OK from the modem when setting AT+CGDCONT\n");
+            printf("trying to disconnect in case we're in a weird state\n");
+            disconnect();
+            usleep(50000);
+            continue;
+        }
+
+        sprintf(buf, "AT%%CGPCO=1,\"PAP,fido,fido\",2\r");
+        slow_write(modemFD, buf, strlen(buf));
+
+        retry = 255;
+        while ((!flag_ok) && --retry) {
+            usleep(50000);
+        }
+
+        if(retry == 0) {
+            printf("didn't get an OK from the modem when setting AT%%CGPCO\n");
+            printf("trying to disconnect in case we're in a weird state\n");
+            disconnect();
+            usleep(50000);
+            continue;
+        }
+
+        sprintf(buf, "AT$DESTINFO=\"h.qartis.com\",1,30000,1\r");
+        retry = 255;
+        slow_write(modemFD, buf, strlen(buf));
+        while ((!flag_ok) && --retry) {
+            usleep(50000);
+        }
+
+        if(retry == 0) {
+            printf("didn't get an OK from the modem when setting AT$DESTINFO\n");
+            printf("trying to disconnect in case we're in a weird state\n");
+            disconnect();
+            usleep(50000);
+            continue;
+        }
+
+        sprintf(buf, "ATD*97#\r");
+        slow_write(modemFD, buf, strlen(buf));
+
+        printf("connecting...\n");
+
+        while (!flag_ok) {
+            usleep(100000);
+        }
+        usleep(500000);
+
+        if (!flag_ok || flag_error || flag_nocarrier || flag_connect) {
+            printf("error while dialing\n");
+            disconnect();
+            usleep(50000);
+            continue;
+        }
+
+        printf("connected!\n");
+        break;
     }
 }
 
-void cleanup_string(char **str)
+void ping()
 {
-    eat_leading_newlines(str);
-    eat_trailing_newlines(str);
+
+    connect();
+    char pingbuf[128];
+
+    sprintf(pingbuf, "ping %d", ping_counter++);
+
+    printf("sending %s\n", pingbuf);
+
+    uploading = 1;
+    slow_write(modemFD, pingbuf, strlen(pingbuf));
+    uploading = 0;
+
+    // keep the connection open for a few seconds
+    // to give the server a chance to respond
+    sleep(5);
+
+    disconnect();
 }
 
-void parse_response(char *response)
+void upload(const char *filename)
 {
-    int i;
-    int temp;
+    struct stat st;
+    int rc;
+    size_t sent;
+    unsigned progress;
+    char buf[128];
+    int fd;
+    struct timeval start, end;
 
-    cleanup_string(&response);
+    rc = stat(filename, &st);
+    if (rc < 0) {
+        sleep(1);
+        slow_write(modemFD, "+++", 3);
 
-    printf("< %s\n", response);
+        perror("stat");
+        exit(1);
+    }
 
-    // check for server reply
-    if (cur_state == DATA_MODE_CONNECTING) {
-        if (strstr(response, connected_response)) {
-            printf("connection established\n");
-            cur_state = DATA_MODE_CONNECTED;
+    fd = open(filename, O_RDONLY);
+    sent = 0;
+    progress = 0;
+    flag_http = 0;
+    received = 0;
+
+    gettimeofday(&start, NULL);
+
+    while (received == 0) {
+        rc = read(fd, buf, 1);
+        if (rc < 0) {
+            perror("read file");
+            exit(1);
+        } else if (rc == 0) {
+            break;
+        }
+
+        slow_write(modemFD, buf, rc);
+        sent += rc;
+        if ((sent * 10 / st.st_size) > progress) {
+            progress++;
+            printf("%d ", progress * 10);
         }
     }
-    if (strstr(response, error)) {
-        //printf("error detected\n");
+
+    if (received != 0) {
+        printf("upload terminated\n");
     }
-    if (strstr(response, no_carrier)) {
-        printf("disconnected\n");
-        cur_state = WAITING;
-        return;
-    }
+
+    gettimeofday(&end, NULL);
+
+    int elapsed = end.tv_sec - start.tv_sec;
+    if (elapsed == 0)
+        elapsed = 1;
+
+    printf("\n");
+    printf("uploaded %lu bytes in %d seconds, %ld bytes/sec\n", st.st_size, elapsed, st.st_size / elapsed);
 }
 
-void parse_command(int modemFD, char *command, char *at_commands)
+void parse_command(char *command)
 {
     char cmd[BUFFER_SIZE];
     char arg1[BUFFER_SIZE];
     char arg2[BUFFER_SIZE];
     char *ptr;
     int num_args;
-    int i;
-    int total_output_commands;
-
-    if (command == NULL || at_commands == NULL) {
-        printf("error: command or at_commands NULL\n");
-        return;
-    }
 
     int length = strlen(command);
 
@@ -174,202 +289,223 @@ void parse_command(int modemFD, char *command, char *at_commands)
         }
     }
 
-    switch (cur_state) {
-    case WAITING:
-    case DATA_MODE_DISCONNECTING:
-        if (strcasecmp(cmd, connect) == 0) {
-            if (num_args == 0) {
-                strcpy(arg1, default_server);
-                strcpy(arg2, default_port);
-                num_args = 2;
-            } else if (num_args == 1) {
-                printf("error: incorrect number of arguments for command: %s\n",
-                       cmd);
-                return;
-            }
-
-            sprintf(at_commands,
-                    "AT+CGDCONT=1,\"IP\",\"internet.fido.ca\",,\rAT%%CGPCO=1,\"PAP,fido,fido\",2\rAT$DESTINFO=\"%s\",1,%s,1\rATD*97#\r",
-                    arg1, arg2);
-
-            cur_state = DATA_MODE_CONNECTED;
-            printf("attempting to connect to %s:%s\n", arg1, arg2);
+    if (streq(cmd, "+++")) {
+        sleep(1);
+        slow_write(modemFD, "+++", 3);
+    } else if (strcasecmp(cmd, "put") == 0) {
+        if (num_args != 1) {
+            printf("usage: put [filename]\n");
+            return;
         }
-        else if (strcasestart(command, "AT")) {
-            at_commands[length] = '\r';
-            at_commands[length + 1] = '\0';
-            // we don't need to parse AT commands, return
+
+        connect();
+
+        printf("connected! preparing to upload file: %s\n", arg1);
+
+        uploading = 1;
+        upload(arg1);
+        uploading = 0;
+
+        uint16_t retry = 20;
+        while (--retry) {
+            usleep(100000);
         }
-        // allow the disconnect command even when the program doesn't recognize that we've connected
-        else if (strcasecmp(command, disconnect) == 0) {
-            sleep(1);           // sleep for a second
-            slow_write(modemFD, disconnect_AT, strlen(disconnect_AT));
-            fflush(fdopen(modemFD, "r+")); // TODO: cleanup FILE* from fdopen
 
-            sleep(1);           // sleep for a second
+        if (retry == 0) {
+            printf("file upload complete!\n");
+        } else {
+            printf("file upload error\n");
+        }
 
-            at_commands[0] = '\0';
-            printf("sent d/c signal\n");
-            cur_state = DATA_MODE_DISCONNECTING;
+        disconnect();
+
+    } else if(strcasecmp(command, "connect") == 0) {
+        connect();
+    } else if(strcasestart(command, "delay")) {
+        if (num_args == 0) {
+            printf("delay: %d\n", delay);
+        } else if(num_args == 1) {
+            delay = atoi(arg1);
+            printf("delay set to %d\n", delay);
         }
         else {
-            printf("error: unrecognized command: %s\n", cmd);
-            at_commands[0] = '\0';  // don't send anything to the modem
+            printf("usage: delay (int seconds)\n");
         }
-        break;
-    case DATA_MODE_CONNECTING:
-        printf("dont parse anything in connecting mode\n");
-        // don't parse commands while we're trying to connect
-        break;
-    case DATA_MODE_CONNECTED:
-        printf("state: data_mode_connected\n");
-        // if we're connected and we entered the disconnect command
-        // then we'll handle writing the d/c message
-        if (strcasecmp(command, disconnect) == 0) {
-            sleep(1);           // sleep for a second
-            slow_write(modemFD, disconnect_AT, strlen(disconnect_AT));
-            fflush(fdopen(modemFD, "r+")); // TODO: cleanup FILE* from fdopen
-
-            sleep(1);           // sleep for a second
-
-            at_commands[0] = '\0';
-            printf("sent d/c signal\n");
-            cur_state = DATA_MODE_DISCONNECTING;
+    } else if(strcasestart(command, "ping")) {
+        if (num_args == 0) {
+            printf("ping: %d\n", ping_time);
+        } else if(num_args == 1) {
+            ping_time = atoi(arg1);
+            printf("ping set to %d\n", ping_time);
         }
-        else if (strcasecmp(cmd, file) == 0) {
-            printf("read command: file\n");
-            if (num_args != 1) {
-                printf("error: incorrect number of arguments for command: %s\n",
-                       cmd);
-                return;
-            }
-            FILE *f = NULL;
-            f = fopen(arg1, "rb");
+        else {
+            printf("usage: ping (int seconds)\n");
+        }
 
-            if(f == NULL) {
-                perror("error loading file");
-            }
-            char read_buf[BUFFER_SIZE];
-            int sent_bytes = 0;
-            int read_bytes = 0;
-            while(!feof(f)) {
-                read_bytes = fread(read_buf, 1, BUFFER_SIZE, f);
-                printf("read bytes: %d\n", read_bytes);
-                sent_bytes += slow_write(modemFD, read_buf, read_bytes);
-                printf("sent %d bytes...\n", sent_bytes);
-                if(sent_bytes <= 0) {
-                    perror("error sending file");
-                    return;
+    } else if (strcasestart(command, "AT")) {
+        slow_write(modemFD, "AT\r", 3);
+        usleep(50000);
+        command[length] = '\r';
+        command[length + 1] = '\0';
+        slow_write(modemFD, command, strlen(command));
+        usleep(100000);
+        if (flag_error) {
+            printf("error\n");
+        } else if (flag_ok) {
+            printf("ok\n");
+        } else {
+            printf("no response, are you in a data call?\n");
+        }
+        //printf("flags: %s %s %s\n", flag_ok ? "ok" : "", flag_error ? "error" : "", flag_nocarrier ? "nocarrier" : "", flag_connect ? "connect" : "");
+    } else {
+        printf("error: unrecognized command: %s\n", cmd);
+    }
+}
+
+
+void* interrupt(void *arg)
+{
+    (void)arg;
+    int rc;
+    unsigned char c;
+    char buf[128];
+    int count = 0;
+    //static int http_len;
+
+    for (;;) {
+        rc = read(modemFD, &c, 1);
+        if (rc < 0) {
+            perror("read");
+            exit(1);
+        }
+
+        //printf("%x %c\n", c, isprint(c) ? c : '?');
+
+        received = 1;
+
+        if (c == '\r') {
+            if (!ignore) {
+                if (streq(buf, "OK")) {
+                    flag_ok = 1;
+                    //printf("FLAG: ok\n");
+                } else if (streq(buf, "ERROR")) {
+                    flag_error = 1;
+                    //printf("FLAG: error\n");
+                } else if (streq(buf, "NO CARRIER")) {
+                    flag_nocarrier = 1;
+                    //printf("FLAG: nocarrier\n");
+                } else if (streq(buf, "CONNECT")) {
+                    flag_connect = 1;
+                } else if (count > 0) {
+                    //printf("unrecognized response: '%s'\n", buf);
                 }
             }
-            printf("finished transmitting file\n");
-            at_commands[0] = '\0';
+            count = 0;
+            buf[0] = '\0';
+        } else if (c != '\n' && c != '\0') {
+            buf[count] = c;
+            buf[count + 1] = '\0';
+            count++;
+        } else if (c == '\n') {
+            buf[count] = '\0';
+            count = 0;
+            if(strcasestart(buf, "cmd ")) {
+                char *cmd = &buf[strlen("cmd ")];
+                parse_command(cmd);
+            }
         }
-        else {
-            // otherwise if we just entered data to be sent
-            // then just set the output to be the input
-            at_commands = command;
-        }
-        break;
     }
 }
 
 int modem_init()
 {
-    int num_bytes;
-    int modemFD;
     struct termios tp;
 
-    modemFD =
-        open("/dev/serial/by-id/usb-067b_0609-if00-port0", O_RDWR | O_NOCTTY);
+    printf("initializing modem\n");
+    modemFD = open("/dev/serial/by-id//usb-067b_0609-if00-port0", O_RDWR | O_NOCTTY);
     if (modemFD < 0) {
-        perror("failed to open modem FD");
-        return -1;
+        perror("open modemFD");
+        exit(1);
     }
-    // terminal settings
+
     tcflush(modemFD, TCIOFLUSH);
     ioctl(modemFD, TCGETS, &tp);
     cfmakeraw(&tp);
     cfsetspeed(&tp, 9600);
     ioctl(modemFD, TCSETS, &tp);
-    setbuf(fdopen(modemFD, "r"), 0); // TODO: cleanup FILE* from fdopen
-
-#if AT_SYNC_BAUD
-    num_bytes = slow_write(modemFD, baudsync, strlen(baudsync));
-    if (num_bytes <= 0) {
-        perror("error sending baudsync command");
-    }
-#endif
-
-#if AT_NO_ECHO
-    num_bytes = slow_write(modemFD, noecho, strlen(noecho));
-    if (num_bytes <= 0) {
-        perror("error sending echo disable command");
-    }
-#endif
 
     return modemFD;
 }
 
 int main()
 {
-    unsigned char buf[256];
+    char buf[256];
+    int rc;
 
-    int modemFD = modem_init();
+    modem_init();
 
-    fd_set masterfds;
-    fd_set readfds;
+    pthread_t thread;
+    pthread_create(&thread, NULL, interrupt, NULL);
 
-    FD_ZERO(&masterfds);
+    slow_write(modemFD, "AT\rAT\rAT\r", 9);
+    usleep(100000);
+    slow_write(modemFD, "ATE0\r", strlen("ATE0\r"));
+    usleep(100000);
 
-    FD_SET(STDIN_FILENO, &masterfds);
-    FD_SET(modemFD, &masterfds);
+    int flags = fcntl(0, F_GETFL);
+    flags |= O_NONBLOCK;
+    fcntl(0, F_SETFL, flags);
 
-    // since STDIN_FILENO = 0
-    // modemFD must be larger if it is valid
-    int fdmax = modemFD;
-    int num_bytes = 0;
+    struct timeval start, cur;
+    int idle_seconds;
+    int prev_idle_seconds;
 
+    gettimeofday(&start, NULL);
+
+    setbuf(stdout, NULL);
+
+    fprintf(stderr, "> ");
     for (;;) {
-        // backup master list of file descriptors because select() clears its fds param
-        readfds = masterfds;
+        rc = read(STDIN_FILENO, buf, sizeof(buf));
+        if (rc < 1) {
+            switch(errno) {
+#if EAGAIN != EWOULDBLOCK
+            case EAGAIN:
+#endif
+            case EWOULDBLOCK:
+                gettimeofday(&cur, NULL);
+                prev_idle_seconds = idle_seconds;
+                idle_seconds = cur.tv_sec - start.tv_sec;
 
-        int result = select(fdmax + 1, &readfds, NULL, NULL, NULL);
-        if (result == -1) {
-            perror("select() error");
-            return 0;
+                if(!uploading) {
+                    if(idle_seconds != prev_idle_seconds) {
+                        printf(".");
+                    }
+                }
+                if(idle_seconds >= ping_time) {
+                    // don't send a ping if we're uploading a file
+                    if(!uploading) {
+                        printf("preparing to send ping...\n");
+                        system("date");
+                        ping();
+                    }
+                    gettimeofday(&start, NULL);
+                }
+                break;
+            default:
+                perror("read stdin");
+                exit(1);
+                break;
+            }
         }
-
-        if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            num_bytes = read(STDIN_FILENO, buf, sizeof(buf) - 1);
-            //printf("num_bytes: '%d'\n", num_bytes);
-            if (num_bytes <= 0) {
-                perror("error reading from STDIN");
-                return 0;
+        else {
+            //printf("resetting start time\n");
+            if(buf[rc - 1] == '\n') {
+                buf[rc - 1] = '\0';
+                parse_command(buf);
+                fprintf(stderr, "> ");
             }
-            // remove the newline
-            //buf[num_bytes-1] = '\r';
-            buf[num_bytes - 1] = '\0';
-            //printf("> ");
-            parse_command(modemFD, buf, buf);
-
-            num_bytes = slow_write(modemFD, buf, strlen(buf));
-            // when we write we only check num_bytes < 0
-            // because we can may write the null byte
-            // which isn't actually an error
-            if (num_bytes < 0) {
-                perror("error writing to modem");
-                return;
-            }
-        }
-        if (FD_ISSET(modemFD, &readfds)) {
-            num_bytes = safe_read(modemFD, buf, sizeof(buf) - 1);
-            if (num_bytes <= 0) {
-                perror("error reading from modemFD");
-                return 0;
-            }
-            buf[num_bytes] = '\0';
-            parse_response(buf);
+            gettimeofday(&start, NULL);
         }
     }
     return 0;
