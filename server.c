@@ -82,21 +82,6 @@ int printfd(int fd, const char *fmt, ...)
     return strlen(buf);
 }
 
-int sqlite_live_cb(void *arg, int ncols, char **cols, char **rows)
-{
-    (void)rows;
-
-    int *fd = arg;
-    int i;
-
-    for (i = 0; i < ncols; i++) {
-        printfd(*fd, "%s", cols[i]);
-        write(*fd, "", 1);
-    }
-
-    return 0;
-}
-
 int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 {
     (void)rows;
@@ -179,7 +164,7 @@ int main()
 
             int i;
             for (i = 0; i < nfds; i++) {
-                rc = sqlite3_exec(db, buf, sqlite_live_cb,
+                rc = sqlite3_exec(db, buf, sqlite_cb,
                                   &fds[i], NULL);
 
                 if (rc != SQLITE_OK)
@@ -198,6 +183,13 @@ int main()
                 fds[nfds++] = newfd;
 
                 sqlite3_exec(db, "SELECT rowid, * FROM RECORDS", sqlite_cb, &newfd, NULL);
+
+                write(newfd, "-1", 3);
+                write(newfd, "", 1);
+                write(newfd, "", 1);
+                write(newfd, "", 1);
+                write(newfd, "", 1);
+                write(newfd, "", 1);
 
                 if (newfd > maxfd)
                     maxfd = newfd;
