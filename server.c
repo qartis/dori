@@ -198,9 +198,10 @@ int main()
                 FD_SET(newfd, &master);
             } else {
                 rc = read(fd, buf, sizeof(buf));
-                if (rc < 0 && errno == ECONNRESET) {
+                if (rc == 0 && errno == ECONNRESET) {
                     FD_CLR(fd, &master);
                     remove_client(fd);
+                    printf("client died\n");
                 } else if (rc < 0)
                     error("read");
 
