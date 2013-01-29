@@ -1,7 +1,7 @@
 #include "tableinput.h"
 #include <ctype.h>
 
-static const char *defaultQuery = "select * from records live";
+static const char *defaultQuery = "select rowid, * from records where type = \"laser\" limit 5";
 
 TableInput::TableInput(int x, int y, int w, int h, const char *label)
     : Fl_Input(x, y, w, h, label), callback(NULL)
@@ -9,10 +9,11 @@ TableInput::TableInput(int x, int y, int w, int h, const char *label)
     value(defaultQuery);
 }
 
-void TableInput::performQuery(void)
+void TableInput::performQuery()
 {
-    if (callback)
-        callback(this->parent(), this->getSearchString());
+    if (callback) {
+        callback(parent(), getSearchString());
+    }
 }
 
 bool TableInput::isLiveMode() {
@@ -32,7 +33,6 @@ int TableInput::getLimit() {
 
     return -1;
 }
-
 
 
 char* TableInput::getSearchString() {
@@ -61,8 +61,10 @@ int TableInput::handle(int event) {
         } else if (!isalpha(key)) {
             // let Fl_Input deal with the input first so the callback
             // has the up-to-date textfield input
+            //int wasLive = isLiveMode();
             Fl_Input::handle(event);
-            performQuery();
+            //if(!wasLive || !isLiveMode()) {
+                performQuery();
             return 1;
         }
         /* fall through */

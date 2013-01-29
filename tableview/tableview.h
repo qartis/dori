@@ -4,10 +4,8 @@
 #include <sqlite3.h>
 #include "tableinput.h"
 #include "table.h"
-
-// hard limits on data size to keep things simple
-#define MAXROWS 5200
-#define MAXCOLS 5
+#include <vector>
+#include "../radar/radarwindow.h"
 
 #define BUFLEN 128
 
@@ -18,10 +16,8 @@ public:
 
     virtual int handle(int event);
     void enableWidget(int row, int col, const char *label = NULL);
-    
+
     Table* table;
-    int totalRows;
-    int totalCols;
     sqlite3 *db;
     sqlite3 *db_tmp;
     TableInput *queryInput;
@@ -35,6 +31,9 @@ public:
     void *parentWidget;
     Fl_Window *widgetWindow;
 
+    std::vector<SpawnableWindow*> spawned_windows;
+
 private:
+    static void performQuery(void *tableview, char *str);
 
 };

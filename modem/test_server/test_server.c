@@ -7,10 +7,20 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <openssl/md5.h>
 
-#define NUM_BUFS 3
+#define NUM_BUFS 6
 
-int ping_counter = -1;
+char *commands[] = {
+    "cmd ping 60\n",
+    "cmd ping 30\n",
+    "cmd ping 120\n",
+    "cmd ping 60\n",
+    "cmd ping 30\n",
+    "cmd ping 40\n",
+};
+
+int ping_counter;
 int total_out_of_sync_pings;
 
 int main() {
@@ -57,15 +67,14 @@ int main() {
     char * time_str;
 
     char buf[256];
-    char command_buffers[NUM_BUFS][256];
     int buf_index = 0;
+    //char command_buffers[NUM_BUFS][256];
 
     FD_ZERO(&master);
+    FD_ZERO(&writefds);
     FD_SET(tcpfd, &master);
     FD_SET(0, &master);
     maxfd = tcpfd;
-
-    newfd = -1;
 
     for (;;) {
         readfds = master;
@@ -75,14 +84,14 @@ int main() {
             perror("select");
             return -1;
         }
-
+        /*
         if(FD_ISSET(0, &readfds)) { // STDIN
             int rcv = read(0, command_buffers[buf_index], sizeof(command_buffers[buf_index]));
             command_buffers[buf_index][rcv] = '\0';
             printf("'%s' entered in buffer %d\n", command_buffers[buf_index], buf_index);
             buf_index = (buf_index + 1) % 4;
         }
-        else if(FD_ISSET(tcpfd, &readfds)) {
+        else */if(FD_ISSET(tcpfd, &readfds)) {
             len = sizeof(clientaddr);
             newfd = accept(tcpfd, (struct sockaddr *)&clientaddr, &len);
             setbuf(fdopen(newfd, "r"), NULL);
@@ -91,23 +100,25 @@ int main() {
                 return -1;
             }
             else {
-                printf("\nconnection established\n");
+                printf("connection established\n");
             }
 
             if(newfd > maxfd) {
                 maxfd = newfd;
             }
 
+            /*
             if(buf_index > 0) {
                 FD_SET(newfd, &writefds);
             }
+            */
 
             FD_SET(newfd, &master);
         }
         else if(FD_ISSET(newfd, &readfds)) {
             rc = read(newfd, buf, sizeof(buf));
             if(rc <= 0) {
-                printf("\nclient disconnected\n");
+                printf("client disconnected\n");
                 FD_CLR(newfd, &master);
                 newfd = -1;
             }
@@ -116,40 +127,32 @@ int main() {
                 time_str = ctime(&cur_time);
                 time_str[strlen(time_str) - 1] = '\0'; // get rid of the newline
                 buf[rc] = '\0';
-                /*
+
                 char *ptr = strstr(buf, "ping ");
                 if(ptr) {
                     printf("%s [%s]\n", buf, time_str);
                     int ping = atoi(ptr + strlen("ping "));
-                    ping_counter++;
                     if(ping != ping_counter) {
                         total_out_of_sync_pings++;
 
                         printf("ping index not in sync: modem: %d, server: %d, total times out of sync: %d\n", ping, ping_counter, total_out_of_sync_pings);
                         ping_counter = ping;
                     }
+                    if(ping_counter > 0 && (ping_counter % 5) == 0) {
+                        FD_SET(newfd, &writefds);
+                    }
+                    ping_counter++;
                 }
-                */
-                printf("%s", buf);
             }
         }
         else if(FD_ISSET(newfd, &writefds)) {
-            int i;
-
-            for(i = 0; i < NUM_BUFS; i++) {
-                if(command_buffers[i][0] != '\0') {
-                    //printf("sending %lu bytes '%s'\n", strlen(command_buffers[i]), command_buffers[i]);
-                    write(newfd, command_buffers[i], strlen(command_buffers[i]));
-                    usleep(100000);
-                    command_buffers[i][0] = '\0';
-                }
-
-            }
-
+            printf("sending command: '%s'", commands[buf_index]);
+            write(newfd, commands[buf_index], strlen(commands[buf_index]));
+            buf_index++;
+            buf_index %= 16;
             FD_CLR(newfd, &writefds);
         }
     }
 
     return 0;
 }
-
