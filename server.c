@@ -152,11 +152,11 @@ int main()
             };
             int type = rand() % 4;
             int a, b, c;
-            a = rand() % 100;
+            a = rand() % 360;
             b = rand() % 100;
             c = rand() % 100;
 
-            sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', '%d', '%d', '%d')", types[type], a, b, c);
+            sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', %d, %d, %d)", types[type], a, b, c);
             sqlite3_exec(db, buf, NULL, NULL, NULL);
             int64_t rowid = sqlite3_last_insert_rowid(db);
             printf("new row: rowid: %ld, %s, %d, %d, %d\n", rowid, types[type], a, b, c);

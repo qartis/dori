@@ -1,38 +1,4 @@
-//
-// "$Id: table-sort.cxx 8193 2011-01-05 17:58:16Z greg.ercolano $"
-//
-//	table-sort -- An example application using a sortable Fl_Table
-//	Originally the 'sortapp.cxx' example program that came with 
-//	erco's Fl_Table widget. Added to FLTK in 2010.
-//
-//      Example of a non-trivial application that uses Fl_Table 
-//      with sortable columns. This example is not trying to be simple,
-//      but to demonstrate the complexities of an actual app.
-//
-// Copyright 2010 Greg Ercolano.
-// Copyright 1998-2010 by Bill Spitzak and others.
-//
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
-//
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
-//
-// Please report all bugs and problems on the following page:
-//
-//     http://www.fltk.org/str.php
-//
-
-#include "tableinput.h"
+#include "queryinput.h"
 #include "table.h"
 
 #define MARGIN 20
@@ -41,7 +7,7 @@ static const char *head[] = { "rowid", "type", "a", "b", "c", "time" };
 
 // Sort a column up or down
 void Table::sort_column(int col, int reverse) {
-    std::sort(_rowdata.begin(), _rowdata.end(), SortColumn(col, reverse));
+    std::stable_sort(_rowdata.begin(), _rowdata.end(), SortColumn(col, reverse));
 
     redraw();
 }
@@ -75,6 +41,15 @@ void Table::draw() {
     if(!readyToDraw) {
         return;
     }
+
+    /*
+    printf("======================================================\n");
+    for(unsigned i = 0; i < _rowdata.size(); i++) {
+        printf("%s\n", _rowdata[i].col_str);
+    }
+    printf("======================================================\n\n\n");
+    */
+
 
     return Fl_Table_Row::draw();
 }
@@ -164,22 +139,20 @@ void Table::add_row(const char *row) {
     rows((int)_rowdata.size());
     // Auto-calculate widths, with 20 pixel padding
     autowidth(20);
-
-    sort_column(_sort_curcol, _sort_reverse);
-
-    /*
-    std::vector<SpawnableWindow*>::iterator it;
-    for(it = spawned_windows->begin(); it != spawned_windows->end(); it++) {
-        std::vector<Row>::iterator row_it;
-        for(row_it = _rowdata.begin(); row_it != _rowdata.end(); row_it++) {
-            (*it)->add_data(row_it->col_str);
-        }
-    }
-    */
 }
 
 void Table::remove_row(int index) {
     _rowdata.erase(_rowdata.begin() + index);
+    rows(rows() - 1);
+
+    std::vector<SpawnableWindow*>::iterator it;
+    for(it = spawned_windows->begin(); it != spawned_windows->end(); it++) {
+        (*it)->redraw();
+    }
+}
+
+void Table::remove_last_row() {
+    _rowdata.erase(_rowdata.end() - 1);
     rows(rows() - 1);
 
     std::vector<SpawnableWindow*>::iterator it;
@@ -216,13 +189,8 @@ int Table::minimum_row(unsigned int column_index) {
 
 void Table::clear() {
     _rowdata.clear();
-
-    std::vector<SpawnableWindow*>::iterator it;
-    if(spawned_windows) {
-        for(it = spawned_windows->begin(); it != spawned_windows->end(); it++) {
-            (*it)->redraw();
-        }
-    }
+    rows(0);
+    redraw();
 }
 
 void Table::event_callback(Fl_Widget*, void *data) {
@@ -235,59 +203,59 @@ void Table::sort() {
         return;
     }
 
-    if(queryInput->isLiveMode()) {
-        char buf[128];
-        char str[128];
-        char *ptr;
+    char buf[128];
+    char str[128];
+    char *ptr;
 
-        //printf("queryInput->value(): '%s'\n", queryInput->value());
-        strcpy(str, queryInput->value());
+    //printf("queryInput->value(): '%s'\n", queryInput->value());
+    strcpy(str, queryInput->value());
 
-        ptr = strstr(str, "order by ");
+    ptr = strstr(str, "order by ");
 
+    //printf("column to sort by: %d\n", _sort_curcol);
+    if(ptr) {
+        strncpy(buf, str, ptr - str);
+        sprintf(buf + (ptr - str), "order by %s %s ", head[_sort_curcol], _sort_reverse ? "desc" : "asc");
 
-        //printf("column to sort by: %d\n", _sort_curcol);
-        if(ptr) {
-            strncpy(buf, str, ptr - str);
-            //printf("initial chunk: '%s'\n", buf);
-            sprintf(buf + (ptr - str), "order by %s %s ", head[_sort_curcol], _sort_reverse ? "desc" : "asc");
-            //printf("second chunk: '%s'\n", buf);
+        ptr = strtok(ptr, " ");
+        ptr = strtok(NULL, " ");
+        ptr = strtok(NULL, " ");
+        ptr = strtok(NULL, " ");
 
-            ptr = strtok(ptr, " ");
-            ptr = strtok(NULL, " ");
-            ptr = strtok(NULL, " ");
-            ptr = strtok(NULL, " ");
-
-            if(strncasecmp(ptr, "asc", strlen("asc")) == 0)
-                strcpy(buf + strlen(buf), ptr + strlen("asc") + 1);
-            else if(strncasecmp(ptr, "desc", strlen("desc")) == 0)
-                strcpy(buf + strlen(buf), ptr + strlen("desc") + 1);
-            else
-                strcpy(buf + strlen(buf), ptr);
-            //printf("third chunk: '%s'\n", buf);
-        }
-        else {
-            ptr = strstr(str, "limit ");
-            if (ptr) {
-                strncpy(buf, str, ptr - str);
-                sprintf(buf + (ptr - str), "order by %s %s ", head[_sort_curcol], _sort_reverse ? "desc" : "asc");
-                strcpy(buf + strlen(buf), ptr);
-            } else {
-                ptr = strstr(str, "live");
-                strncpy(buf, str, ptr - str);
-                sprintf(buf + (ptr - str), "order by %s %s ", head[_sort_curcol], _sort_reverse ? "desc" : "asc");
-                //printf("ptr is: '%s'\n", ptr);
-                //printf("1buf is: '%s'\n", buf);
-                strcpy(buf + strlen(buf), ptr);
-                //printf("2buf is: '%s'\n", buf);
-            }
-        }
-        queryInput->value(buf);
-        queryInput->performQuery();
+        if(strncasecmp(ptr, "asc", strlen("asc")) == 0)
+            strcpy(buf + strlen(buf), ptr + strlen("asc") + 1);
+        else if(strncasecmp(ptr, "desc", strlen("desc")) == 0)
+            strcpy(buf + strlen(buf), ptr + strlen("desc") + 1);
+        else
+            strcpy(buf + strlen(buf), ptr);
+        printf("third chunk: '%s'\n", buf);
     }
     else {
-        sort_column(_sort_curcol, _sort_reverse);
+        ptr = strstr(str, "limit ");
+        if (ptr) {
+            strncpy(buf, str, ptr - str);
+            sprintf(buf + (ptr - str), "order by %s %s ", head[_sort_curcol], _sort_reverse ? "desc" : "asc");
+            strcpy(buf + strlen(buf), ptr);
+        }
+        else {
+            ptr = strstr(str, ";");
+
+            if(ptr) {
+                strncpy(buf, str, ptr - str);
+                sprintf(buf + (ptr - str), " order by %s %s", head[_sort_curcol], _sort_reverse ? "desc" : "asc");
+                strcpy(buf + strlen(buf), ptr);
+            }
+            else {
+                sprintf(buf, "%s order by %s %s;", str, head[_sort_curcol], _sort_reverse ? "desc" : "asc");
+                strcpy(buf + strlen(buf), ptr);
+            }
+        }
     }
+
+    queryInput->value(buf);
+    queryInput->performQuery();
+
+    // sort_column(_sort_curcol, _sort_reverse);
     _sort_lastcol = _sort_curcol;
 }
 

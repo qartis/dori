@@ -2,17 +2,17 @@
 #include <FL/Fl_Scroll.H>
 #include <FL/Fl_Window.H>
 #include <sqlite3.h>
-#include "tableinput.h"
+#include "queryinput.h"
 #include "table.h"
 #include <vector>
 #include "../radar/radarwindow.h"
 
 #define BUFLEN 128
 
-class TableView : public Fl_Window {
+class MainWindow : public Fl_Window {
 
 public:
-    TableView(int x, int y, int w, int h, const char *label = NULL);
+    MainWindow(int x, int y, int w, int h, const char *label = NULL);
 
     virtual int handle(int event);
     void enableWidget(int row, int col, const char *label = NULL);
@@ -26,14 +26,15 @@ public:
     int bufReadIndex;
     int sockfd;
 
-    void (*widgetDataCallback)(void*, void*);
-    void (*widgetResetCallback)(void*);
-    void *parentWidget;
     Fl_Window *widgetWindow;
 
     std::vector<SpawnableWindow*> spawned_windows;
+    static int sqlite_cb(void *arg, int ncols, char **cols, char **rows);
+    static void performQuery(void *arg);
 
 private:
-    static void performQuery(void *tableview, char *str);
+
+    void clearTable(void *arg);
+    bool needFlush;
 
 };

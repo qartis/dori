@@ -67,6 +67,7 @@ public:
     void autowidth(int pad);                    // Automatically set column widths to data
     void resize_window();                       // Resize parent window to size of table
     void remove_row(int index);
+    void remove_last_row();
     int  minimum_row(unsigned int column_index);
     void clear();
     void sort();

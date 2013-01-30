@@ -12,7 +12,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include "tableview.h"
+#include "mainwindow.h"
 
 #define COL0_HEADER "type"
 #define COL1_HEADER "a"
@@ -23,7 +23,7 @@
 #define PORT 1337
 #define SERVER "127.0.0.1"
 
-int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
+int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 {
     (void)rows;
     (void)ncols;
@@ -32,41 +32,52 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 
     sprintf(buf, "%s\t%s\t%s\t%s\t%s\t%s", cols[0], cols[1], cols[2], cols[3], cols[4], cols[5]);
 
+    MainWindow *window = (MainWindow*)arg;
 
-    TableView *tview = (TableView*)arg;
-    tview->table->add_row(buf);
+    if(window->needFlush) {
+        window->clearTable(window);
+        window->needFlush = false;
+    }
+
+    window->table->add_row(buf);
 
     return 0;
 }
 
 
-void TableView::performQuery(void *tableview, char *str) {
-    TableView *tview = (TableView*)tableview;
-    tview->widgetResetCallback(tview);
+void MainWindow::performQuery(void *arg) {
+    MainWindow *window = (MainWindow*)arg;
 
-    int err = sqlite3_exec(tview->db, str, sqlite_cb, tview, NULL);
+    window->needFlush = true;
+    //printf("performing query\n");
+
+    int err = sqlite3_exec(window->db, window->queryInput->getSearchString(), sqlite_cb, window, NULL);
     if(err != SQLITE_OK) {
-        tview->queryInput->color(FL_RED);
-        tview->queryInput->redraw();
+        window->queryInput->color(FL_RED);
     }
     else {
-        tview->queryInput->color(FL_WHITE);
-        tview->queryInput->redraw();
+        window->queryInput->color(FL_WHITE);
+        if(window->needFlush) {
+            window->clearTable(window);
+        }
     }
+
+    window->queryInput->redraw();
+    window->needFlush = false;
 }
 
-static void clearTable(void *tableview) {
-    TableView *tview = (TableView*)tableview;
+void MainWindow::clearTable(void *arg) {
+    MainWindow *window = (MainWindow*)arg;
+    window->table->clear();
 
     std::vector<SpawnableWindow*>::iterator it;
-    for(it = tview->spawned_windows.begin(); it != tview->spawned_windows.end(); it++) {
+    for(it = window->spawned_windows.begin(); it != window->spawned_windows.end(); it++) {
         (*it)->redraw();
     }
-    tview->table->clear();
 }
 
 static void handleFD(int fd, void *data) {
-    TableView* tview = (TableView*)data;
+    MainWindow* window = (MainWindow*)data;
     static char field[6][BUFLEN];
     char query[BUFLEN];
     static int index = 0;
@@ -94,52 +105,50 @@ static void handleFD(int fd, void *data) {
             int rowid = atoi(field[0]);
 
             if(rowid == -1) {
-                tview->table->readyToDraw = 1;
-                tview->queryInput->performQuery();
+                window->table->readyToDraw = 1;
+                window->performQuery(window);
                 index = 0;
                 continue;
             }
 
-            sprintf(query, "INSERT INTO records (rowid, type, a, b, c, time) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');", field[0], field[1], field[2], field[3], field[4], field[5]);
-            sqlite3_exec(tview->db, query, NULL, NULL, NULL);
+            sprintf(query, "INSERT INTO records (rowid, type, a, b, c, time) VALUES (%s, '%s', %s, %s, %s, %s);", field[0], field[1], field[2], field[3], field[4], field[5]);
+            sqlite3_exec(window->db, query, NULL, NULL, NULL);
             index = 0;
 
-            if(tview->queryInput->isLiveMode()) {
-                sqlite3_exec(tview->db_tmp, query, NULL, NULL, NULL);
-                sqlite3_exec(tview->db_tmp, tview->queryInput->getSearchString(), sqlite_cb, tview, NULL);
-                sqlite3_exec(tview->db_tmp, "DELETE FROM records;", NULL, NULL, NULL);
-                tview->table->sort();
-                int limit = tview->queryInput->getLimit();
-                if(limit >= 0) {
-                    if(tview->table->totalRows() > limit) {
-                        int timestamp_col = 4;
-                        int index = tview->table->minimum_row(timestamp_col);
-                        tview->table->remove_row(index);
-                    }
+            sqlite3_exec(window->db_tmp, query, NULL, NULL, NULL);
+            sqlite3_exec(window->db_tmp, window->queryInput->getSearchString(), window->sqlite_cb, window, NULL);
+            sqlite3_exec(window->db_tmp, "DELETE FROM records;", NULL, NULL, NULL);
+            window->table->sort();
+            int limit = window->queryInput->getLimit();
+            if(limit > 0) {
+                if(window->table->totalRows() > limit) {
+                    window->table->remove_last_row();
                 }
             }
         }
     }
+    window->performQuery(window);
 }
 
 static void spawnRadarWindow(Fl_Widget *widget, void *data) {
     (void)widget;
-    TableView *tview = (TableView*)data;
+    MainWindow *window = (MainWindow*)data;
 
     RadarWindow *newRadar = new RadarWindow(0, 0, 600, 600);
-    newRadar->rowData = &tview->table->_rowdata;
+    newRadar->rowData = &window->table->_rowdata;
     newRadar->show();
-    tview->spawned_windows.push_back(newRadar);
+    window->spawned_windows.push_back(newRadar);
 }
 
 static void spawnArcballWindow(Fl_Widget *widget, void *data) {
     (void)widget;
     (void)data;
-    //TableView *tview = (TableView*)data;
+    //MainWindow *window = (MainWindow*)data;
 }
 
-TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), widgetDataCallback(NULL), parentWidget(NULL)
+MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false)
 {
+    sqlite3_enable_shared_cache(1);
     queryInput = new TableInput(w * 0.2, 0, w * 0.75, 20, "Query:");
     queryInput->callback = performQuery;
 
@@ -192,8 +201,6 @@ TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Window(
         exit(0);
     }
 
-    widgetResetCallback = clearTable;
-
     Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
 
     sqlite3_open("", &db);
@@ -205,7 +212,7 @@ TableView::TableView(int x, int y, int w, int h, const char *label) : Fl_Window(
     queryInput->performQuery();
 }
 
-int TableView::handle(int event) {
+int MainWindow::handle(int event) {
     switch(event) {
     case FL_KEYDOWN: {
         int key = Fl::event_key();
