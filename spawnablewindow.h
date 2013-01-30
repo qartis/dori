@@ -4,7 +4,7 @@
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 
-#include "tableview/row.h"
+#include "mainwindow/row.h"
 
 class SpawnableWindow : public Fl_Window {
 
