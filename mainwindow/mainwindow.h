@@ -20,7 +20,7 @@ public:
     Table* table;
     sqlite3 *db;
     sqlite3 *db_tmp;
-    TableInput *queryInput;
+    QueryInput *queryInput;
     char buffer[BUFLEN];
     int bufMsgStartIndex;
     int bufReadIndex;

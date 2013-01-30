@@ -91,10 +91,8 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
     }
 }
 
-// Automatically set column widths to widest data in each column
 void Table::autowidth(int pad) {
     fl_font(FL_COURIER, 16); 
-    // Initialize all column widths to lowest value
     for ( int c=0; c<cols(); c++ ) col_width(c, pad);
     for ( int r=0; r<(int)_rowdata.size(); r++ ) {
         int w, h;
@@ -228,7 +226,6 @@ void Table::sort() {
             strcpy(buf + strlen(buf), ptr + strlen("desc") + 1);
         else
             strcpy(buf + strlen(buf), ptr);
-        printf("third chunk: '%s'\n", buf);
     }
     else {
         ptr = strstr(str, "limit ");
@@ -243,7 +240,6 @@ void Table::sort() {
             if(ptr) {
                 strncpy(buf, str, ptr - str);
                 sprintf(buf + (ptr - str), " order by %s %s", head[_sort_curcol], _sort_reverse ? "desc" : "asc");
-                strcpy(buf + strlen(buf), ptr);
             }
             else {
                 sprintf(buf, "%s order by %s %s;", str, head[_sort_curcol], _sort_reverse ? "desc" : "asc");

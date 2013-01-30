@@ -49,7 +49,6 @@ void MainWindow::performQuery(void *arg) {
     MainWindow *window = (MainWindow*)arg;
 
     window->needFlush = true;
-    //printf("performing query\n");
 
     int err = sqlite3_exec(window->db, window->queryInput->getSearchString(), sqlite_cb, window, NULL);
     if(err != SQLITE_OK) {
@@ -149,7 +148,7 @@ static void spawnArcballWindow(Fl_Widget *widget, void *data) {
 MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false)
 {
     sqlite3_enable_shared_cache(1);
-    queryInput = new TableInput(w * 0.2, 0, w * 0.75, 20, "Query:");
+    queryInput = new QueryInput(w * 0.2, 0, w * 0.75, 20, "Query:");
     queryInput->callback = performQuery;
 
     table = new Table(0, queryInput->h(), w, h - 20);

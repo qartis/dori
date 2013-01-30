@@ -1,22 +1,22 @@
 #include "queryinput.h"
 #include <ctype.h>
 
-static const char *defaultQuery = "select rowid, * from records;";
+static const char *defaultQuery = "select rowid, * from records order by time asc;";
 
-TableInput::TableInput(int x, int y, int w, int h, const char *label)
+QueryInput::QueryInput(int x, int y, int w, int h, const char *label)
     : Fl_Input(x, y, w, h, label), callback(NULL)
 {
     value(defaultQuery);
 }
 
-void TableInput::performQuery()
+void QueryInput::performQuery()
 {
     if (callback) {
         callback(parent());
     }
 }
 
-int TableInput::getLimit() {
+int QueryInput::getLimit() {
     const char *pos = strstr(value(), " limit ");
     if(pos) {
         pos += strlen(" limit ");
@@ -28,7 +28,7 @@ int TableInput::getLimit() {
 }
 
 
-char* TableInput::getSearchString() {
+char* QueryInput::getSearchString() {
     static char buf[256];
     strcpy(buf, value());
 
@@ -36,7 +36,7 @@ char* TableInput::getSearchString() {
     return buf;
 }
 
-int TableInput::handle(int event) {
+int QueryInput::handle(int event) {
     int key;
 
     switch(event) {

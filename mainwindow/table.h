@@ -73,7 +73,7 @@ public:
     void sort();
 
     std::vector<SpawnableWindow*>* spawned_windows;
-    TableInput *queryInput;
+    QueryInput *queryInput;
     int readyToDraw;
     std::vector<Row> _rowdata;                                  // data in each row
 
