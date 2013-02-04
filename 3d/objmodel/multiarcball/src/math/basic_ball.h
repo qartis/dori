@@ -119,7 +119,7 @@ public:
   //Cursor Types
   enum Cursors3D{ CursorNone=0,CursorDefault=1,CursorMove,CursorZoom,CursorRotate,CursorRotateX,
     CursorRotateY,CursorRotateZ,CursorZoomW};
-  virtual void cursor(){};
+  virtual void cursor(const Cursors3D cur=CursorDefault){ (void)cur; };
 };
 
 };
