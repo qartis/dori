@@ -75,7 +75,7 @@ private:
 
   bool isnrow(unsigned int idx){
     bool inm;
-    inm = (idx<0 || idx>=rows());
+    inm = (idx>=rows());
     if(inm){
 #ifdef __GET_MESSAGE
       std::cerr << "Matrix index out of columns range "<<idx<<std::endl<<" EXIT "<<EXIT<<std::endl;
@@ -87,7 +87,7 @@ private:
 
   bool isncol(unsigned int idx){
     bool inm;
-    inm = (idx<0 || idx>=cols());
+    inm = (idx>=cols());
     if(inm){
 #ifdef __GET_MESSAGE
       std::cerr << "Matrix index out of rows range "<<idx<<std::endl<<" EXIT "<<EXIT<<std::endl;

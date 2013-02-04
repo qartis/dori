@@ -1,6 +1,3 @@
-#include <FL/Fl.H>
-#include <FL/Fl_Input.H>
-
 class QueryInput : public Fl_Input {
 
 public:
@@ -11,9 +8,7 @@ public:
 
     void (*callback)(void*);
 
-    bool isLiveMode();
     char* getSearchString();
 
     int getLimit();
-
 };

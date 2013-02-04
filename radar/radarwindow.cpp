@@ -1,23 +1,27 @@
-#include "radarwindow.h"
-#include "../spawnablewindow.h"
+#include <FL/Fl.H>
+#include <FL/Fl_Gl_Window.H>
+#include <FL/Fl_Widget.H>
 #include <FL/fl_draw.H>
+#include <FL/gl.h>
 #include <math.h>
+#include <map>
+#include <vector>
 #include <limits.h>
+#include "../row.h"
+#include "radarwindow.h"
 
 #define MAX_ARCS 8
 
 #define RADAR_TYPE "laser"
 
-//So now I just need to have a pointer in RadarWindow to Table's Rows vector, and use that data to draw the points instead of the data[360]. Then use the pointCache to cache all the points by rowid.
-
-RadarWindow::RadarWindow(int x, int y, int w, int h, const char *label) : SpawnableWindow(x, y, w, h, label) {
+RadarWindow::RadarWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label) {
     insideAngle = 360.0;
     originX = w / 2.0;
     originY = h / 2.0;
-    completeRedraw = false;
     scale = 2.0;
     radius = w / 16.0;
     curPointRowID = -1;
+    rowData = NULL;
 }
 
 void RadarWindow::computeCoords(std::vector<Row>::iterator it, int &screenX, int &screenY) {
@@ -57,6 +61,7 @@ int RadarWindow::rowidOfClosestPoint(int mouseX, int mouseY) {
     int square;
 
     minSquare = INT_MAX;
+    minRowID = 0;
 
     for(it = pointCache.begin(); it != pointCache.end(); it++) {
         square = ((mouseX - it->second.screenX) * (mouseX - it->second.screenX)) + ((mouseY - it->second.screenY) * (mouseY - it->second.screenY));
@@ -100,25 +105,21 @@ int RadarWindow::handle(int event) {
             */
             if(key == FL_Down) {
                 insideAngle += 5;
-                completeRedraw = true;
                 redraw();
                 return 1;
             }
             else if(key == FL_Up) {
                 insideAngle -= 5;
-                completeRedraw = true;
                 redraw();
                 return 1;
             }
             if(key == 'w') {
                 originY -= 5.0;
-                completeRedraw = true;
                 redraw();
                 return 1;
             }
             else if(key == 's') {
                 originY += 5.0;
-                completeRedraw = true;
                 redraw();
                 return 1;
             }
@@ -127,7 +128,6 @@ int RadarWindow::handle(int event) {
                 if(scale < 1000.0) {
                     scale += 0.5;
                 }
-                completeRedraw = true;
                 redraw();
                 return 1;
             }
@@ -136,7 +136,6 @@ int RadarWindow::handle(int event) {
                 if(scale > 0.0) {
                     scale -= 0.5;
                 }
-                completeRedraw = true;
                 redraw();
                 return 1;
             }
@@ -154,22 +153,18 @@ int RadarWindow::handle(int event) {
 }
 
 void RadarWindow::draw() {
-    fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), FL_BLACK);
-    fl_color(FL_GREEN);
-
     // height of line's second point
     // is (1/2) *  width * tan(outside angle converted to radians)
     // outside angle = (180.0 - inside angle) / 2
     float outsideAngle = (180.0 - insideAngle) / 2;
     outsideAngle *= (M_PI / 180.0); // convert to radians
-    float yPos = w() * 0.5 * tan(outsideAngle);
+    //float yPos = w() * 0.5 * tan(outsideAngle);
+
+    fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), FL_BLACK);
+    fl_color(FL_GREEN);
 
     fl_line(0, originY, w(), originY);
     fl_line(originX, 0, originX, h());
-    /*
-    fl_line(originX, originY, 0, originY - yPos);
-    fl_line(originX, originY, w(), originY - yPos);
-    */
 
     char textBuffer[100];
 
@@ -179,14 +174,15 @@ void RadarWindow::draw() {
         fl_end_line();
     }
 
-    int lastValidIndex = -1;
     fl_color(FL_RED);
 
-    int startPoint = 0;
+    if(!rowData) {
+        rowData = (std::vector<Row>*)user_data();
+    }
 
     if(!rowData) {
-        printf("no rowdata in radarwindow draw()\n");
-        exit(0);
+        printf("no rowdata\n");
+        return;
     }
     std::vector<Row>::iterator it;
 
@@ -197,9 +193,15 @@ void RadarWindow::draw() {
 
         int screenX, screenY;
         computeCoords(it, screenX, screenY);
-        fl_circle(screenX, screenY, 1);
+
+        if(it->is_live_data) {
+            fl_color(FL_YELLOW);
+            fl_circle(screenX, screenY, 7);
+        }
+
+        fl_color(FL_RED);
+        fl_circle(screenX, screenY, 5);
     }
-    completeRedraw = false;
 
     if(curPointRowID != -1) {
         // draw the laser sensor line
@@ -218,13 +220,5 @@ void RadarWindow::draw() {
         fl_measure(textBuffer, textWidth, textHeight, 0);
         fl_draw(textBuffer, originX - textWidth / 2.0, originY - ((float)(i+1) * radius) - 1.0);
     }
-
-    /*
-    if(data[curPointIndex].valid) {
-        fl_measure(textBuffer, textWidth, textHeight, 0);
-        sprintf(textBuffer, "%s %d%c, %fmm", "Current point:", curPointIndex, 0x00B0, data[curPointIndex].distance);
-        fl_draw(textBuffer, 0, textHeight);
-    }
-    */
 
 }

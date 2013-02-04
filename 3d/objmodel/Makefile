@@ -1,4 +1,4 @@
-all: main
+all: 3dcontrols.o basic_ball.o FlGlArcballWindow.o Fl_Custom_Cursor.o fl_contour.o fl_gl_contour.o fl_palette.o viewport.o
 
 3dcontrols.o: ./multiarcball/src/math/3dcontrols.cpp
 	g++ -g -c ./multiarcball/src/math/3dcontrols.cpp -I./multiarcball/src/math
@@ -21,14 +21,5 @@ fl_gl_contour.o: ./fltk_contour/src/fl_gl_contour.cxx
 fl_palette.o: ./fltk_contour/src/fl_palette.cxx
 	g++ -g -c ./fltk_contour/src/fl_palette.cxx -I./fltk_contour/include
 
-tableinput.o: ../../tableview/tableinput.cpp
-	g++ -g -c -Wall -Wextra ../../tableview/tableinput.cpp `fltk-config --cxxflags --ldflags` -lsqlite3
-
-tableview.o:  ../../tableview/tableview.cpp
-	g++ -g -c -Wall -Wextra ../../tableview/tableview.cpp
-
-main: main.cpp viewport.cpp objmodel.cpp 3dcontrols.o basic_ball.o FlGlArcballWindow.o Fl_Custom_Cursor.o fl_contour.o fl_gl_contour.o fl_palette.o tableinput.o tableview.o
-	g++ -g -O3 main.cpp objmodel.cpp viewport.cpp basic_ball.o 3dcontrols.o FlGlArcballWindow.o Fl_Custom_Cursor.o -lXcursor -o main fl_contour.o fl_gl_contour.o fl_palette.o tableinput.o tableview.o `fltk-config --use-gl --cxxflags --ldflags` -L/opt/X11/lib -lglut -lGLU -I/opt/X11/include -I./multiarcball/src/FLui -I./multiarcball/src/math -I./multiarcball/src/flcursors/fltk1 -I./fltk_contour/include
-
-test: main
-	./main robot.obj
+viewport.o: viewport.cpp objmodel.cpp 3dcontrols.o basic_ball.o FlGlArcballWindow.o Fl_Custom_Cursor.o fl_contour.o fl_gl_contour.o fl_palette.o
+	g++ -g -c -O3 objmodel.cpp viewport.cpp `fltk-config --use-gl --cxxflags --ldflags` -L/opt/X11/lib -lglut -lGLU -I/opt/X11/include -I./multiarcball/src/FLui -I./multiarcball/src/math -I./multiarcball/src/flcursors/fltk1 -I./fltk_contour/include

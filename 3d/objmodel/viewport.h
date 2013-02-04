@@ -1,19 +1,11 @@
-#include <FL/Fl.H>
-#include "objmodel.h"
-#include "FlGlArcballWindow.h"
-#include "fl_gl_contour.h"
-#include <FL/Fl_Window.H>
-#include <list>
-#include "../../tableview/tableview.h"
-
 struct dataPoint {
     unsigned long time;
     char dataString[256];
 };
 
-class viewport : public FlGlArcballWindow {
+class Viewport : public FlGlArcballWindow {
 public:
-    viewport(int W, int H, const char*L=0);
+    Viewport(int x, int y, int w, int h, const char*L=0);
 
     virtual void draw();
     void addModel(ObjModel& model);
@@ -22,6 +14,7 @@ public:
     void insertDataSorted(char * s);
     std::list<dataPoint> dataList;
     std::list<dataPoint>::iterator dataIterator;
+    std::vector<Row>* rowData;
 
 private:
     virtual int handle(int event);
@@ -36,8 +29,4 @@ private:
     int gridZCells;
 
     int robotModelIndex;
-
-    Fl_Window tableViewWindow;
-    TableView tableView;
-
 };

@@ -1,13 +1,6 @@
-#include <FL/Fl.H>
-#include <FL/Fl_Widget.H>
-#include <FL/Fl_Window.H>
-#include "../spawnablewindow.h"
-#include <map>
-#include <vector>
-
 #define MAX_ANGLES 360
 
-class RadarWindow : public SpawnableWindow {
+class RadarWindow : public Fl_Window {
 
 public:
     RadarWindow(int x, int y, int w, int h, const char *label = NULL);
@@ -23,8 +16,7 @@ public:
         int screenY;
     };
 
-    std::vector<Row>* rowdata;
-
+    std::vector<Row>* rowData;
 
 private:
 
@@ -32,10 +24,7 @@ private:
     void computeCoords(std::vector<Row>::iterator it, int &screenX, int &screenY);
     int rowidOfClosestPoint(int mouseX, int mouseY);
 
-    bool completeRedraw;
-
     float insideAngle;
-
     float originX;
     float originY;
     float radius;

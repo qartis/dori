@@ -59,7 +59,7 @@ private:
 
   bool isndata(uint u){
     bool b;
-    b = (u<0 || u>=v_data.size());
+    b = (u>=v_data.size());
     if(b){
 #ifdef __GET_MESSAGE
       std::cerr << "Index out of range -"<<u<<std::endl<<"- EXIT Vector "<<EXIT<<std::endl;

@@ -1,90 +1,23 @@
+#include <FL/Fl.H>
+#include <FL/Fl_Gl_Window.H>
 #include <GL/glut.h>
+#include <vector>
+#include <list>
 #include <math.h>
 #include "basic_ball.h"
-#include "viewport.h"
+#include "../../row.h"
+#include "FlGlArcballWindow.h"
 #include "msmvtl/tmatrix.h"
+#include "objmodel.h"
+#include "fl_gl_contour.h"
+#include "viewport.h"
 
 const static char* laser_type = "laser";
 const static char* gps_type = "gps";
 const static char* accel_type = "accel";
 const static char* robot_filename = "robot.obj";
 
-static void resetCallback(void *widget) {
-    if(widget == NULL) {
-        perror("widget = NULL in 3d reset callback");
-        return;
-    }
-
-    viewport *vp = (viewport *)widget;
-
-    if(vp == NULL) {
-        printf("vp is null\n");
-    }
-    vp->dataList.clear();
-    vp->dataIterator = vp->dataList.begin();
-
-    vp->redraw();
-}
-static void dataCallback(void *data, void *widget) {
-    if(widget == NULL) {
-        printf("widget = NULL in 3d data callback");
-        return;
-    }
-
-    if(data == NULL) {
-        printf("data = NULL in 3d data callback");
-        return;
-    }
-
-    viewport *vp = (viewport *)widget;
-    ObjModel* robot = vp->getModel(robot_filename);
-
-    if(robot == NULL) {
-        printf("robot model not found!\n");
-        return;
-    }
-
-    printf("inserting sorted data\n");
-    char *buf = (char *)data;
-    vp->insertDataSorted(buf);
-}
-
-static void processData(void *ptr) {
-    printf("called processData...\n");
-
-    viewport* vp = (viewport*)ptr;
-    char type[32];
-    char a[32];
-    char b[32];
-    char c[32];
-    unsigned long time = 0;
-
-    if(vp->dataIterator != vp->dataList.end()) {
-        sscanf(vp->dataIterator->dataString, "%[^,],%[^,],%[^,],%[^,],%d", type, a, b, c, &time);
-
-
-        if(strcmp(type, accel_type) == 0) {
-            float af;
-            float bf;
-            float cf;
-
-            af = atof(a);
-            bf = atof(b);
-            cf = atof(c);
-
-            printf("setting rotation to: %f %f %f\n", af, bf, cf);
-            vp->getModel(robot_filename)->setRot(af, bf, cf);
-            vp->redraw();
-        }
-        ++vp->dataIterator;
-    }
-    else {
-        vp->dataIterator = vp->dataList.begin();
-    }
-    Fl::repeat_timeout(1.0, processData, ptr);
-}
-
-void viewport::insertDataSorted(char *s) {
+void Viewport::insertDataSorted(char *s) {
     std::list<dataPoint>::iterator it = dataList.begin();
 
     char type[32];
@@ -116,9 +49,8 @@ void viewport::insertDataSorted(char *s) {
 }
 
 //make derived class
-viewport::viewport(int w,int h,const char*l) :
-FlGlArcballWindow(w,h,l), tableViewWindow(w, h), tableView(0, 0, w, h) {
-    // end() to prevent fl_gl_contour from being added to tableViewWindow
+Viewport::Viewport(int x, int y, int w,int h,const char*l) :
+FlGlArcballWindow(w,h,l) {
     end();
 
     contour = new fl_gl_contour(172, 3, 593, 472, "no opengl");
@@ -163,21 +95,14 @@ FlGlArcballWindow(w,h,l), tableViewWindow(w, h), tableView(0, 0, w, h) {
     contour->graph_3d(graphType3d);
     contour->graph_cb();
 
-    tableViewWindow.position(x() + w, y());
-    tableView.parentWidget = this;
-    tableView.widgetDataCallback = dataCallback;
-    tableView.widgetResetCallback = resetCallback;
-
     dataIterator = dataList.begin();
-
-    Fl::add_timeout(2.0, processData, (void*)this);
 }
 
-void viewport::addModel(ObjModel& model) {
+void Viewport::addModel(ObjModel& model) {
     models.push_back(model);
 }
 
-ObjModel* viewport::getModel(const char* file) {
+ObjModel* Viewport::getModel(const char* file) {
     for(unsigned int i = 0; i < models.size(); i++) {
         if(strstr(models[i].getFilename(), file)) {
             return &models[i];
@@ -188,22 +113,13 @@ ObjModel* viewport::getModel(const char* file) {
 }
 
 
-int viewport::handle(int event) {
+int Viewport::handle(int event) {
     bool needToRedraw = false;
 
     switch(event) {
     case FL_KEYDOWN: {
         int key = Fl::event_key();
-        if(key == (FL_F + 1)) {
-            if(!tableViewWindow.shown()) {
-                tableViewWindow.show();
-            }
-            else {
-                tableViewWindow.hide();
-            }
-            return 1;
-        }
-        else if(key >= '1' && key <= '5') {
+        if(key >= '1' && key <= '5') {
             // these set functions (eg set_palette) return 1 if the value has changed and 0 if the value hasn't changed
             if(contour->set_palette(key - '1')) {
                 int palette = key - '1';
@@ -260,7 +176,7 @@ int viewport::handle(int event) {
 }
 
 //rewrite draw method
-void viewport::draw(){
+void Viewport::draw(){
     reshape();
     if(!valid()){
         static GLfloat light_diffuse[] = {1.0, 0.0, 0.0, 1.0};

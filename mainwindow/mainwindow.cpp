@@ -1,6 +1,8 @@
 #include <FL/fl_draw.H>
 #include <FL/Fl_Input.H>
 #include <FL/Fl_Float_Input.H>
+#include <FL/Fl_Table_Row.H>
+#include <FL/Fl_Gl_Window.H>
 #include <FL/Fl_Tile.H>
 #include <FL/fl_ask.H>
 #include <FL/Fl_Box.H>
@@ -12,13 +14,21 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <vector>
+#include <list>
+#include <string.h>
+#include <map>
+#include "../row.h"
+#include "queryinput.h"
+#include "ctype.h"
+#include "table.h"
+#include "../3d/objmodel/objmodel.h"
+#include "../radar/radarwindow.h"
+#include "../3d/objmodel/multiarcball/src/math/3dcontrols.h"
+#include "../3d/objmodel/multiarcball/src/FLui/FlGlArcballWindow.h"
+#include "../3d/objmodel/fltk_contour/include/fl_gl_contour.h"
+#include "../3d/objmodel/viewport.h"
 #include "mainwindow.h"
-
-#define COL0_HEADER "type"
-#define COL1_HEADER "a"
-#define COL2_HEADER "b"
-#define COL3_HEADER "c"
-#define COL4_HEADER "timestamp"
 
 #define PORT 1337
 #define SERVER "127.0.0.1"
@@ -39,16 +49,18 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **rows)
         window->needFlush = false;
     }
 
-    window->table->add_row(buf);
+    //printf("greenify is: %d, for:", window->greenify);
+    //printf("%s\t%s\t%s\t%s\t%s\t%s\n", cols[0], cols[1], cols[2], cols[3], cols[4], cols[5]);
+    window->table->add_row(buf, window->greenify);
 
     return 0;
 }
-
 
 void MainWindow::performQuery(void *arg) {
     MainWindow *window = (MainWindow*)arg;
 
     window->needFlush = true;
+    window->greenify = false;
 
     int err = sqlite3_exec(window->db, window->queryInput->getSearchString(), sqlite_cb, window, NULL);
     if(err != SQLITE_OK) {
@@ -69,7 +81,7 @@ void MainWindow::clearTable(void *arg) {
     MainWindow *window = (MainWindow*)arg;
     window->table->clear();
 
-    std::vector<SpawnableWindow*>::iterator it;
+    std::vector<Fl_Window*>::iterator it;
     for(it = window->spawned_windows.begin(); it != window->spawned_windows.end(); it++) {
         (*it)->redraw();
     }
@@ -103,7 +115,16 @@ static void handleFD(int fd, void *data) {
         if(index == 6) {
             int rowid = atoi(field[0]);
 
+            if(window->table->readyToDraw) {
+                window->greenify = true;
+            }
+
             if(rowid == -1) {
+                int err = sqlite3_exec(window->db, "COMMIT TRANSACTION", NULL, NULL, NULL);
+                if(err != SQLITE_OK) {
+                    printf("sqlite error: %s\n", sqlite3_errmsg(window->db));
+                }
+
                 window->table->readyToDraw = 1;
                 window->performQuery(window);
                 index = 0;
@@ -116,17 +137,20 @@ static void handleFD(int fd, void *data) {
 
             sqlite3_exec(window->db_tmp, query, NULL, NULL, NULL);
             sqlite3_exec(window->db_tmp, window->queryInput->getSearchString(), window->sqlite_cb, window, NULL);
+
+
             sqlite3_exec(window->db_tmp, "DELETE FROM records;", NULL, NULL, NULL);
-            window->table->sort();
+            window->table->sortUI();
             int limit = window->queryInput->getLimit();
             if(limit > 0) {
                 if(window->table->totalRows() > limit) {
                     window->table->remove_last_row();
                 }
             }
+
+            window->greenify = false;
         }
     }
-    window->performQuery(window);
 }
 
 static void spawnRadarWindow(Fl_Widget *widget, void *data) {
@@ -134,18 +158,28 @@ static void spawnRadarWindow(Fl_Widget *widget, void *data) {
     MainWindow *window = (MainWindow*)data;
 
     RadarWindow *newRadar = new RadarWindow(0, 0, 600, 600);
-    newRadar->rowData = &window->table->_rowdata;
+    newRadar->user_data(&window->table->_rowdata);
     newRadar->show();
     window->spawned_windows.push_back(newRadar);
 }
 
-static void spawnArcballWindow(Fl_Widget *widget, void *data) {
+static void spawnModelViewer(Fl_Widget *widget, void *data) {
+    (void)widget;
+    MainWindow *window = (MainWindow*)data;
+
+    Viewport *viewport = new Viewport(0, 0, 600, 600);
+    viewport->rowData = &window->table->_rowdata;
+    viewport->show();
+    window->spawned_windows.push_back(viewport);
+}
+
+static void spawnSceneEditor(Fl_Widget *widget, void *data) {
     (void)widget;
     (void)data;
     //MainWindow *window = (MainWindow*)data;
 }
 
-MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false)
+MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), greenify(false)
 {
     sqlite3_enable_shared_cache(1);
     queryInput = new QueryInput(w * 0.2, 0, w * 0.75, 20, "Query:");
@@ -166,12 +200,15 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     // resize this window to the size of the buttons below
     widgetWindow = new Fl_Window(w/2, h/2, 0, 0);
 
-    Fl_Button *radar = new Fl_Button(5, 5, 80, 30, "Radar");
-    Fl_Button *arcball = new Fl_Button(5, radar->y() + radar->h(), 80, 30, "Arcball");
+    Fl_Button *radar = new Fl_Button(5, 5, 100, 30, "Radar");
+    Fl_Button *modelViewer = new Fl_Button(5, radar->y() + radar->h(), 100, 30, "3D");
+    Fl_Button *sceneEditor = new Fl_Button(5, modelViewer->y() + modelViewer->h(), 100, 30, "Scene Editor");
 
     radar->callback(spawnRadarWindow, this);
-    arcball->callback(spawnArcballWindow, this);
-    widgetWindow->resize(0, 0, radar->w() + 10, radar->y() + radar->h() + arcball->h() + 5);
+    modelViewer->callback(spawnModelViewer, this);
+    sceneEditor->callback(spawnSceneEditor, this);
+
+    widgetWindow->resize(0, 0, radar->w() + 10, 3 * radar->h() + 10);
     widgetWindow->end();
 
     struct sockaddr_in serv_addr;
@@ -208,7 +245,10 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     sqlite3_open("", &db_tmp);
     sqlite3_exec(db_tmp, "CREATE TABLE records(type, a, b, c, time timestamp);", NULL, NULL, NULL);
 
-    queryInput->performQuery();
+    int err = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+    if(err != SQLITE_OK) {
+        printf("sqlite error: %s\n", sqlite3_errmsg(db));
+    }
 }
 
 int MainWindow::handle(int event) {
@@ -223,10 +263,13 @@ int MainWindow::handle(int event) {
                 widgetWindow->hide();
             }
         }
+        if(key == (FL_F + 5)) {
+            table->clearNewQueries();
+        }
+
         return 0;
     }
     default:
         return Fl_Window::handle(event);
     }
-
 }
