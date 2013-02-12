@@ -1,5 +1,6 @@
 #include "objmodel.h"
 #include <cstdio>
+#include <cstdlib>
 #include <GL/glu.h>
 
 #define BUFF_SIZE 64
@@ -8,9 +9,14 @@ void ObjModel::load(const char * file) {
     strcpy(filename, file);
     fp = fopen(filename, "rt");
 
+    if(!fp) {
+        printf("file not found: %s\n", file);
+        exit(0);
+    }
+
     char line[BUFF_SIZE];
     char type;
-    float a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+    float a = 1.0, b = 1.0, c = 1.0, d = 1.0;
     while(fgets(line, BUFF_SIZE, fp) != NULL) {
         int num_read = sscanf(line, "%c %f %f %f %f", &type, &a, &b, &c, &d);
         // we'll only grab lines that have either 4 or 5 items
@@ -35,10 +41,13 @@ void ObjModel::load(const char * file) {
     }
 }
 
-void ObjModel::draw() {
-    glPushMatrix();
+void ObjModel::draw(bool newMatrix) {
+    if(newMatrix) {
+        glPushMatrix();
+    }
 
     glTranslatef(xPos, yPos, zPos);
+
     glRotatef(xRot, 1.0, 0.0, 0.0);
     glRotatef(yRot, 0.0, 1.0, 0.0);
     glRotatef(zRot, 0.0, 0.0, 1.0);
@@ -65,6 +74,9 @@ void ObjModel::draw() {
         }
         glEnd();
     }
-    glPopMatrix();
+
+    if(newMatrix) {
+        glPopMatrix();
+    }
 }
 

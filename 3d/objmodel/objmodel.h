@@ -1,6 +1,3 @@
-#ifndef __OBJMODEL__
-#define __OBJMODEL__
-
 #include <vector>
 #include "vectors.h"
 #include <string.h>
@@ -20,7 +17,7 @@ public:
     }
 
     void load(const char * file);
-    void draw();
+    void draw(bool newMatrix = true);
 
     const char* getFilename() {
         return filename;
@@ -38,8 +35,6 @@ public:
         zRot = z;
     }
 
-private:
-
     float xPos;
     float yPos;
     float zPos;
@@ -48,9 +43,9 @@ private:
     float yRot;
     float zRot;
 
-    char filename[256];
+private:
+
+        char filename[256];
 
     FILE *fp;
 };
-
-#endif

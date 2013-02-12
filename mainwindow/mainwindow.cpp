@@ -167,8 +167,10 @@ static void spawnModelViewer(Fl_Widget *widget, void *data) {
     (void)widget;
     MainWindow *window = (MainWindow*)data;
 
-    Viewport *viewport = new Viewport(0, 0, 600, 600);
-    viewport->rowData = &window->table->_rowdata;
+    // showDORI = true
+    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, true, false);
+    viewport->user_data(&window->table->_rowdata);
+
     viewport->show();
     window->spawned_windows.push_back(viewport);
 }

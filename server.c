@@ -148,9 +148,9 @@ int main()
             char buf[256];
             read(0, buf, sizeof(buf));
             char *types[] = {
-                "gps", "laser", "accel", "temp"
+                "gps", "laser", "accel", "temp", "arm", "plate", "orientation"
             };
-            int type = rand() % 4;
+            int type = rand() % (sizeof(types) / sizeof(*types));
             int a, b, c;
             a = rand() % 360;
             b = rand() % 100;

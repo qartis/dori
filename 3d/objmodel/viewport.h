@@ -4,16 +4,21 @@ struct dataPoint {
 };
 
 class Viewport : public FlGlArcballWindow {
+
 public:
-    Viewport(int x, int y, int w, int h, const char*L=0);
+    Viewport(int x, int y, int w, int h, const char*L=0, bool dori = false, bool showCont = false);
+    ~Viewport();
 
     virtual void draw();
     void addModel(ObjModel& model);
     ObjModel* getModel(const char *filename);
 
     void insertDataSorted(char * s);
-    std::list<dataPoint> dataList;
-    std::list<dataPoint>::iterator dataIterator;
+
+    ObjModel *dori_body;
+    ObjModel *dori_arm;
+    ObjModel *dori_sensor_plate;
+
     std::vector<Row>* rowData;
 
 private:
@@ -28,5 +33,6 @@ private:
     int gridYCells;
     int gridZCells;
 
-    int robotModelIndex;
+    bool showDORI;
+    bool showContour;
 };

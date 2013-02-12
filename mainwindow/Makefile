@@ -6,8 +6,8 @@ main: main.cpp mainwindow.h mainwindow.cpp queryinput.h queryinput.cpp table.h t
 ../radar/radarwindow.o: ../radar/radarwindow.cpp ../radar/radarwindow.h
 	cd ../radar; make
 
-../3d/objmodel/viewport.o:
+../3d/objmodel/viewport.o: ../3d/objmodel/viewport.cpp ../3d/objmodel/viewport.h ../3d/objmodel/objmodel.cpp ../3d/objmodel/objmodel.h
 	cd ../3d/objmodel; make
 
-test:
+test: main
 	./main
