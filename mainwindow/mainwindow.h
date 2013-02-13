@@ -17,7 +17,7 @@ public:
     int bufReadIndex;
     int sockfd;
 
-    Fl_Window *widgetWindow;
+    WidgetWindow *widgetWindow;
 
     std::vector<Fl_Window*> spawned_windows;
     static int sqlite_cb(void *arg, int ncols, char **cols, char **rows);
@@ -27,4 +27,6 @@ public:
     bool needFlush;
 
     bool greenify;
+    
+    std::vector<const char *> headers;
 };

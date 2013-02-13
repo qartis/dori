@@ -62,12 +62,14 @@ public:
     void changeSort();
     void sortUI();
 
+    std::vector<const char *>* headers;
     std::vector<Fl_Window*>* spawned_windows;
     QueryInput *queryInput;
     int readyToDraw;
     std::vector<Row> _rowdata;
 
     int totalRows() { return _rowdata.size(); }
+
 };
 
 

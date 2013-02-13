@@ -7,6 +7,7 @@
 #include <FL/fl_ask.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
+#include <FL/Fl_Choice.H>
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>
@@ -28,6 +29,7 @@
 #include "../3d/objmodel/multiarcball/src/FLui/FlGlArcballWindow.h"
 #include "../3d/objmodel/fltk_contour/include/fl_gl_contour.h"
 #include "../3d/objmodel/viewport.h"
+#include "widgetwindow.h"
 #include "mainwindow.h"
 
 #define PORT 1337
@@ -153,33 +155,6 @@ static void handleFD(int fd, void *data) {
     }
 }
 
-static void spawnRadarWindow(Fl_Widget *widget, void *data) {
-    (void)widget;
-    MainWindow *window = (MainWindow*)data;
-
-    RadarWindow *newRadar = new RadarWindow(0, 0, 600, 600);
-    newRadar->user_data(&window->table->_rowdata);
-    newRadar->show();
-    window->spawned_windows.push_back(newRadar);
-}
-
-static void spawnModelViewer(Fl_Widget *widget, void *data) {
-    (void)widget;
-    MainWindow *window = (MainWindow*)data;
-
-    // showDORI = true
-    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, true, false);
-    viewport->user_data(&window->table->_rowdata);
-
-    viewport->show();
-    window->spawned_windows.push_back(viewport);
-}
-
-static void spawnSceneEditor(Fl_Widget *widget, void *data) {
-    (void)widget;
-    (void)data;
-    //MainWindow *window = (MainWindow*)data;
-}
 
 MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), greenify(false)
 {
@@ -193,6 +168,14 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     table->col_resize(1);
     table->when(FL_WHEN_RELEASE);
     table->spawned_windows = &spawned_windows;
+    table->headers = &headers;
+
+    headers.push_back("rowid");
+    headers.push_back("type");
+    headers.push_back("a");
+    headers.push_back("b");
+    headers.push_back("c");
+    headers.push_back("time");
 
     add(queryInput);
     table->queryInput = queryInput;
@@ -200,18 +183,7 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     end();
 
     // resize this window to the size of the buttons below
-    widgetWindow = new Fl_Window(w/2, h/2, 0, 0);
-
-    Fl_Button *radar = new Fl_Button(5, 5, 100, 30, "Radar");
-    Fl_Button *modelViewer = new Fl_Button(5, radar->y() + radar->h(), 100, 30, "3D");
-    Fl_Button *sceneEditor = new Fl_Button(5, modelViewer->y() + modelViewer->h(), 100, 30, "Scene Editor");
-
-    radar->callback(spawnRadarWindow, this);
-    modelViewer->callback(spawnModelViewer, this);
-    sceneEditor->callback(spawnSceneEditor, this);
-
-    widgetWindow->resize(0, 0, radar->w() + 10, 3 * radar->h() + 10);
-    widgetWindow->end();
+    widgetWindow = new WidgetWindow(w, 0, 200, 320, NULL, table);
 
     struct sockaddr_in serv_addr;
     struct hostent *server = NULL;
@@ -269,7 +241,7 @@ int MainWindow::handle(int event) {
             table->clearNewQueries();
         }
 
-        return 0;
+        return 1;
     }
     default:
         return Fl_Window::handle(event);

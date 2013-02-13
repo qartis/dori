@@ -16,8 +16,6 @@
 
 #define MARGIN 20
 
-static const char *head[] = { "rowid", "type", "a", "b", "c", "time" };
-
 // Sort a column up or down
 void Table::sort_column(int col, int reverse) {
     std::stable_sort(_rowdata.begin(), _rowdata.end(), SortColumn(col, reverse));
@@ -78,7 +76,7 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
             if ( C < 9 ) {
                 fl_font(FL_HELVETICA_BOLD, 16);
                 fl_color(FL_BLACK);
-                fl_draw(head[C], X+2,Y,W,H, FL_ALIGN_LEFT, 0, 0);         // +2=pad left 
+                fl_draw((*headers)[C], X+2,Y,W,H, FL_ALIGN_LEFT, 0, 0);         // +2=pad left 
                 // Draw sort arrow
                 if ( C == _sort_lastcol ) {
                     draw_sort_arrow(X,Y,W,H, _sort_reverse);
@@ -246,7 +244,7 @@ void Table::changeSort() {
 
     if(ptr) {
         strncpy(buf, str, ptr - str);
-        sprintf(buf + (ptr - str), "order by %s %s", head[_sort_curcol], _sort_reverse ? "asc" : "desc");
+        sprintf(buf + (ptr - str), "order by %s %s", (*headers)[_sort_curcol], _sort_reverse ? "asc" : "desc");
 
         /*char *order = */strtok(ptr, " ");
         char *by = strtok(NULL, " ");
@@ -272,7 +270,7 @@ void Table::changeSort() {
         ptr = strstr(str, "limit ");
         if (ptr) {
             strncpy(buf, str, ptr - str);
-            sprintf(buf + (ptr - str), "order by %s %s", head[_sort_curcol], _sort_reverse ? "asc" : "desc");
+            sprintf(buf + (ptr - str), "order by %s %s", (*headers)[_sort_curcol], _sort_reverse ? "asc" : "desc");
             strcat(buf, " ");
             strcat(buf, ptr);
         }
@@ -281,10 +279,10 @@ void Table::changeSort() {
 
             if(ptr) {
                 strncpy(buf, str, ptr - str);
-                sprintf(buf + (ptr - str), " order by %s %s", head[_sort_curcol], _sort_reverse ? "asc" : "desc");
+                sprintf(buf + (ptr - str), " order by %s %s", (*headers)[_sort_curcol], _sort_reverse ? "asc" : "desc");
             }
             else {
-                sprintf(buf, "%s order by %s %s", str, head[_sort_curcol], _sort_reverse ? "asc" : "desc");
+                sprintf(buf, "%s order by %s %s", str, (*headers)[_sort_curcol], _sort_reverse ? "asc" : "desc");
             }
         }
     }
