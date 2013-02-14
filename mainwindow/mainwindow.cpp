@@ -35,24 +35,29 @@
 #define PORT 1337
 #define SERVER "127.0.0.1"
 
-int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **rows)
+int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
 {
-    (void)rows;
-    (void)ncols;
-
-    char buf[256];
-
-    sprintf(buf, "%s\t%s\t%s\t%s\t%s\t%s", cols[0], cols[1], cols[2], cols[3], cols[4], cols[5]);
+    char buf[512] = { 0 };
 
     MainWindow *window = (MainWindow*)arg;
+    int index = 0;
+
+    for(int i = 0; i < ncols; i++) {
+        sprintf(&buf[index], "%s\t", cols[i]);
+        index += strlen(cols[i]) + 1;
+    }
 
     if(window->needFlush) {
+        window->headers.clear();
+
+        for(int i = 0; i < ncols; i++) {
+            window->headers.push_back(strdup(colNames[i]));
+        }
+
         window->clearTable(window);
         window->needFlush = false;
     }
 
-    //printf("greenify is: %d, for:", window->greenify);
-    //printf("%s\t%s\t%s\t%s\t%s\t%s\n", cols[0], cols[1], cols[2], cols[3], cols[4], cols[5]);
     window->table->add_row(buf, window->greenify);
 
     return 0;

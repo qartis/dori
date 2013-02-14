@@ -29,4 +29,5 @@ public:
     bool greenify;
     
     std::vector<const char *> headers;
+    std::vector<const char *> prev_queries;
 };

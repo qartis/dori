@@ -53,15 +53,6 @@ void Table::draw() {
         return;
     }
 
-    /*
-    printf("======================================================\n");
-    for(unsigned i = 0; i < _rowdata.size(); i++) {
-        printf("%s\n", _rowdata[i].col_str);
-    }
-    printf("======================================================\n\n\n");
-    */
-
-
     return Fl_Table_Row::draw();
 }
 // Handle drawing all cells in table
@@ -111,15 +102,31 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
 }
 
 void Table::autowidth(int pad) {
-    fl_font(FL_COURIER, 16); 
+    fl_font(FL_COURIER, 16);
+
+    int columns_width = 0;
+    int w, h;
     for ( int c=0; c<cols(); c++ ) col_width(c, pad);
     for ( int r=0; r<(int)_rowdata.size(); r++ ) {
-        int w, h;
         for ( int c=0; c<(int)_rowdata[r].cols.size(); c++ ) {
-            fl_measure(_rowdata[r].cols[c], w, h, 0);           // get pixel width of text
+            fl_measure(_rowdata[r].cols[c], w, h, 0);
             if ( (w + pad) > col_width(c)) col_width(c, w + pad);
+            if(r == ((int)_rowdata.size() - 1)) {
+                columns_width += col_width(c);
+            }
         }
     }
+
+    if(_rowdata.size() > 0 && (columns_width < this->w())) {
+        int difference_per_col = (this->w() - columns_width) / _rowdata[0].cols.size();
+
+        if(difference_per_col > 0) {
+            for ( int c=0; c<cols(); c++ ) {
+                col_width(c, col_width(c) + difference_per_col);
+            }
+        }
+    }
+
     table_resized();
     redraw();
 }
@@ -204,6 +211,7 @@ int Table::minimum_row(unsigned int column_index) {
 void Table::clear() {
     _rowdata.clear();
     rows(0);
+    cols(0);
     redraw();
 }
 

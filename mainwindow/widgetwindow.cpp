@@ -85,13 +85,33 @@ static void graphCallback(Fl_Widget *widget, void *data) {
     (void)widget;
     WidgetWindow *window = (WidgetWindow*)data;
 
+    system("rm plotfifo");
     system("mkfifo plotfifo");
+
+    std::vector<Row>::iterator it = window->table->_rowdata.begin();
+
+    system("gnuplot -p -e \"plot \\\"plotfifo\\\"\" &");
+
+    int fd = open("plotfifo", O_WRONLY);
+
+    int xAxis = window->xAxis->value();
+    int yAxis = window->yAxis->value();
+
+    for(; it != window->table->_rowdata.end(); it++) {
+        write(fd, it->cols[xAxis], strlen(it->cols[xAxis]));
+        write(fd, "\t", strlen("\t"));
+        write(fd, it->cols[yAxis], strlen(it->cols[yAxis]));
+        write(fd, "\n", strlen("\n"));
+    }
+
+    close(fd);
+
+    /*
     system("mkfifo control");
     system("echo \"1 2\" > plotfifo &");
     popen("xterm -e \"gnuplot control\"", "w");
     window->controlFD = open("control", O_WRONLY);
     write(window->controlFD, "plot \"plotfifo\"\n", strlen("plot \"plotfifo\"\n"));
-    /*
     window->graphInput->callback(graphInputCallback, data);
     window->graphInput->when(FL_WHEN_ENTER_KEY);
     */

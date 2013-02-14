@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <vector>
 #include "queryinput.h"
 
 static const char *defaultQuery = "select rowid, * from records order by time";
@@ -49,9 +50,12 @@ int QueryInput::handle(int event) {
             value(defaultQuery);
             performQuery();
             return 1;
-        } else { 
+        } else {
             if(!Fl_Input::handle(event)) {
                 return 0;
+            }
+            if(key == FL_Left || key == FL_Right) {
+                return 1;
             }
 
             performQuery();
