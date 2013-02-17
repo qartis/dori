@@ -1,0 +1,53 @@
+PROG_DEVICE = /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A4007hkl-if00-port0
+PROG_TYPE = stk500v2
+GCC_PART ?= atmega88
+DUDE_PART ?= m88
+CC = avr-gcc
+STD ?= -ansi -std=c99
+WARNINGS ?= -fmessage-length=0 -fwrapv -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Werror -Wall -Wextra -Wshadow -Wwrite-strings -Wstrict-overflow=5 -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wstrict-prototypes -Wno-error=unused-variable -Wformat-security -Wpointer-to-int-cast -Wint-to-pointer-cast -Wno-missing-field-initializers -Wno-error=unused-label -Wno-error=strict-aliasing -Wno-error=unused-but-set-variable
+CFLAGS ?= $(WARNINGS) -Os -mcall-prologues -mmcu=$(GCC_PART) -I/usr/avr/include -L. -Wl,-Map,main.map,--cref $(STD) -DF_CPU=$(F_CPU)
+ASFLAGS = -mmcu=$(GCC_PART) -I/usr/avr/include
+OBJS ?= $(patsubst %.c,%.o,$(wildcard *.c)) $(patsubst %.S,%.o,$(wildcard *.S))
+
+all: main.hex
+
+$(OBJS) : $(wildcard *.h) Makefile
+
+%.o : %.c
+	$(CC) -c $(CFLAGS) $< -o $@
+
+%.o : %.S
+	$(CC) -c $(ASFLAGS) $< -o $@
+
+%.E : %.S
+	$(CC) -c $(ASFLAGS) $< -o $@ -E
+
+%.lst : %.S
+	avr-as -mmcu=$(GCC_PART) -alhnd $< > $@ 
+	rm a.out
+
+%.S : %.c
+	$(CC) -c $(CFLAGS) -fverbose-asm $< -o $@ -S
+
+main.hex: main.elf
+	avr-objcopy -j .text -j .data -O ihex main.elf main.hex
+	avr-size main.elf
+#avr-size -C --mcu=$(GCC_PART) main.elf
+
+main.elf: $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o main.elf
+
+clean:; rm -f $(OBJS) main.elf main.hex main.map
+
+load: main.hex
+	avrdude -V -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -e -U flash:w:main.hex -F
+
+read: 
+	avrdude -P /dev/ttyUSB0 -p m328p -c stk500v2 -U flash:r:flash.hex:r
+
+term:
+	avrdude -P /dev/ttyUSB0 -p m328p -c stk500v2 -t
+
+rdfuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -v -q
+
+boot:; avrdude -P $(PROG_DEVICE) -n -c $(PROG_TYPE) -p $(DUDE_PART)
