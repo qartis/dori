@@ -14,20 +14,20 @@ all: main.hex
 $(OBJS) : $(wildcard *.h) Makefile
 
 %.o : %.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -DFLASH_SECTION='"$(FLASH_SECTION)"'
 
 %.o : %.S
-	$(CC) -c $(ASFLAGS) $< -o $@
+	$(CC) -c $(ASFLAGS) $< -o $@ -DFLASH_SECTION='"$(FLASH_SECTION)"'
 
 %.E : %.S
-	$(CC) -c $(ASFLAGS) $< -o $@ -E
+	$(CC) -c $(ASFLAGS) $< -o $@ -E -DFLASH_SECTION='"$(FLASH_SECTION)"'
 
 %.lst : %.S
 	avr-as -mmcu=$(GCC_PART) -alhnd $< > $@ 
 	rm a.out
 
 %.S : %.c
-	$(CC) -c $(CFLAGS) -fverbose-asm $< -o $@ -S
+	$(CC) -c $(CFLAGS) -fverbose-asm $< -o $@ -S -DFLASH_SECTION='"$(FLASH_SECTION)"'
 
 main.hex: main.elf
 	avr-objcopy -j .text -j .data -O ihex main.elf main.hex
@@ -35,9 +35,9 @@ main.hex: main.elf
 #avr-size -C --mcu=$(GCC_PART) main.elf
 
 main.elf: $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o main.elf
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o main.elf -DFLASH_SECTION='"$(FLASH_SECTION)"'
 
-clean:; rm -f $(OBJS) main.elf main.hex main.map
+clean:; rm -f $(OBJS) main.elf main.hex main.map main.E main.S
 
 load: main.hex
 	avrdude -V -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -e -U flash:w:main.hex -F
