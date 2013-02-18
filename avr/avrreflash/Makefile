@@ -3,7 +3,7 @@ DUDE_PART = m328p
 F_CPU = 8000000L
 FLASH_SECTION = .flashed
 
-LDFLAGS = -Wl,-section-start=.bootloader=0x7800,-section-start=$(FLASH_SECTION)=0x1000
+LDFLAGS = -Wl,-section-start=.bootloader=0x7800,-section-start=$(FLASH_SECTION)=0x2000
 
 include Makefile.avr
 
