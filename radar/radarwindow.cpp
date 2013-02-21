@@ -184,12 +184,17 @@ void RadarWindow::draw() {
         printf("no rowdata\n");
         return;
     }
+
     std::vector<Row>::iterator it;
+    int lastPointRowID = curPointRowID;
+    curPointRowID = -1;
 
     for(it = rowData->begin(); it != rowData->end(); it++) {
         if(strcmp(it->cols[1], RADAR_TYPE) != 0) {
             continue;
         }
+
+        curPointRowID = lastPointRowID;
 
         int screenX, screenY;
         computeCoords(it, screenX, screenY);

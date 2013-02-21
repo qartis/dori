@@ -15,7 +15,7 @@ public:
     Fl_Box *widgetGroupLabel;
     Fl_Button *radar;
     Fl_Button *modelViewer;
-    Fl_Button *sceneEditor;
+    Fl_Button *sceneViewer;
 
     Fl_Window *graphGroup;
     Fl_Box *graphGroupLabel;

@@ -118,7 +118,7 @@ void Table::autowidth(int pad) {
     }
 
     if(_rowdata.size() > 0 && (columns_width < this->w())) {
-        int difference_per_col = (this->w() - columns_width) / _rowdata[0].cols.size();
+        int difference_per_col = (this->w() - columns_width - MARGIN) / _rowdata[0].cols.size();
 
         if(difference_per_col > 0) {
             for ( int c=0; c<cols(); c++ ) {

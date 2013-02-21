@@ -74,11 +74,15 @@ static void spawnModelViewer(Fl_Widget *widget, void *data) {
     window->table->spawned_windows->push_back(viewport);
 }
 
-static void spawnSceneEditor(Fl_Widget *widget, void *data) {
+static void spawnSceneViewer(Fl_Widget *widget, void *data) {
     (void)widget;
-    (void)data;
+    WidgetWindow *window = (WidgetWindow*)data;
 
-    //WidgetWindow *window = (WidgetWindow*)data;
+    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, true, true);
+    viewport->user_data(&window->table->_rowdata);
+
+    viewport->show();
+    window->table->spawned_windows->push_back(viewport);
 }
 
 static void graphCallback(Fl_Widget *widget, void *data) {
@@ -129,7 +133,7 @@ WidgetWindow::WidgetWindow(int x, int y, int w, int h, const char *label, Table 
     widgetGroup->begin();
     radar = new Fl_Button(widgetGroup->x() + 5, 5, 150, 30, "Radar");
     modelViewer = new Fl_Button(radar->x(), radar->y() + radar->h(), 150, 30, "3D");
-    sceneEditor = new Fl_Button(modelViewer->x(), modelViewer->y() + modelViewer->h(), 150, 30, "Scene Editor");
+    sceneViewer = new Fl_Button(modelViewer->x(), modelViewer->y() + modelViewer->h(), 150, 30, "Scene Viewer");
     widgetGroup->end();
 
     graphGroupLabel = new Fl_Box(15, widgetGroup->y() + widgetGroup->h() + 15, 60, 20, "Graphing:");
@@ -152,7 +156,7 @@ WidgetWindow::WidgetWindow(int x, int y, int w, int h, const char *label, Table 
 
     radar->callback(spawnRadarWindow, this);
     modelViewer->callback(spawnModelViewer, this);
-    sceneEditor->callback(spawnSceneEditor, this);
+    sceneViewer->callback(spawnSceneViewer, this);
     graph->callback(graphCallback, this);
 
     if(table) {
