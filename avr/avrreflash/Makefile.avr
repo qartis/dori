@@ -9,25 +9,27 @@ CFLAGS ?= $(WARNINGS) -Os -mcall-prologues -mmcu=$(GCC_PART) -I/usr/avr/include 
 ASFLAGS = -mmcu=$(GCC_PART) -I/usr/avr/include
 OBJS ?= $(patsubst %.c,%.o,$(wildcard *.c)) $(patsubst %.S,%.o,$(wildcard *.S))
 
+DEFS = -DFLASH_SECTION='"$(FLASH_SECTION)"' -DFLASH_SECTION_ADDR=0x2000
+
 all: main.hex
 
 $(OBJS) : $(wildcard *.h) Makefile
 
 %.o : %.c
-	$(CC) -c $(CFLAGS) $< -o $@ -DFLASH_SECTION='"$(FLASH_SECTION)"'
+	$(CC) -c $(CFLAGS) $< -o $@ $(DEFS)
 
 %.o : %.S
-	$(CC) -c $(ASFLAGS) $< -o $@ -DFLASH_SECTION='"$(FLASH_SECTION)"'
+	$(CC) -c $(ASFLAGS) $< -o $@ $(DEFS) 
 
 %.E : %.S
-	$(CC) -c $(ASFLAGS) $< -o $@ -E -DFLASH_SECTION='"$(FLASH_SECTION)"'
+	$(CC) -c $(ASFLAGS) $< -o $@ $(DEFS)
 
 %.lst : %.S
 	avr-as -mmcu=$(GCC_PART) -alhnd $< > $@ 
 	rm a.out
 
 %.S : %.c
-	$(CC) -c $(CFLAGS) -fverbose-asm $< -o $@ -S -DFLASH_SECTION='"$(FLASH_SECTION)"'
+	$(CC) -c $(CFLAGS) -fverbose-asm $< -o $@ -S $(DEFS)
 
 main.hex: main.elf
 	avr-objcopy -j .text -j .data -O ihex main.elf main.hex
@@ -35,7 +37,7 @@ main.hex: main.elf
 #avr-size -C --mcu=$(GCC_PART) main.elf
 
 main.elf: $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o main.elf -DFLASH_SECTION='"$(FLASH_SECTION)"'
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o main.elf $(DEFS) 
 
 clean:; rm -f $(OBJS) main.elf main.hex main.map main.E main.S
 
