@@ -1,0 +1,64 @@
+FULL LOG:
+logger: TYPE_OFFER_FULL_LOG (to ANY) [logger's dest id]
+modem connects to tk
+modem: TYPE_XFER_CTS (to logger) [modem's dest id]
+logger: TYPE_FILE_CONTENTS (to modem) [filename, file contents]
+modem: TYPE_XFER_CTS (to logger) [modem's dest id]
+logger: TYPE_FILE_CONTENTS (to modem) [file contents...]
+modem: TYPE_XFER_CTS (to logger) [modem's dest id]
+logger: TYPE_FILE_CONTENTS (to modem) [empty!]
+
+
+DOWNLOAD ARBITRARY JPEG VIA TK (node $id)
+set up active connection
+modem: TYPE_FILESYSTEM_CD (to $id) [modem's dest id; 9 bytes of dirname]
+$id: TYPE_ACK_EXPLICIT (to modem) [empty!]
+
+$$$ logger's current dir is set to $cd/dirname $$$
+
+mcp2515_begin_xfer()
+mcp2515_continue_xfer()
+mcp2515_receive_xfer()
+mcp2515_send_cts()
+
+rc = mcp2515_begin_xfer(TYPE_REQUEST_FILE, ID_LOGGER, 10, {first 10 bytes of filename})
+if (rc) {
+    //didn't get a response
+    //expected TYPE_XFER_CTS
+    return;
+}
+
+rc = mcp2515_continue_xfer(3, {3 bytes of file name}) /* this signals the end of the xfer */
+if (rc) {
+    //didn't get a response
+    //expected TYPE_XFER_CTS
+    return;
+}
+
+rc = mcp2515_receive_transfer(file_callback);
+if (rc) {
+    //transfer failed
+    //expected packets of type TYPE_XFER_DATA
+    //addressed to me
+}
+
+
+
+
+modem: TYPE_FILESYSTEM_LS (to $id) [modem's dest id; 9 bytes of dirname]
+$id: TYPE_FILE_LISTING (to modem) [dir, filename, dir]
+modem: TYPE_XFER_CTS (to $id) [modem's dest id]
+$id: TYPE_FILE_LISTING (to modem) [filename, filename, dir]
+modem: TYPE_XFER_CTS (to $id) [modem's dest id]
+$id: TYPE_FILE_LISTING (to modem) [filename, filename, dir]
+modem: TYPE_XFER_CTS (to $id) [modem's dest id]
+$id: TYPE_FILE_LISTING (to modem) [empty!]
+
+modem: TYPE_REQUEST_FILELIST_DCIM (to $id) [modem's dest id; 9 bytes of 103CANON]
+$id: TYPE_FILE_LISTING (to modem) [filename, filename, ...]
+modem: TYPE_XFER_CTS (to $id) [modem's dest id]
+$id: TYPE_FILE_LISTING (to modem) [filename, filename, ...]
+modem: TYPE_XFER_CTS (to $id) [modem's dest id]
+$id: TYPE_FILE_LISTING (to modem) [empty!]
+
+modem: TYPE_REQUEST_FILE_DCIM (to $id) 

@@ -1,0 +1,136 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+ATMEGA_USART	uart.c	30;"	d	file:
+BAUD	uart.h	1;"	d
+BAUDRATE	main.c	12;"	d	file:
+BUFFER_SIZE	uart.c	40;"	d	file:
+CRC8INIT	crc8.c	3;"	d	file:
+CRC8POLY	crc8.c	4;"	d	file:
+DS1822_FAMILY_CODE	ds18x20.h	25;"	d
+DS18B20_10_BIT	ds18x20.h	36;"	d
+DS18B20_10_BIT_UNDF	ds18x20.h	43;"	d
+DS18B20_11_BIT	ds18x20.h	37;"	d
+DS18B20_11_BIT_UNDF	ds18x20.h	44;"	d
+DS18B20_12_BIT	ds18x20.h	38;"	d
+DS18B20_12_BIT_UNDF	ds18x20.h	45;"	d
+DS18B20_9_BIT	ds18x20.h	35;"	d
+DS18B20_9_BIT_UNDF	ds18x20.h	42;"	d
+DS18B20_CONF_REG	ds18x20.h	34;"	d
+DS18B20_FAMILY_CODE	ds18x20.h	24;"	d
+DS18B20_RES_MASK	ds18x20.h	39;"	d
+DS18B20_TCONV_10BIT	ds18x20.h	50;"	d
+DS18B20_TCONV_11BIT	ds18x20.h	49;"	d
+DS18B20_TCONV_12BIT	ds18x20.h	48;"	d
+DS18B20_TCONV_9BIT	ds18x20.h	51;"	d
+DS18S20_FAMILY_CODE	ds18x20.h	23;"	d
+DS18S20_TCONV	ds18x20.h	52;"	d
+DS18X20_CONVERSION_DONE	ds18x20.h	19;"	d
+DS18X20_CONVERTING	ds18x20.h	20;"	d
+DS18X20_CONVERT_T	ds18x20.h	27;"	d
+DS18X20_COPYSP_DELAY	ds18x20.h	64;"	d
+DS18X20_COPY_SCRATCHPAD	ds18x20.h	62;"	d
+DS18X20_DECICELSIUS	ds18x20.h	6;"	d
+DS18X20_DECIMAL_CHAR	ds18x20.h	68;"	d
+DS18X20_EE_RECALL	ds18x20.h	31;"	d
+DS18X20_EE_WRITE	ds18x20.h	30;"	d
+DS18X20_ERROR	ds18x20.h	10;"	d
+DS18X20_ERROR_CRC	ds18x20.h	12;"	d
+DS18X20_FRACCONV	ds18x20.h	55;"	d
+DS18X20_INVALID_DECICELSIUS	ds18x20.h	14;"	d
+DS18X20_OK	ds18x20.h	9;"	d
+DS18X20_POWER_EXTERN	ds18x20.h	17;"	d
+DS18X20_POWER_PARASITE	ds18x20.h	16;"	d
+DS18X20_READ	ds18x20.h	28;"	d
+DS18X20_READ_POWER_SUPPLY	ds18x20.h	32;"	d
+DS18X20_RECALL_E2	ds18x20.h	63;"	d
+DS18X20_SP_SIZE	ds18x20.h	58;"	d
+DS18X20_START_FAIL	ds18x20.h	11;"	d
+DS18X20_TH_REG	ds18x20.h	65;"	d
+DS18X20_TL_REG	ds18x20.h	66;"	d
+DS18X20_WRITE	ds18x20.h	29;"	d
+DS18X20_WRITE_SCRATCHPAD	ds18x20.h	61;"	d
+DS18X20_conversion_in_progress	ds18x20.c	/^uint8_t DS18X20_conversion_in_progress(void)$/;"	f
+DS18X20_find_sensor	ds18x20.c	/^uint8_t DS18X20_find_sensor( uint8_t *diff, uint8_t id[] )$/;"	f
+DS18X20_get_power_status	ds18x20.c	/^uint8_t DS18X20_get_power_status( uint8_t id[] )$/;"	f
+DS18X20_raw_to_decicelsius	ds18x20.c	/^static int16_t DS18X20_raw_to_decicelsius( uint8_t familycode, uint8_t sp[] )$/;"	f	file:
+DS18X20_read_decicelsius	ds18x20.c	/^uint8_t DS18X20_read_decicelsius( uint8_t id[], int16_t *decicelsius )$/;"	f
+DS18X20_read_decicelsius_single	ds18x20.c	/^uint8_t DS18X20_read_decicelsius_single( uint8_t familycode, int16_t *decicelsius )$/;"	f
+DS18X20_start_meas	ds18x20.c	/^uint8_t DS18X20_start_meas( uint8_t with_power_extern, uint8_t id[])$/;"	f
+ECHO	uart.c	11;"	d	file:
+ICRNL	uart.c	9;"	d	file:
+ISR	uart.c	/^ISR(USART_RX_vect){$/;"	f
+MAXSENSORS	main.c	14;"	d	file:
+ONLCR	uart.c	10;"	d	file:
+OW_CONF_DELAYOFFSET	onewire.h	8;"	d
+OW_DATA_ERR	onewire.h	21;"	d
+OW_DDR	onewire.h	7;"	d
+OW_DIR_IN	onewire.c	11;"	d	file:
+OW_DIR_OUT	onewire.c	12;"	d	file:
+OW_GET_IN	onewire.c	8;"	d	file:
+OW_IN	onewire.h	5;"	d
+OW_LAST_DEVICE	onewire.h	22;"	d
+OW_MATCH_ROM	onewire.h	15;"	d
+OW_OUT	onewire.h	6;"	d
+OW_OUT_HIGH	onewire.c	10;"	d	file:
+OW_OUT_LOW	onewire.c	9;"	d	file:
+OW_PIN	onewire.h	4;"	d
+OW_PRESENCE_ERR	onewire.h	20;"	d
+OW_RECOVERY_TIME	onewire.h	13;"	d
+OW_ROMCODE_SIZE	onewire.h	25;"	d
+OW_SEARCH_FIRST	onewire.h	19;"	d
+OW_SEARCH_ROM	onewire.h	17;"	d
+OW_SKIP_ROM	onewire.h	16;"	d
+RXCIE0	uart.c	24;"	d	file:
+RXEN0	uart.c	23;"	d	file:
+TXEN0	uart.c	22;"	d	file:
+UART0_CONTROL	uart.c	34;"	d	file:
+UART0_DATA	uart.c	35;"	d	file:
+UART0_STATUS	uart.c	33;"	d	file:
+UART0_UBRR_HIGH	uart.c	31;"	d	file:
+UART0_UBRR_LOW	uart.c	32;"	d	file:
+UART0_UDRIE	uart.c	36;"	d	file:
+UBRR0H	uart.c	15;"	d	file:
+UBRR0L	uart.c	16;"	d	file:
+UCSR0A	uart.c	17;"	d	file:
+UCSR0B	uart.c	18;"	d	file:
+UCSR0C	uart.c	19;"	d	file:
+UCSZ00	uart.c	25;"	d	file:
+UDR0	uart.c	20;"	d	file:
+UDRE0	uart.c	26;"	d	file:
+UDRIE0	uart.c	21;"	d	file:
+USART_RX_vect	uart.c	27;"	d	file:
+bytes_in_ring	uart.c	/^uint8_t bytes_in_ring(void) {$/;"	f
+crc8	crc8.c	/^uint8_t crc8( uint8_t *data, uint16_t number_of_bytes_in_data ){$/;"	f
+fgets	uart.c	/^char *fgets(char *s, int bufsize, FILE *f) {$/;"	f
+main	main.c	/^int main( void ) {$/;"	f
+mystdout	uart.c	/^static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, uart_getchar, _FDEV_SETUP_RW);$/;"	v	file:
+ow_bit_io	onewire.c	/^uint8_t ow_bit_io( uint8_t b ){$/;"	f
+ow_bit_io_intern	onewire.c	/^static uint8_t ow_bit_io_intern( uint8_t b, uint8_t with_parasite_enable )$/;"	f	file:
+ow_byte_rd	onewire.c	/^uint8_t ow_byte_rd( void ) {$/;"	f
+ow_byte_wr	onewire.c	/^uint8_t ow_byte_wr( uint8_t b ) {$/;"	f
+ow_byte_wr_with_parasite_enable	onewire.c	/^uint8_t ow_byte_wr_with_parasite_enable( uint8_t b ) {$/;"	f
+ow_command	onewire.c	/^void ow_command( uint8_t command, uint8_t *id )$/;"	f
+ow_command_intern	onewire.c	/^static void ow_command_intern( uint8_t command, uint8_t *id, uint8_t with_parasite_enable )$/;"	f	file:
+ow_command_with_parasite_enable	onewire.c	/^void ow_command_with_parasite_enable( uint8_t command, uint8_t *id )$/;"	f
+ow_input_pin_state	onewire.c	/^uint8_t ow_input_pin_state()$/;"	f
+ow_parasite_disable	onewire.c	/^void ow_parasite_disable(void)$/;"	f
+ow_parasite_enable	onewire.c	/^void ow_parasite_enable(void)$/;"	f
+ow_reset	onewire.c	/^uint8_t ow_reset(void)$/;"	f
+ow_rom_search	onewire.c	/^uint8_t ow_rom_search( uint8_t diff, uint8_t *id ) {$/;"	f
+print	uart.c	/^void print(uint16_t num){$/;"	f
+print_temp	ds18x20.c	/^void print_temp(int16_t decicelsius, char *str, int n)$/;"	f
+read_scratchpad	ds18x20.c	/^static uint8_t read_scratchpad( uint8_t id[], uint8_t sp[], uint8_t n )$/;"	f	file:
+ring_in	uart.c	/^volatile uint8_t ring_in;$/;"	v
+ring_out	uart.c	/^volatile uint8_t ring_out;$/;"	v
+search_sensors	main.c	/^static uint8_t search_sensors(void){$/;"	f	file:
+sensor_ids	main.c	/^uint8_t sensor_ids[MAXSENSORS][OW_ROMCODE_SIZE];$/;"	v
+uart_getchar	uart.c	/^int uart_getchar(FILE *f) {$/;"	f
+uart_haschar	uart.c	/^uint8_t uart_haschar(void){$/;"	f
+uart_init	uart.c	/^void uart_init(uint16_t ubrr){$/;"	f
+uart_putchar	uart.c	/^int uart_putchar(char data, FILE *f){$/;"	f
+uart_puts_P_verbose	ds18x20.c	13;"	d	file:
+uart_ring	uart.c	/^volatile uint8_t uart_ring[BUFFER_SIZE];$/;"	v
