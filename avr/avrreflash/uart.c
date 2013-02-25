@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <avr/pgmspace.h>
 
 #include "uart.h"
 
@@ -43,13 +44,6 @@ void uart_init(uint16_t ubrr){
 
     // enable receive, transmit, no interrupts
     UART0_CONTROL = (1<<RXEN0)|(1<<TXEN0);//|(1<<RXCIE0);
-    // set default format, asynch, n,8,1
-#ifdef URSEL0
-    UCSR0C = (1<<URSEL0)|(3<<UCSZ00);
-#else
-    UCSR0C = (3<<UCSZ00);
-#endif 
-    //UCSRC = (1 << URSEL) | (1 << USBS) | (3 << UCSZ0);
 }
 
 int uart_getchar() {
@@ -58,8 +52,9 @@ int uart_getchar() {
 }
 
 int uart_putchar(char data){
-    while (!(UART0_STATUS & (1<<UDRE0)));
-    UART0_DATA = data;
+    UDR0 = data;
+    while (!(UCSR0A & (1<<TXC0)));
+    UCSR0A |= 1 << TXC0;
     return data;
 }
 
@@ -70,12 +65,25 @@ void uart_print(const char *str) {
     }
 }
 
-void uart_printint(uint16_t num){
+void uart_printhex(uint16_t num){
     char buf[5];
-    uint8_t i = 4;
-    for(; num ; i--, num /= 10)
-        buf[i] = (num % 10) + '0';
+    buf[0] = buf[1] = buf[2] = buf[3] = '0';
+    buf[4] = '\0';
+    int8_t i;
 
-    for(; ++i<sizeof(buf);)
-        uart_putchar(buf[i]);
+    for(i = 3; i >= 0; i--) {
+        char c;
+        uint8_t bits = num & 0x0F;
+        if(bits > 9) {
+            c = bits - 0xa + 'a';
+        }
+        else {
+            c = bits + '0';
+        }
+
+        buf[i] = c;
+        num >>= 4;
+    }
+
+    uart_print(buf);
 }

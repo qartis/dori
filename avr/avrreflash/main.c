@@ -26,10 +26,110 @@ uint16_t str_len(const char *s) {
     return n;
 }
 
+uint8_t str_equal(const char *s1, const char *s2) BOOTLOADER_SECTION;
+uint8_t str_equal(const char *s1, const char *s2) {
+    while(*s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+
+    return (!*s1 && !*s2);
+}
+
+uint8_t strn_equal(const char *s1, const char *s2, uint16_t n) BOOTLOADER_SECTION;
+uint8_t strn_equal(const char *s1, const char *s2, uint16_t n) {
+    uint16_t count;
+
+    if(n > str_len(s1) || n > str_len(s2)) {
+        return 0;
+    }
+
+    for(count = 0; count < n && count < str_len(s1); count++) {
+        if(s1[count] != s2[count]) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+
+
+void flash_write(uint16_t start, uint8_t * bytes, int num_bytes) BOOTLOADER_SECTION;
+void flash_write(uint16_t start, uint8_t * bytes, int num_bytes)
+{
+    uint8_t i;
+    uint8_t page_buf[PAGE_SIZE];
+
+
+    // backup existing page if we received less bytes than the page size
+    if(num_bytes < PAGE_SIZE) {
+        uint16_t page_start;
+        page_start = start & (~(PAGE_SIZE-1));
+
+        uart_print("before first loop\n");
+
+        for(i=0; i<PAGE_SIZE; i++) {
+            page_buf[i] = pgm_read_byte(page_start + i);
+        }
+
+        uart_print("before second loop\n");
+
+        // page protection, don't go past page boundaries
+        for(i=0; i < num_bytes && ((start - page_start + i) < PAGE_SIZE); i++) {
+            page_buf[start - page_start + i] = bytes[i];
+        }
+
+        bytes = page_buf;
+    }
+
+    boot_page_erase(start);
+    boot_spm_busy_wait();
+
+    union {
+        uint8_t bytes[2];
+        uint16_t word;
+    } u ;
+
+    uart_print("before third loop\n");
+
+    for(i=0; i<PAGE_SIZE; i+=2) {
+        u.bytes[0] = *bytes++;
+        u.bytes[1] = *bytes++;
+        boot_page_fill(i, u.word);
+        boot_spm_busy_wait();
+    }
+
+    boot_page_write(start);
+    boot_rww_enable_safe();
+
+    uart_print("flash_write is done\n");
+}
+
+uint8_t char_to_hex(char c) BOOTLOADER_SECTION;
+uint8_t char_to_hex(char c) {
+    if(c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    else {
+        return (c | 0x20) - 'a' + 0xA;
+    }
+}
+
+uint8_t str_bytes_to_hex(char *input, uint8_t* output) BOOTLOADER_SECTION;
+uint8_t str_bytes_to_hex(char *input, uint8_t* output) {
+    int num_bytes = 0;
+    while(*input && num_bytes < PAGE_SIZE) {
+        *output++ = (char_to_hex(input[0])<<4) | char_to_hex(input[1]);
+        input += 2;
+        num_bytes++;
+    }
+    return num_bytes;
+}
+
 uint16_t str_to_int(const char *s) BOOTLOADER_SECTION;
 uint16_t str_to_int(const char *s) {
     uint8_t neg = 0;
-    uint16_t len = str_len(s);
     uint16_t i;
     uint16_t num = 0;
     uint8_t mult = 10;
@@ -44,17 +144,10 @@ uint16_t str_to_int(const char *s) {
         s += 2;
     }
 
+    uint16_t len = str_len(s);
     for(i=0; i < len; i++) {
-        int curr = s[i] - '0';
-
-        if((curr >=0) && (curr <= 9))
-        {
-            num = num*mult + curr;
-        }
-        else { 
-            //break on non-digit
-            break;
-        }
+        uint8_t curr = char_to_hex(s[i]);
+        num = num*mult + curr;
     }
 
     if(neg) {
@@ -64,111 +157,17 @@ uint16_t str_to_int(const char *s) {
     return num;
 }
 
-uint8_t str_equal(const char *s1, const char *s2) BOOTLOADER_SECTION;
-uint8_t str_equal(const char *s1, const char *s2) {
-    while(*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
 
-    return (!*s1 && !*s2);
-}
-
-uint8_t strn_equal(const char *s1, const char *s2, uint16_t n) BOOTLOADER_SECTION;
-uint8_t strn_equal(const char *s1, const char *s2, uint16_t n) {
-    uint16_t count = 0;
-    while(*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-
-        n++;
-        if(n == count) {
-            return 1;
-        }
-    }
-
-    return (!*s1 && !*s2);
-}
-
-
-
-void flash_write(uint16_t start, uint8_t * bytes, int num_bytes) BOOTLOADER_SECTION;
-void flash_write(uint16_t start, uint8_t * bytes, int num_bytes)
-{
-    uint8_t i;
-    uint8_t page_buf[PAGE_SIZE];
-
-    // if we received less bytes than the page size, then 
-    if(num_bytes < PAGE_SIZE) {
-
-        uint16_t page_start;
-        page_start = start & (~(PAGE_SIZE-1));
-
-        for(i=0; i<PAGE_SIZE; i++) {
-            page_buf[i] = pgm_read_byte(page_start + i);
-        }
-
-        // page protection, don't go past page boundaries
-        for(i=0; i < num_bytes && ((start - page_start + i) < PAGE_SIZE); i++) {
-            page_buf[start - page_start + i] = bytes[i];
-        }
-
-        bytes = page_buf;
-    }
-
-    cli();
-
-    boot_page_erase(start);
-    boot_spm_busy_wait();
-
-    union {
-        uint8_t bytes[2];
-        uint16_t word;
-    } u ;
-
-    for(i=0; i<PAGE_SIZE; i+=2) {
-        u.bytes[0] = *bytes++;
-        u.bytes[1] = *bytes++;
-        boot_page_fill(start + i, u.word);
-        boot_spm_busy_wait();
-    }
-
-    boot_page_write(start);
-    boot_spm_busy_wait();
-
-    boot_rww_enable_safe();
-
-    sei();
-}
-
-uint8_t char_to_hex(char c) BOOTLOADER_SECTION;
-uint8_t char_to_hex(char c) {
-    if(c >= '0' && c <= '9') {
-        return c - '0';
-    }
-    else {
-        return (c | 0x20) - 'a' + 0xA;
-    }
-}
-
-uint8_t str_to_hex(char *input, uint8_t* output) BOOTLOADER_SECTION;
-uint8_t str_to_hex(char *input, uint8_t* output) {
-    int num_bytes = 0;
-    while(*input && num_bytes < PAGE_SIZE) {
-        *output++ = (char_to_hex(input[0])<<4) | char_to_hex(input[1]);
-        input += 2;
-        num_bytes++;
-    }
-    return num_bytes;
-}
 
 void flashed(void) __attribute__ ((section (FLASH_SECTION)));
-void flashed() {
+void flashed(void) {
     PORTB |= (1<<PORTB1);
 }
 
 void bootloader(void) BOOTLOADER_SECTION;
 void bootloader(void) {
+
+    cli();
     uint8_t instruction_buffer[PAGE_SIZE];
 
     // init LEDs
@@ -180,7 +179,7 @@ void bootloader(void) {
     uart_init(BAUD(9600));
 
     char buf[BUFFER_SIZE + 1];
-    uint16_t flash_addr = FLASH_SECTION_ADDR;
+    uint16_t flash_addr = 0;
     unsigned char flash_mode = 0;
 
     /* sample commands
@@ -190,6 +189,9 @@ void bootloader(void) {
      * turn off both LEDs (and return): 15 b8 08 95 */
 
     uint16_t rc = 0;
+    char caret = '>';
+
+    uart_putchar(caret);
 
     for(;;) {
         buf[rc++] = uart_getchar();
@@ -207,7 +209,7 @@ void bootloader(void) {
             uart_putchar('\n');
 
             if(flash_mode) {
-                if(strn_equal(buf, "===done===", str_len("===done==="))) {
+                if(strn_equal(buf, "done", str_len("done"))) {
                     uart_print("out of flash mode\n");
                     flash_mode = 0;
                 }
@@ -215,13 +217,13 @@ void bootloader(void) {
                     char *buf_ptr = buf;
 
                     while(*buf_ptr) {
-                        uint16_t num_bytes = str_to_hex(buf_ptr, instruction_buffer);
+                        uint16_t num_bytes = str_bytes_to_hex(buf_ptr, instruction_buffer);
                         buf_ptr += num_bytes * 2;
                         flash_write(flash_addr, instruction_buffer, num_bytes);
                         boot_rww_enable_safe();
                         flash_addr += num_bytes;
-                        uart_print("just flashed to address ");
-                        uart_printint(flash_addr);
+                        uart_print("flash_addr is now: ");
+                        uart_printhex(flash_addr);
                         uart_putchar('\n');
                     }
                 }
@@ -234,15 +236,19 @@ void bootloader(void) {
                     flash_mode = 1;
                     uart_print("in flash mode\n");
                 }
-                else if(strn_equal(buf, "seek", str_len("seek")) == 0) {
+                else if(strn_equal(buf, "seek", str_len("seek"))) {
                     flash_addr = str_to_int(buf + str_len("seek "));
                     uart_print("\nseeking to:");
-                    uart_printint(flash_addr);
+                    uart_printhex(flash_addr);
                     uart_putchar('\n');
                 }
             }
+
+            uart_putchar('\n');
+            uart_putchar(caret);
         }
     }
+    sei();
 }
 
 int main(void)
