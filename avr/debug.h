@@ -1,1 +1,2 @@
-../debug.h
+void debug_init(void);
+void debug(const char *fmt, ...);
