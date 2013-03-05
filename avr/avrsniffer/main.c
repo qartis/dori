@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <avr/io.h>
+#include <avr/pgmspace.h>
 #include <util/delay.h>
 #include <util/atomic.h>
 #include <stdlib.h>
@@ -20,15 +21,15 @@ uint8_t from_hex(char a){
     }
 }
 
-void mcp2515_callback(void)
+void mcp2515_irq_callback(void)
 {
     uint8_t i;
 
-    printf("Sniffer received [%x %x] %db: ", packet.type, packet.id, packet.len);
+    printf_P(PSTR("Sniffer received [%x %x] %db: "), packet.type, packet.id, packet.len);
     for (i = 0; i < packet.len; i++) {
-        printf("%x,", packet.data[i]);
+        printf_P(PSTR("%x,"), packet.data[i]);
     }
-    printf("\n");
+    printf_P(PSTR("\n"));
 }
 
 void main(void)
@@ -37,18 +38,18 @@ void main(void)
     char buf[buflen];
     uint8_t i;
 
-	uart_init(BAUD(38400));
+    uart_init(BAUD(38400));
     spi_init();
 
     while (mcp2515_init()) {
-        printf("mcp: 1\n");
+        printf_P(PSTR("mcp: 1\n"));
         _delay_ms(500);
     }
 
     sei();
 
     for (;;) {
-        printf("> ");
+        printf_P(PSTR("> "));
 
         fgets(buf, sizeof(buf), stdin);
         buf[strlen(buf)-1] = '\0';
@@ -76,9 +77,9 @@ void main(void)
 
             uint8_t rc = mcp2515_send(type, id, i, sendbuf);
 
-            printf("mcp2515_send: %d\n", rc);
+            printf_P(PSTR("mcp2515_send: %d\n"), rc);
         } else {
-            printf("send type id [02 ff ab ..]\n");
+            printf_P(PSTR("send type id [02 ff ab ..]\n"));
         }
     }
 }

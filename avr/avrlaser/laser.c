@@ -43,12 +43,12 @@ uint16_t decode(uint8_t *byte)
         case 0x40: /* '-' */ 
         case 0xe9: /* 'E' */
         case 0x60: /* 'r' */
-        default: return 0;//0xffff;
+        default: return LASER_ERROR;
         }
     }
 
     if (num == 2080) {
-        num = 0xffff;
+        num = LASER_ERROR;
     }
 
     return num;
@@ -60,40 +60,51 @@ uint16_t laser_read(void)
     uint16_t j;
     uint8_t bits[58 * 8];
     uint8_t bytes[58];
+    uint16_t retry;
 
     laser_on();
     _delay_ms(200);
     laser_on();
     _delay_ms(1300);
 
-    while (!(LASER_PIN & (1 << LASER_EOF))) {};
-    while (LASER_PIN & (1 << LASER_EOF)) {};
+    retry = 0xffff;
+
+    while (!(LASER_PIN & (1 << LASER_EOF)) && retry) { retry--; };
+    while (LASER_PIN & (1 << LASER_EOF) && retry) { retry--; };
+
+    if (retry == 0) {
+        return LASER_ERROR;
+    }
 
     for(j=1;j<58 * 8;){
-        while (LASER_PIN & (1 << LASER_SCK)) {};
-        while (!(LASER_PIN & (1 << LASER_SCK))) {};
+        while (LASER_PIN & (1 << LASER_SCK) && retry) { retry--; };
+        while (!(LASER_PIN & (1 << LASER_SCK)) && retry) { retry--; };
         bits[j++] = LASER_PIN;
-        while (LASER_PIN & (1 << LASER_SCK)) {};
-        while (!(LASER_PIN & (1 << LASER_SCK))) {};
+        while (LASER_PIN & (1 << LASER_SCK) && retry) { retry--; };
+        while (!(LASER_PIN & (1 << LASER_SCK)) && retry) { retry--; };
         bits[j++] = LASER_PIN;
-        while (LASER_PIN & (1 << LASER_SCK)) {};
-        while (!(LASER_PIN & (1 << LASER_SCK))) {};
+        while (LASER_PIN & (1 << LASER_SCK) && retry) { retry--; };
+        while (!(LASER_PIN & (1 << LASER_SCK)) && retry) { retry--; };
         bits[j++] = LASER_PIN;
-        while (LASER_PIN & (1 << LASER_SCK)) {};
-        while (!(LASER_PIN & (1 << LASER_SCK))) {};
+        while (LASER_PIN & (1 << LASER_SCK) && retry) { retry--; };
+        while (!(LASER_PIN & (1 << LASER_SCK)) && retry) { retry--; };
         bits[j++] = LASER_PIN;
-        while (LASER_PIN & (1 << LASER_SCK)) {};
-        while (!(LASER_PIN & (1 << LASER_SCK))) {};
+        while (LASER_PIN & (1 << LASER_SCK) && retry) { retry--; };
+        while (!(LASER_PIN & (1 << LASER_SCK)) && retry) { retry--; };
         bits[j++] = LASER_PIN;
-        while (LASER_PIN & (1 << LASER_SCK)) {};
-        while (!(LASER_PIN & (1 << LASER_SCK))) {};
+        while (LASER_PIN & (1 << LASER_SCK) && retry) { retry--; };
+        while (!(LASER_PIN & (1 << LASER_SCK)) && retry) { retry--; };
         bits[j++] = LASER_PIN;
-        while (LASER_PIN & (1 << LASER_SCK)) {};
-        while (!(LASER_PIN & (1 << LASER_SCK))) {};
+        while (LASER_PIN & (1 << LASER_SCK) && retry) { retry--; };
+        while (!(LASER_PIN & (1 << LASER_SCK)) && retry) { retry--; };
         bits[j++] = LASER_PIN;
-        while (LASER_PIN & (1 << LASER_SCK)) {};
-        while (!(LASER_PIN & (1 << LASER_SCK))) {};
+        while (LASER_PIN & (1 << LASER_SCK) && retry) { retry--; };
+        while (!(LASER_PIN & (1 << LASER_SCK)) && retry) { retry--; };
         bits[j++] = LASER_PIN;
+    }
+
+    if (retry == 0) {
+        return LASER_ERROR;
     }
 
     for(j=0;j<58;j++){

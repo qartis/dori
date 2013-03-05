@@ -1,3 +1,7 @@
+#define printf(...) ;
+#define printf_P(...) ;
+#define snprintf(...) ;
+
 enum type {
     TYPE_VALUE_PERIODIC = 0,
     TYPE_VALUE_EXPLICIT = 1,
@@ -8,20 +12,34 @@ enum type {
     TYPE_SOS_STFU = 6,
     TYPE_SOS_NOSTFU = 7,
 
-    TYPE_XFER_CANCEL = 9,
-    TYPE_XFER_CTS = 10,
-    TYPE_XFER_DATA = 11,
 
-    TYPE_FULL_LOG_OFFER = 12,
+    TYPE_FILE_CHDIR = 0x11,
 
-    TYPE_REQUEST_LIST_FILES = 13,
-    TYPE_FILE_LISTING = 14,
+    TYPE_FILE_ERROR = 0x12,
 
-    TYPE_REQUEST_FILE = 15,
-    TYPE_FILE_CONTENTS = 16,
+    TYPE_SENSOR_ERROR = 0x13,
 
-    TYPE_FILE_ERROR = 17,
+
+    TYPE_FILE_CHECKSUM = 0x15,
+
+
+
+    TYPE_XFER_CTS = 0x70,
+    TYPE_XFER_CANCEL = 0x71,
+    TYPE_XFER_DATA = 0x72,
+    TYPE_FULL_LOG_OFFER = 0x73,
+    TYPE_REQUEST_LIST_FILES = 0x74,
+    TYPE_FILE_LISTING = 0x75,
+    TYPE_REQUEST_FILE = 0x76,
+    TYPE_FILE_CONTENTS = 0x77,
+    TYPE_FILE_WRITE = 0x78,
+
+
+
+    TYPE_INVALID = 0xff,
 };
+
+#define TYPE_XFER(type) ((type & 0xf0) == 0x70)
 
 enum id {
     ID_ANY   = 0,
@@ -32,6 +50,7 @@ enum id {
     ID_TEMP  = 5,
     ID_TIME  = 6,
     ID_LOGGER = 7,
+    ID_INVALID = 0xff
 };
 
 struct mcp2515_packet_t {
@@ -44,9 +63,8 @@ struct mcp2515_packet_t {
 
 extern volatile struct mcp2515_packet_t packet;
 extern volatile uint8_t mcp2515_busy;
-//typedef void (*mcp2515_callback_t)(void);
-//extern mcp2515_callback_t mcp2515_callback;
-void mcp2515_callback(void);
+void mcp2515_irq_callback(void);
+typedef uint8_t (*mcp2515_xfer_callback_t)(void);
 
 #define BRP0        0
 #define BTLMODE     7
@@ -154,6 +172,7 @@ void mcp2515_callback(void);
 
 #define MCP_REGISTER_CANINTE  0x2B
 #define MCP_REGISTER_CANINTF  0x2C
+#define MCP_REGISTER_EFLG     0x2D
 
 #define MCP_REGISTER_TXB0CTRL  0x30
 #define MCP_REGISTER_TXB0SIDH  0x31
@@ -205,10 +224,10 @@ void mcp2515_reset(void);
 uint8_t read_register(uint8_t address);
 void write_register(uint8_t address, uint8_t value);
 void modify_register(uint8_t address, uint8_t mask, const uint8_t value);
-uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const uint8_t *data);
-void load_ff_0(uint8_t type, uint8_t id, uint8_t len, const uint8_t *data);
+uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data);
+void load_tx0(uint8_t type, uint8_t id, uint8_t len, const uint8_t *data);
 
-
-uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, uint8_t *data);
-uint8_t mcp2515_wait_receive_transfer(uint8_t type);
-struct mcp2515_packet_t mcp2515_get_packet(void);
+uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, void *data);
+uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
+    mcp2515_xfer_callback_t xfer_cb);
+uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *p);

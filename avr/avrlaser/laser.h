@@ -6,6 +6,8 @@
 #define LASER_SCK PORTD7 /* lcd pin 8 */
 #define LASER_PWR PORTD4
 
+#define LASER_ERROR 0xffff
+
 void laser_init(void);
 void laser_on(void);
 uint16_t decode(uint8_t *byte);

@@ -1,5 +1,6 @@
 #include <avr/io.h>
-#include <stdio.h>
+
+#define printf_P(...) ;
 
 #include "spi.h"
 
@@ -40,7 +41,7 @@ uint8_t spi_write_timeout(uint8_t data)
     while (!(SPSR & (1<<SPIF)) && --retry){}
 
     if (!retry) {
-        printf("spi timeout\n");
+        printf_P(PSTR("spi timeout\n"));
         return 1;
     }
 

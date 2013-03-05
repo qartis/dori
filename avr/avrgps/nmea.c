@@ -77,12 +77,12 @@ void parse_coord(char *str){
     uint32_t lon_f = lon_min * 1000000 / 6;
     lat_f += (lat_sec * 10) / 6;
     lon_f += (lon_sec * 10) / 6;
-    float lat_float = (float)lat_deg + ((float)lat_min + (float)(lat_sec / 100000.0))/60.0;
-    float lon_float = (float)lon_deg + ((float)lon_min + (float)(lon_sec / 100000.0))/60.0;
+//    float lat_float = (float)lat_deg + ((float)lat_min + (float)(lat_sec / 100000.0))/60.0;
+//    float lon_float = (float)lon_deg + ((float)lon_min + (float)(lon_sec / 100000.0))/60.0;
     printf("Original: %d %u.%u, %d %u.%u\n", lat_deg, lat_min, lat_sec, lon_deg, lon_min, lon_sec);
     printf("16 bit fixed point: %d.%04d %d.%04d\n", lat_deg, lat_frac, lon_deg, lon_frac);
-    printf("32 bit fixed point: %d.%07lld %d.%07lld\n", lat_deg, lat_f, lon_deg, lon_f);
-    printf("Single precision float: %f %f\n", lat_float, lon_float);
+    printf("32 bit fixed point: %d.%07llu %d.%07llu\n", lat_deg, lat_f, lon_deg, lon_f);
+//    printf("Single precision float: %f %f\n", lat_float, lon_float);
 }
 
 

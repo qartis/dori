@@ -5,8 +5,8 @@
 
 void debug_init(void)
 {
-    DDRB = (1 << PORTB0);
-    PORTB = (1 << PORTB0);
+    DDRB |= (1 << PORTB0);
+    PORTB |= (1 << PORTB0);
 }
 
 void debug(const char *fmt, ...)

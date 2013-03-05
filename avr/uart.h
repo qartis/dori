@@ -15,8 +15,8 @@ int getc_timeout(uint8_t sec);
 void prints(int16_t);
 void printu(uint16_t);
 void print(const char *);
+void printx(uint16_t);
 #if 0
 void printb(uint16_t number, uint8_t base);
 void print32(uint32_t);
-void printx(uint16_t);
 #endif

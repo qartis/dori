@@ -1,10 +1,11 @@
 #include <ctype.h>
 #include <avr/io.h>
 #include <util/delay.h>
-#include <util/atomic.h>
+#include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <avr/pgmspace.h>
 
 #include "uart.h"
 #include "spi.h"
@@ -12,89 +13,91 @@
 #include "laser.h"
 #include "time.h"
 
-struct mcp2515_packet_t p;
+volatile uint8_t reinit;
 
-int main(void) {
-    int buflen = 32;
-    uint8_t buf[buflen];
+void periodic_callback(void)
+{
+    uint16_t decoded;
 
-	uart_init(BAUD(38400));
+    printf_P(PSTR("laser: period cb\n"));
+    decoded = laser_read();
+    if (decoded == LASER_ERROR) {
+        mcp2515_send(TYPE_SENSOR_ERROR, ID_LASER, 0, NULL);
+        reinit = 1;
+    } else {
+        mcp2515_send(TYPE_VALUE_EXPLICIT, ID_LASER, 2, &decoded);
+    }
+}
+
+void mcp2515_irq_callback(void)
+{
+    uint8_t i;
+    uint16_t decoded;
+
+    printf("laser rx [%x %x] %db: ", packet.type, packet.id, packet.len);
+    for (i = 0; i < packet.len; i++) {
+        printf("%x,", packet.data[i]);
+    }
+    printf("\n");
+
+    if (packet.id != MY_ID) {
+        return;
+    }
+
+    switch (packet.type) {
+    case TYPE_VALUE_EXPLICIT:
+        decoded = laser_read();
+        if (decoded == LASER_ERROR) {
+            mcp2515_send(TYPE_SENSOR_ERROR, ID_LASER, 0, NULL);
+            reinit = 1;
+        } else {
+            mcp2515_send(TYPE_VALUE_EXPLICIT, ID_LASER, 2, &decoded);
+        }
+
+        break;
+    }
+}
+
+void main(void)
+{
+    uint8_t rc;
+    uint16_t decoded;
+
+    wdt_disable();
+
+    uart_init(BAUD(38400));
     spi_init();
     laser_init();
     time_init();
 
-    while (mcp2515_init() == 0) {
-        printf("mcp\n");
-        _delay_ms(500);
+reinit:
+    rc = mcp2515_init();
+    if (rc) {
+        printf_P(PSTR("mcp: error\n"));
+        _delay_ms(1000);
+        goto reinit;
     }
 
-    sei();
-
-    uint8_t i = 0;
-    uint8_t rxlen = 0;
-    uint16_t decoded = 0;
-
     for (;;) {
-        printf("> ");
-        while (!got_packet) {
-            while (uart_haschar()) {
-                buf[rxlen] = getchar();
-                if (rxlen == 8 || buf[rxlen] == '\n') {
-                    buf[rxlen] = '\0';
-                    goto uartcmd;
-                }
-                rxlen++;
-            }
-            _delay_ms(10);
+        putchar('>');
+
+        if (reinit) {
+            reinit = 0;
+            goto reinit;
         }
 
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-            p = packet;
-            got_packet = 0;
+        switch (getchar()) {
+        case 'r':
+            decoded = laser_read();
+            if (decoded == LASER_ERROR)
+                mcp2515_send(TYPE_SENSOR_ERROR, ID_LASER, 0, NULL);
+            else
+                mcp2515_send(TYPE_VALUE_EXPLICIT, ID_LASER, 2, &decoded);
+
+            break;
+        default:
+            printf_P(PSTR("unhandled uart cmd\n"));
+            break;
         }
-
-        if (p.type == TYPE_SET_TIME) {
-            time = (uint32_t)buf[0] << 24 |
-                   (uint32_t)buf[1] << 16 |
-                   (uint32_t)buf[2] << 8  |
-                   (uint32_t)buf[3] << 0;
-            printf("time reset to: %lu\n", time);
-        }
-
-        printf("Received [%x %x] %db: ", p.type, p.id, p.len);
-        for (i = 0; i < p.len; i++) {
-            printf("%x,", p.data[i]);
-        }
-        printf("\n");
-
-        continue;
-
-
-uartcmd:
-        if (strcmp((char *)buf, "on") == 0) {
-            laser_on();
-            printf("turned on\n");
-            /*
-        } else if (strcmp((char *)buf, "read") == 0) {
-            */
-        } else {
-            /*
-            uint16_t decoded = laser_read();
-            */
-            for (;;) {
-                decoded++;
-
-                buf[0] = decoded >> 8;
-                buf[1] = decoded & 0xff;
-
-                rc = mcp2515_send(TYPE_VALUE_EXPLICIT, ID_LASER, 2, buf);
-                printf("mcp2515_send: %u\n", rc);
-            }
-
-            printf("sent LASER: %u\n", decoded);
-        //} else {
-        //    printf("unknown command\n");
-        }
-        rxlen = 0;
     }
 }
