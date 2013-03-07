@@ -1,0 +1,8 @@
+PORTC1 -> IN1
+PORTC0 -> IN2
+PORTC3 -> IN3
+PORTC2 -> IN4
+Orange -> Out1
+Brown -> Out2
+Blue -> Out3
+Yellow -> Out4

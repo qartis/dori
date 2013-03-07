@@ -4,4 +4,5 @@ public:
 
 private:
     void draw(void);
+    int handle(int);
 };

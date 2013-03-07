@@ -1,0 +1,5 @@
+*.o
+main.elf
+main.hex
+a.out
+*.swp

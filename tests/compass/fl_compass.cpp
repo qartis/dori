@@ -19,6 +19,8 @@ void Fl_Compass::draw(void)
     int W = w();
     int H = h();
 
+    draw_box();
+
     X += Fl::box_dx(box());
     Y += Fl::box_dy(box());
     W -= Fl::box_dw(box());
@@ -89,4 +91,15 @@ void Fl_Compass::draw(void)
     fl_pop_matrix();
 
     draw_label();
+}
+
+int Fl_Compass::handle(int e)
+{
+    switch (e) {
+    case FL_PUSH:
+    case FL_DRAG:
+        return 1;
+    default:
+        return Fl_Dial::handle(e);
+    }
 }
