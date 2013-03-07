@@ -1,0 +1,9 @@
+*.txt
+*.o
+*.obj
+*.blend*
+*.pdf
+*.dwg
+*.dxf
+tags
+db*

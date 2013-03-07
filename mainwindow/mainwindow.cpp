@@ -19,16 +19,16 @@
 #include <list>
 #include <string.h>
 #include <map>
-#include "../row.h"
+#include "row.h"
 #include "queryinput.h"
 #include "ctype.h"
 #include "table.h"
-#include "../3d/objmodel/objmodel.h"
-#include "../radar/radarwindow.h"
-#include "../3d/objmodel/multiarcball/src/math/3dcontrols.h"
-#include "../3d/objmodel/multiarcball/src/FLui/FlGlArcballWindow.h"
-#include "../3d/objmodel/fltk_contour/include/fl_gl_contour.h"
-#include "../3d/objmodel/viewport.h"
+#include "objmodel.h"
+#include "radarwindow.h"
+#include "3dcontrols.h"
+#include "basic_ball.h"
+#include "FlGlArcballWindow.h"
+#include "viewport.h"
 #include "widgetwindow.h"
 #include "mainwindow.h"
 

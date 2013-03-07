@@ -151,9 +151,9 @@ int fltk::ext::GlArcballWindow::handle(int event)
   }
   if (MOUSEWHEEL == event) {
     if (event_dy() < 0)
-      transform. /*post_ */ scale(XYZ(.9, .9, .9));
+      transform.scale(XYZ(.9, .9, .9));
     else if (event_dy() > 0)
-      transform. /*post_ */ scale(XYZ(1.1, 1.1, 1.1));
+      transform.scale(XYZ(1.1, 1.1, 1.1));
     redraw();
     return 1;
   }

@@ -1,7 +1,13 @@
-struct dataPoint {
-    unsigned long time;
-    char dataString[256];
-};
+typedef struct {
+    float x;
+    float y;
+    float width;
+    float length;
+    float elevation;
+    float r;
+    float g;
+    float b;
+} siteObject;
 
 class Viewport : public FlGlArcballWindow {
 
@@ -24,8 +30,8 @@ public:
 private:
     virtual int handle(int event);
 
+    std::vector<siteObject> siteObjects;
     std::vector<ObjModel> models;
-    fl_gl_contour *contour;
     int graphType2d;
     int graphType3d;
 
@@ -35,4 +41,6 @@ private:
 
     bool showDORI;
     bool showContour;
+
+    FILE *objFile;
 };

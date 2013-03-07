@@ -20,12 +20,13 @@
    
 */
 
-#include "FlGlArcballWindow.h"
 #include <GL/gl.h>
 #include <FL/x.H>
 #include <FL/fl_draw.H>
 
 #include "../flcursors/fltk1/Fl_Custom_Cursor.H"
+#include "../math/3dcontrols.h"
+#include "../math/basic_ball.h"
 
 #include "../data/move.xpm"
 #include "../data/rot.xpm"
@@ -34,6 +35,7 @@
 #include "../data/rot_z.xpm"
 #include "../data/zoom.xpm"
 #include "../data/zoom_w.xpm"
+#include "FlGlArcballWindow.h"
 
 namespace{
   Fl_Custom_Cursor cur_move(move_xpm,15,15),cur_rotate(rot_xpm,15,15),cur_rotate_x(rot_x_xpm,15,15),cur_rotate_y(rot_y_xpm,15,15),
@@ -183,4 +185,3 @@ void FlGlArcballWindow::stext(int size,GLfloat x, GLfloat y, GLfloat z,const cha
   gl_font(FL_HELVETICA,size);
   gl_draw(str);
 }
-

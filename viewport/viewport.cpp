@@ -1,15 +1,15 @@
 #include <FL/Fl.H>
 #include <FL/Fl_Gl_Window.H>
+#include <FL/fl_draw.H>
 #include <GL/glut.h>
 #include <vector>
 #include <list>
 #include <math.h>
+#include "3dcontrols.h"
 #include "basic_ball.h"
-#include "../../row.h"
-#include "FlGlArcballWindow.h"
-#include "msmvtl/tmatrix.h"
+#include "row.h"
 #include "objmodel.h"
-#include "fl_gl_contour.h"
+#include "FlGlArcballWindow.h"
 #include "viewport.h"
 
 const static char* laser_type = "laser";
@@ -18,6 +18,8 @@ const static char* accel_type = "accel";
 const static char* arm_type = "arm";
 const static char* plate_type = "plate";
 const static char* orientation_type = "orientation";
+
+const static char* objFilename = "../objects.txt";
 
 Viewport::Viewport(int x, int y, int w,int h,const char*l, bool dori, bool showCont) :
 FlGlArcballWindow(w,h,l) {
@@ -31,7 +33,7 @@ FlGlArcballWindow(w,h,l) {
     dori_arm = NULL;
     dori_sensor_plate = NULL;
 
-    contour = NULL;
+    objFile = NULL;
 
     if(showDORI) {
         dori_body = new ObjModel;
@@ -53,53 +55,49 @@ FlGlArcballWindow(w,h,l) {
     }
 
     if(showContour) {
-        contour = new fl_gl_contour(172, 3, 593, 472, "no opengl");
-        contour->box(FL_THIN_DOWN_BOX);
-        contour->color(FL_BACKGROUND_COLOR);
-        contour->selection_color(FL_BACKGROUND_COLOR);
-        contour->labeltype(FL_NORMAL_LABEL);
-        contour->labelfont(0);
-        contour->labelsize(14);
-        contour->labelcolor(FL_FOREGROUND_COLOR);
-        contour->align(Fl_Align(FL_ALIGN_CENTER));
-        contour->when(FL_WHEN_RELEASE);
+        //data.read_file("../3d/objmodel/poland.xyz",0,0);
 
-        TMatrix<gm_real> data;
-        data.clear();
-        data.read_file("../3d/objmodel/wafer2.xyz",0,0);
-        contour->set_input_data(data);
-        contour->actualize();
+        char buf[512];
+        float fooFloat; // used for values we don't care about
+        int fooInt; // used for values we don't care about
 
-        graphType2d = 0;
-        graphType3d = 2;
+        objFile = fopen(objFilename, "r");
 
-        gridXCells = 40;
-        gridYCells = 40;
-        gridZCells = 30;
+        if(objFile) {
+            while(fgets(buf, sizeof(buf), objFile)) {
+                siteObject newSiteObject;
 
-        contour->set_number_x_grid(gridXCells);
-        contour->set_number_y_grid(gridYCells);
-        contour->set_number_z_grid(gridZCells);
+                sscanf(buf, "%d %d %d %d %f %f %f %f %f %f %f %f\n",
+                        &fooInt,
+                        &fooInt,
 
-        contour->set_submesh_limits(0,0,contour->get_x_min());
-        contour->set_submesh_limits(0,1,contour->get_x_max());
-        contour->set_submesh_limits(1,0,contour->get_y_min());
-        contour->set_submesh_limits(1,1,contour->get_y_max());
-        contour->normalize_submesh_limits();
+                        &fooInt,
+                        &fooInt,
 
-        contour->set_average_duplicated(true);
+                        &newSiteObject.x,
+                        &newSiteObject.y,
 
-        contour->intp_method(0);
-        contour->set_palette(0);
-        contour->graph_2d(graphType2d);
-        contour->graph_3d(graphType3d);
-        contour->graph_cb();
+                        &newSiteObject.width,
+                        &newSiteObject.length,
+
+                        &newSiteObject.elevation,
+
+                        &newSiteObject.r,
+                        &newSiteObject.g,
+                        &newSiteObject.b
+                       );
+
+                siteObjects.push_back(newSiteObject);
+            }
+
+            redraw();
+        }
     }
 }
 
 Viewport::~Viewport() {
     if(showContour) {
-        delete contour;
+        //delete contour;
     }
 
     if(showDORI) {
@@ -131,47 +129,6 @@ int Viewport::handle(int event) {
     switch(event) {
     case FL_KEYDOWN: {
         int key = Fl::event_key();
-#if 0
-        if(key == 'a') {
-            dori_sensor_plate->yRot+=5;
-            dori_sensor_plate->draw();
-            redraw();
-        }
-        else if(key == 'd') {
-            dori_sensor_plate->yRot-=5;
-            dori_sensor_plate->draw();
-            redraw();
-        }
-        else if(key == 'w') {
-            dori_arm->xRot-=5;
-            redraw();
-        }
-        else if(key == 's') {
-            dori_arm->xRot+=5;
-            redraw();
-        }
-        else if(key == 'h') {
-            dori_body->yRot+=5;
-            redraw();
-        }
-        else if(key == 'l') {
-            dori_body->yRot-=5;
-            redraw();
-        }
-        else if(key == 'j') {
-            dori_body->xRot+=5;
-            redraw();
-        }
-        else if(key == 'k') {
-            dori_body->xRot-=5;
-            redraw();
-        }
-        else if(key == FL_Down) {
-            dori_body->xPos-=5;
-            redraw();
-        }
-#endif
-
 
         // interpolation - 3
         // palette - 5
@@ -187,8 +144,10 @@ int Viewport::handle(int event) {
         //grid x size vb, grid y size nm, grid z size ,.
         //display: z box, x palette, c data, v points
         //f open file
+        //
 
         if(showContour) {
+            /*
             if(key >= '1' && key <= '5') {
                 // these set functions (eg set_palette) return 1 if the value has changed and 0 if the value hasn't changed
                 if(contour->set_palette(key - '1')) {
@@ -222,9 +181,9 @@ int Viewport::handle(int event) {
                 contour->graph_cb();
                 contour->redraw();
                 redraw();
+                return 1;
             }
-
-            return 1;
+            */
         }
     }
     }
@@ -232,7 +191,7 @@ int Viewport::handle(int event) {
 }
 
 //rewrite draw method
-void Viewport::draw(){
+void Viewport::draw() {
     reshape();
     if(!valid()){
         static GLfloat light_diffuse[] = {1.0, 0.0, 0.0, 1.0};
@@ -253,64 +212,73 @@ void Viewport::draw(){
     glPushMatrix();
     arcball_transform();//apply transformation
     draw_axis();
-    //draw_zoom_scale();
 
     glDisable(GL_LIGHTING);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glPushMatrix();
-    // rotate contours to have the correct orientation
-    float vAng	= 95.0;//Z
-    float hAng	= 220.0;//XY
-    glRotatef(hAng,0,1,0);
-    glRotatef(vAng,-1,0,0);
-
     if(showContour) {
+        glPushMatrix();
+        /*
+        // rotate contours to have the correct orientation
+        float vAng	= 95.0;//Z
+        float hAng	= 220.0;//XY
+        glRotatef(hAng,0,1,0);
+        glRotatef(vAng,-1,0,0);
+
         contour->draw();
+        */
+
+        glPopMatrix();
+
+        for(unsigned i = 0; i < siteObjects.size(); i++) {
+            glColor3f(1.0 * i / siteObjects.size(), 1.0 * i / siteObjects.size(), 1.0 * i / siteObjects.size());
+            glBegin(GL_POLYGON);
+
+            glVertex3f(siteObjects[i].x, 0.0, siteObjects[i].y);
+            glVertex3f(siteObjects[i].x + siteObjects[i].width, 0.0, siteObjects[i].y);
+            glVertex3f(siteObjects[i].x, 0.0, siteObjects[i].y + siteObjects[i].length);
+            glVertex3f(siteObjects[i].x + siteObjects[i].width, 0.0, siteObjects[i].y + siteObjects[i].length);
+            glVertex3f(siteObjects[i].x, 0.0, siteObjects[i].y);
+
+            glEnd();
+        }
     }
 
-    glPopMatrix();
+
+    glPushMatrix();
 
     glScalef(0.1f, 0.1f, 0.1f);
 
-    /*
-    for(int i = 0; i < models.size(); i++) {
-        models[i].draw();
-    }
-    */
-
-    glPushMatrix();
 
     if(!rowData) {
         rowData = (std::vector<Row>*)user_data();
     }
-
-    std::vector<Row>::reverse_iterator it;
-
-    // reset rotations
-    dori_body->xRot = 0;
-    dori_body->yRot = 0;
-    dori_body->zRot = 0;
-
-    dori_arm->xRot = 0;
-    dori_sensor_plate->yRot = 0;
-
-    for(it = rowData->rbegin(); it != rowData->rend(); it++) {
-        if(strcmp(it->cols[1], orientation_type) == 0) {
-            dori_body->xRot = atof(it->cols[2]);
-            dori_body->yRot = atof(it->cols[3]);
-            dori_body->zRot = atof(it->cols[4]);
-        }
-        if(strcmp(it->cols[1], arm_type) == 0) {
-            dori_arm->xRot = atof(it->cols[2]);
-        }
-        if(strcmp(it->cols[1], plate_type) == 0) {
-            dori_sensor_plate->yRot = atof(it->cols[2]);
-        }
-    }
-
     if(showDORI) {
+        std::vector<Row>::reverse_iterator it;
+
+        // reset rotations
+        dori_body->xRot = 0;
+        dori_body->yRot = 0;
+        dori_body->zRot = 0;
+
+        dori_arm->xRot = 0;
+        dori_sensor_plate->yRot = 0;
+
+        for(it = rowData->rbegin(); it != rowData->rend(); it++) {
+            if(strcmp(it->cols[1], orientation_type) == 0) {
+                dori_body->xRot = atof(it->cols[2]);
+                dori_body->yRot = atof(it->cols[3]);
+                dori_body->zRot = atof(it->cols[4]);
+            }
+            if(strcmp(it->cols[1], arm_type) == 0) {
+                dori_arm->xRot = atof(it->cols[2]);
+            }
+            if(strcmp(it->cols[1], plate_type) == 0) {
+                dori_sensor_plate->yRot = atof(it->cols[2]);
+            }
+        }
+
         dori_body->draw(false);
         dori_arm->draw(false);
         dori_sensor_plate->draw(false);

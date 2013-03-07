@@ -3,6 +3,7 @@
 #include <FL/Fl_Float_Input.H>
 #include <FL/Fl_Table_Row.H>
 #include <FL/Fl_Gl_Window.H>
+#include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Tile.H>
 #include <FL/fl_ask.H>
 #include <FL/Fl_Box.H>
@@ -22,16 +23,18 @@
 #include <string.h>
 #include <map>
 #include <fcntl.h>
-#include "../row.h"
+#include "row.h"
 #include "queryinput.h"
 #include "ctype.h"
 #include "table.h"
-#include "../3d/objmodel/objmodel.h"
-#include "../radar/radarwindow.h"
-#include "../3d/objmodel/multiarcball/src/math/3dcontrols.h"
-#include "../3d/objmodel/multiarcball/src/FLui/FlGlArcballWindow.h"
-#include "../3d/objmodel/fltk_contour/include/fl_gl_contour.h"
-#include "../3d/objmodel/viewport.h"
+#include "objmodel.h"
+#include "radarwindow.h"
+#include "3dcontrols.h"
+#include "basic_ball.h"
+#include "Fl_Custom_Cursor.H"
+#include "FlGlArcballWindow.h"
+#include "viewport.h"
+#include "siteeditor.h"
 #include "widgetwindow.h"
 
 static void spawnRadarWindow(Fl_Widget *widget, void *data) {
@@ -67,22 +70,23 @@ static void spawnModelViewer(Fl_Widget *widget, void *data) {
     }
 
     // showDORI = true
-    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, true, false);
+    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, false, true);
     viewport->user_data(&window->table->_rowdata);
 
     viewport->show();
     window->table->spawned_windows->push_back(viewport);
 }
 
-static void spawnSceneViewer(Fl_Widget *widget, void *data) {
+static void spawnSiteEditor(Fl_Widget *widget, void *data) {
     (void)widget;
-    WidgetWindow *window = (WidgetWindow*)data;
+    (void)data;
+    //WidgetWindow *window = (WidgetWindow*)data;
 
-    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, true, true);
-    viewport->user_data(&window->table->_rowdata);
+    SiteEditor *siteEditor = new SiteEditor(0, 0, 600, 600, NULL);
+    //siteEditor->user_data(&window->table->_rowdata);
 
-    viewport->show();
-    window->table->spawned_windows->push_back(viewport);
+    siteEditor->show();
+    //window->table->spawned_windows->push_back(viewport);
 }
 
 static void graphCallback(Fl_Widget *widget, void *data) {
@@ -133,7 +137,7 @@ WidgetWindow::WidgetWindow(int x, int y, int w, int h, const char *label, Table 
     widgetGroup->begin();
     radar = new Fl_Button(widgetGroup->x() + 5, 5, 150, 30, "Radar");
     modelViewer = new Fl_Button(radar->x(), radar->y() + radar->h(), 150, 30, "3D");
-    sceneViewer = new Fl_Button(modelViewer->x(), modelViewer->y() + modelViewer->h(), 150, 30, "Scene Viewer");
+    siteEditor = new Fl_Button(modelViewer->x(), modelViewer->y() + modelViewer->h(), 150, 30, "Site Editor");
     widgetGroup->end();
 
     graphGroupLabel = new Fl_Box(15, widgetGroup->y() + widgetGroup->h() + 15, 60, 20, "Graphing:");
@@ -156,7 +160,7 @@ WidgetWindow::WidgetWindow(int x, int y, int w, int h, const char *label, Table 
 
     radar->callback(spawnRadarWindow, this);
     modelViewer->callback(spawnModelViewer, this);
-    sceneViewer->callback(spawnSceneViewer, this);
+    siteEditor->callback(spawnSiteEditor, this);
     graph->callback(graphCallback, this);
 
     if(table) {

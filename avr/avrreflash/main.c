@@ -67,13 +67,9 @@ void flash_write(uint16_t start, uint8_t * bytes, int num_bytes)
         uint16_t page_start;
         page_start = start & (~(PAGE_SIZE-1));
 
-        uart_print("before first loop\n");
-
         for(i=0; i<PAGE_SIZE; i++) {
             page_buf[i] = pgm_read_byte(page_start + i);
         }
-
-        uart_print("before second loop\n");
 
         // page protection, don't go past page boundaries
         for(i=0; i < num_bytes && ((start - page_start + i) < PAGE_SIZE); i++) {
@@ -91,8 +87,6 @@ void flash_write(uint16_t start, uint8_t * bytes, int num_bytes)
         uint16_t word;
     } u ;
 
-    uart_print("before third loop\n");
-
     for(i=0; i<PAGE_SIZE; i+=2) {
         u.bytes[0] = *bytes++;
         u.bytes[1] = *bytes++;
@@ -102,8 +96,6 @@ void flash_write(uint16_t start, uint8_t * bytes, int num_bytes)
 
     boot_page_write(start);
     boot_rww_enable_safe();
-
-    uart_print("flash_write is done\n");
 }
 
 uint8_t char_to_hex(char c) BOOTLOADER_SECTION;
@@ -124,6 +116,7 @@ uint8_t str_bytes_to_hex(char *input, uint8_t* output) {
         input += 2;
         num_bytes++;
     }
+
     return num_bytes;
 }
 
