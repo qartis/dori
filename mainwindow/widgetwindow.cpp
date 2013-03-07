@@ -33,6 +33,7 @@
 #include "basic_ball.h"
 #include "Fl_Custom_Cursor.H"
 #include "FlGlArcballWindow.h"
+#include "mgl2/fltk.h"
 #include "viewport.h"
 #include "siteeditor.h"
 #include "widgetwindow.h"
@@ -70,7 +71,7 @@ static void spawnModelViewer(Fl_Widget *widget, void *data) {
     }
 
     // showDORI = true
-    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, false, true);
+    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, true, true);
     viewport->user_data(&window->table->_rowdata);
 
     viewport->show();

@@ -5,3 +5,7 @@ server: server.c
 
 mainwindow: mainwindow/main.cpp mainwindow/widgetwindow.cpp mainwindow/widgetwindow.h mainwindow/mainwindow.h mainwindow/mainwindow.cpp mainwindow/queryinput.h mainwindow/queryinput.cpp mainwindow/table.h mainwindow/table.cpp radar/radarwindow.o viewport/viewport.o siteeditor/siteeditor.o
 	cd mainwindow; make
+
+clean:
+	rm server; cd mainwindow; make clean
+

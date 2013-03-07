@@ -5,5 +5,9 @@
 *.pdf
 *.dwg
 *.dxf
+*.zip
+*.tar
+*.tar.gz
+*.gz
 tags
 db*

@@ -10,6 +10,7 @@
 #include "row.h"
 #include "objmodel.h"
 #include "FlGlArcballWindow.h"
+#include "mgl2/fltk.h"
 #include "viewport.h"
 
 const static char* laser_type = "laser";
@@ -37,13 +38,13 @@ FlGlArcballWindow(w,h,l) {
 
     if(showDORI) {
         dori_body = new ObjModel;
-        dori_body->load("../3d/objmodel/models/dori_body.obj");
+        dori_body->load("../viewport/models/dori_body.obj");
 
         dori_arm = new ObjModel;
-        dori_arm->load("../3d/objmodel/models/dori_arm.obj");
+        dori_arm->load("../viewport/models/dori_arm.obj");
 
         dori_sensor_plate = new ObjModel;
-        dori_sensor_plate->load("../3d/objmodel/models/dori_sensor_plate.obj");
+        dori_sensor_plate->load("../viewport/models/dori_sensor_plate.obj");
 
         // line the arm up
         dori_arm->setPos(-0.72682, 0.66008, -0.37968);
@@ -283,6 +284,8 @@ void Viewport::draw() {
         dori_arm->draw(false);
         dori_sensor_plate->draw(false);
     }
+
+
 
     glPopMatrix();
 
