@@ -35,61 +35,61 @@ unsigned long geometrySize(int type) {
 }
 
 SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label)
-: Fl_Double_Window(x, y, w, h, label),
-curMouseOverElevation(0.0),
-curState(WAITING), curSelectedGeom(NULL),
-toolbar(NULL), newGeom(NULL) {
+    : Fl_Double_Window(x, y, w, h, label),
+    curMouseOverElevation(0.0),
+    curState(WAITING), curSelectedGeom(NULL),
+    toolbar(NULL), newGeom(NULL) {
 
-    processData("../viewport/poland.xyz");
-    Fl::set_font(CUSTOM_FONT, "OCRB");
+        processData("../viewport/poland.xyz");
+        Fl::set_font(CUSTOM_FONT, "OCRB");
 
-    sqlite3_open("../siteobjects.db", &db);
-    if(db) {
-        sqlite3_stmt* res = NULL;
-        const char* query = "SELECT rowid, * FROM objects;";
-        int ret = sqlite3_prepare_v2 (db, query, strlen(query), &res, 0);
+        sqlite3_open("../siteobjects.db", &db);
+        if(db) {
+            sqlite3_stmt* res = NULL;
+            const char* query = "SELECT rowid, * FROM objects;";
+            int ret = sqlite3_prepare_v2 (db, query, strlen(query), &res, 0);
 
-        if (SQLITE_OK == ret)
-        {
-            while (SQLITE_ROW == sqlite3_step(res))
+            if (SQLITE_OK == ret)
             {
-                int rowid = (int)sqlite3_column_int(res, 0);
-                int type = (int)sqlite3_column_int(res, 1);
-                Geometry *newGeom;
+                while (SQLITE_ROW == sqlite3_step(res))
+                {
+                    int rowid = (int)sqlite3_column_int(res, 0);
+                    int type = (int)sqlite3_column_int(res, 1);
+                    Geometry *newGeom;
 
-                switch(type) {
-                case LINE:
-                    newGeom = new Line;
-                    memcpy(newGeom, (Line*)sqlite3_column_blob(res, 2), sizeof(Line));
-                    break;
-                case RECT:
-                    newGeom = new Rect;
-                    memcpy(newGeom, (Rect*)sqlite3_column_blob(res, 2), sizeof(Rect));
-                    break;
-                case CIRCLE:
-                    newGeom = new Circle;
-                    memcpy(newGeom, (Circle*)sqlite3_column_blob(res, 2), sizeof(Circle));
-                    break;
+                    switch(type) {
+                    case LINE:
+                        newGeom = new Line;
+                        memcpy(newGeom, (Line*)sqlite3_column_blob(res, 2), sizeof(Line));
+                        break;
+                    case RECT:
+                        newGeom = new Rect;
+                        memcpy(newGeom, (Rect*)sqlite3_column_blob(res, 2), sizeof(Rect));
+                        break;
+                    case CIRCLE:
+                        newGeom = new Circle;
+                        memcpy(newGeom, (Circle*)sqlite3_column_blob(res, 2), sizeof(Circle));
+                        break;
+                    }
+
+                    newGeom->id = rowid;
+
+                    siteGeoms.push_back(newGeom);
                 }
-
-                newGeom->id = rowid;
-
-                siteGeoms.push_back(newGeom);
             }
+            sqlite3_finalize(res);
+            redraw();
         }
-        sqlite3_finalize(res);
-        redraw();
+        else {
+            fprintf(stderr, "couldn't find db\n");
+        }
+
+
+        end();
+
+        toolbar = new Toolbar(h, 0, 60, 200);
+        toolbar->show();
     }
-    else {
-        fprintf(stderr, "couldn't find db\n");
-    }
-
-
-    end();
-
-    toolbar = new Toolbar(h, 0, 60, 200);
-    toolbar->show();
-}
 
 SiteEditor::~SiteEditor() {
     for(unsigned i = 0; i < siteGeoms.size(); i++) {
@@ -297,8 +297,6 @@ int SiteEditor::handle(int event) {
                 curState = WAITING;
                 redraw();
 
-                siteGeoms.push_back(newGeom);
-
                 unsigned long blobSize = geometrySize(newGeom->type);
                 sqlite3_stmt* preparedStatement = NULL;
                 const char* unused;
@@ -342,8 +340,6 @@ int SiteEditor::handle(int event) {
                 curSelectedGeom->r = 255;
                 curSelectedGeom->g = 0;
                 curSelectedGeom->b = 0;
-
-                curState = WAITING;
             }
         }
         else {
@@ -364,16 +360,16 @@ int SiteEditor::handle(int event) {
             sqlite3_exec(db, query, NULL, NULL, NULL);
 
             std::vector<Geometry*>::iterator it = siteGeoms.begin();
-
             for(; it != siteGeoms.end(); it++) {
                 if((*it)->id == curSelectedGeom->id) {
+                    curSelectedGeom = NULL;
                     siteGeoms.erase(it);
                     break;
                 }
             }
 
-            redraw();
             curState = WAITING;
+            redraw();
         }
         else if(key == (FL_F + 1)) {
             if(!toolbar->shown()) {
