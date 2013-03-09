@@ -1,24 +1,3 @@
-typedef struct {
-    unsigned id;
-    int screenX;
-    int screenY;
-    int screenWidth;
-    int screenHeight;
-
-    int screenCenterX;
-    int screenCenterY;
-
-    float worldX;
-    float worldY;
-    float worldWidth;
-    float worldHeight;
-
-    float elevation;
-    unsigned r;
-    unsigned g;
-    unsigned b;
-} point;
-
 class SiteEditor : public Fl_Double_Window {
 
 public:
@@ -33,17 +12,17 @@ public:
     virtual int handle(int event);
     virtual void draw();
 
-    std::vector<point> points;
-    std::vector<point> siteObjects;
+    std::vector<Geometry*> points;
+    std::vector<Geometry*> siteGeoms;
 
 private:
 
     static int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
 
-        void processData(const char *filename);
-    point* closestPoint(int screenX, int screenY, std::vector<point> &dataset, int *distance = NULL, bool clearColours = false);
+    void processData(const char *filename);
+    Geometry* closestGeom(int screenX, int screenY, std::vector<Geometry*> &dataset, int *distance = NULL, bool clearColours = false);
 
-    point* curSelectedPoint;
+    Circle* curSelectedPoint;
 
     float minX;
     float minY;
@@ -51,20 +30,6 @@ private:
 
     float scaleX;
     float scaleY;
-
-    // TODO: refactor these into a 'point' struct
-    int newSquareOriginX;
-    int newSquareOriginY;
-
-    int newSquareCenterX;
-    int newSquareCenterY;
-
-    int newSquareWidth;
-    int newSquareHeight;
-
-    int newSquareR;
-    int newSquareG;
-    int newSquareB;
 
     float curMouseOverElevation;
 
@@ -76,8 +41,10 @@ private:
 
     state curState;
 
-    point *curSelectedSquare;
+    Geometry *curSelectedGeom;
 
     sqlite3 *db;
+    Toolbar *toolbar;
 
+    Geometry *newGeom;
 };

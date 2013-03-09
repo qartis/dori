@@ -10,89 +10,112 @@
 #include <limits.h>
 #include <sqlite3.h>
 #include <algorithm>
+#include "geometry.h"
+#include "line.h"
+#include "rect.h"
+#include "circle.h"
+#include "toolbar.h"
+#include "siteobject.h"
 #include "siteeditor.h"
 
 #define CUSTOM_FONT 69
 #define SELECTION_DISTANCE 20
 
-int SiteEditor::sqlite_cb(void *arg, int ncols, char **cols, char **colNames) {
-    (void)ncols;
-    (void)colNames;
-    SiteEditor * siteEditor = (SiteEditor*)arg;
-
-    point newSiteObject;
-
-    newSiteObject.id = atoi(cols[0]);
-
-    newSiteObject.screenX = atoi(cols[1]);
-    newSiteObject.screenY = atoi(cols[2]);
-
-    newSiteObject.screenWidth = atoi(cols[3]);
-    newSiteObject.screenHeight = atoi(cols[4]);
-
-    newSiteObject.worldX = atof(cols[5]);
-    newSiteObject.worldY = atof(cols[6]);
-
-    newSiteObject.worldWidth = atof(cols[7]);
-    newSiteObject.worldHeight = atof(cols[8]);
-
-    newSiteObject.elevation = atof(cols[9]);
-
-    newSiteObject.r = atoi(cols[10]);
-    newSiteObject.g = atoi(cols[11]);
-    newSiteObject.b = atoi(cols[12]);
-
-    newSiteObject.screenCenterX = newSiteObject.screenX + (newSiteObject.screenWidth / 2);
-    newSiteObject.screenCenterY = newSiteObject.screenY + (newSiteObject.screenHeight / 2);
-
-
-    siteEditor->siteObjects.push_back(newSiteObject);
-
-    return 0;
+unsigned long geometrySize(int type) {
+    switch(type) {
+    case LINE:
+        return sizeof(Line);
+    case RECT:
+        return sizeof(Rect);
+    case CIRCLE:
+        return sizeof(Circle);
+    default:
+        return sizeof(Geometry);
+    }
 }
 
 SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label)
-    : Fl_Double_Window(x, y, w, h, label), newSquareOriginX(0), newSquareOriginY(0),
-    newSquareCenterX(0), newSquareCenterY(0) ,
-    newSquareWidth(0), newSquareHeight(0),
-    newSquareR(255), newSquareG(255), newSquareB(255),
-    curMouseOverElevation(0.0),
-    curState(WAITING), curSelectedSquare(NULL) {
+: Fl_Double_Window(x, y, w, h, label),
+curMouseOverElevation(0.0),
+curState(WAITING), curSelectedGeom(NULL),
+toolbar(NULL), newGeom(NULL) {
 
     processData("../viewport/poland.xyz");
     Fl::set_font(CUSTOM_FONT, "OCRB");
 
     sqlite3_open("../siteobjects.db", &db);
     if(db) {
-        fprintf(stderr, "reading from db\n");
-        sqlite3_exec(db, "select rowid, * from objects;", sqlite_cb, this, NULL); 
+        sqlite3_stmt* res = NULL;
+        const char* query = "SELECT rowid, * FROM objects;";
+        int ret = sqlite3_prepare_v2 (db, query, strlen(query), &res, 0);
+
+        if (SQLITE_OK == ret)
+        {
+            while (SQLITE_ROW == sqlite3_step(res))
+            {
+                int rowid = (int)sqlite3_column_int(res, 0);
+                int type = (int)sqlite3_column_int(res, 1);
+                Geometry *newGeom;
+
+                switch(type) {
+                case LINE:
+                    newGeom = new Line;
+                    memcpy(newGeom, (Line*)sqlite3_column_blob(res, 2), sizeof(Line));
+                    break;
+                case RECT:
+                    newGeom = new Rect;
+                    memcpy(newGeom, (Rect*)sqlite3_column_blob(res, 2), sizeof(Rect));
+                    break;
+                case CIRCLE:
+                    newGeom = new Circle;
+                    memcpy(newGeom, (Circle*)sqlite3_column_blob(res, 2), sizeof(Circle));
+                    break;
+                }
+
+                newGeom->id = rowid;
+
+                siteGeoms.push_back(newGeom);
+            }
+        }
+        sqlite3_finalize(res);
         redraw();
     }
     else {
         fprintf(stderr, "couldn't find db\n");
     }
+
+
+    end();
+
+    toolbar = new Toolbar(h, 0, 60, 200);
+    toolbar->show();
 }
 
 SiteEditor::~SiteEditor() {
+    for(unsigned i = 0; i < siteGeoms.size(); i++) {
+        delete siteGeoms[i];
+    }
+
     sqlite3_close(db);
 }
 
-point* SiteEditor::closestPoint(int mouseX, int mouseY, std::vector<point>& dataset, int *distance, bool clearColours) {
-    point *closest = NULL;
+Geometry* SiteEditor::closestGeom(int mouseX, int mouseY, std::vector<Geometry*>& dataset, int *distance, bool clearColours) {
+    Geometry *closest = NULL;
     int square, minSquare;
     minSquare = INT_MAX;
 
     for(unsigned i = 0; i < dataset.size(); i++) {
         if(clearColours) {
-            dataset[i].r = 255;
-            dataset[i].g = 255;
-            dataset[i].b = 255;
+            //TODO: change this once we add color picker
+            dataset[i]->r = 255;
+            dataset[i]->g = 255;
+            dataset[i]->b = 255;
         }
 
-        square = ((mouseX - dataset[i].screenCenterX) * (mouseX - dataset[i].screenCenterX)) + ((mouseY - dataset[i].screenCenterY) * (mouseY - dataset[i].screenCenterY));
+        square = ((mouseX - dataset[i]->screenCenterX) * (mouseX - dataset[i]->screenCenterX)) + ((mouseY - dataset[i]->screenCenterY) * (mouseY - dataset[i]->screenCenterY));
         if(square < minSquare) {
             minSquare = square;
-            closest = &dataset[i];
+            closest = dataset[i];
         }
     }
 
@@ -133,10 +156,12 @@ void SiteEditor::processData(const char * filename) {
         if(curY > maxY) maxY = curY;
         if(curElevation > maxElevation) maxElevation = curElevation;
 
-        point newPoint;
-        newPoint.worldX = curX;
-        newPoint.worldY = curY;
-        newPoint.elevation = curElevation;
+        Circle *newPoint = new Circle;
+        newPoint->worldCenterX = curX;
+        newPoint->worldCenterY = curY;
+        newPoint->screenRadius = 1;
+        newPoint->elevation = curElevation;
+        newPoint->worldHeight = 1;
         points.push_back(newPoint);
     }
 
@@ -147,20 +172,16 @@ void SiteEditor::processData(const char * filename) {
 
     for(unsigned i = 0; i < points.size(); i++) {
         double r, g, b;
-        Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i].elevation - minElevation), 1.0, 1.0, r, g, b);
+        Circle *point = (Circle *)points[i];
+        Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i]->elevation - minElevation), 1.0, 1.0, r, g, b);
 
-        points[i].r = r * 255.0;
-        points[i].g = g * 255.0;
-        points[i].b = b * 255.0;
+        //TODO: change this once we add color picker
+        point->r = r * 255.0;
+        point->g = g * 255.0;
+        point->b = b * 255.0;
 
-        points[i].screenX = (int)(scaleX * (points[i].worldX - minX));
-        points[i].screenY = h() - (int)(scaleY * (points[i].worldY - minY));
-
-        points[i].screenCenterX = points[i].screenX;
-        points[i].screenCenterY = points[i].screenY;
-
-        points[i].screenWidth = points[i].screenHeight = 1;
-        points[i].worldWidth = points[i].worldHeight = 1;
+        point->screenCenterX = (int)(scaleX * (point->worldCenterX - minX));
+        point->screenCenterY = h() - (int)(scaleY * (point->worldCenterY - minY));
     }
 
     redraw();
@@ -171,38 +192,101 @@ int SiteEditor::handle(int event) {
         if(event == FL_PUSH) {
             int distance = 0;
 
-            curSelectedSquare = closestPoint(Fl::event_x_root() - x(), Fl::event_y_root() - y(), siteObjects, &distance, true);
+            curSelectedGeom = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), siteGeoms, &distance, true);
 
-            if(curSelectedSquare && distance < SELECTION_DISTANCE) {
+            if(distance > SELECTION_DISTANCE) {
+                curSelectedGeom = NULL;
+                redraw();
+            }
+
+            if(curSelectedGeom && distance < SELECTION_DISTANCE) {
                 curState = SELECTED;
-                curSelectedSquare->r = 255;
-                curSelectedSquare->g = 0;
-                curSelectedSquare->b = 0;
+                //TODO: change this once we add color picker
+                curSelectedGeom->r = 255;
+                curSelectedGeom->g = 0;
+                curSelectedGeom->b = 0;
                 redraw();
             }
             else {
-                curState = DRAWING;
-                newSquareOriginX = Fl::event_x_root() - x();
-                newSquareOriginY = Fl::event_y_root() - y();
+                if(toolbar->curSelectedType != NONE) {
+                    curState = DRAWING;
+                }
+
+                if(toolbar->curSelectedType == LINE) {
+                    newGeom = new Line;
+                    Line *newLine = (Line*)newGeom;
+                    //TODO: change this once we add color picker
+                    newLine->r = 255;
+                    newLine->g = 255;
+                    newLine->b = 255;
+                    newLine->screenLeft = Fl::event_x_root() - x();
+                    newLine->screenTop = Fl::event_y_root() - y();
+                }
+                else if(toolbar->curSelectedType == RECT) {
+                    newGeom = new Rect;
+                    Rect *newRect = (Rect*)newGeom;
+                    //TODO: change this once we add color picker
+                    newRect->r = 255;
+                    newRect->g = 255;
+                    newRect->b = 255;
+                    newRect->screenLeft = Fl::event_x_root() - x();
+                    newRect->screenTop =  Fl::event_y_root() - y();
+                }
+                else if(toolbar->curSelectedType == CIRCLE) {
+                    newGeom = new Circle;
+                    Circle *newCircle = (Circle*)newGeom;
+                    //TODO: change this once we add color picker
+                    newCircle->r = 255;
+                    newCircle->g = 255;
+                    newCircle->b = 255;
+                    newCircle->screenCenterX = Fl::event_x_root() - x();
+                    newCircle->screenCenterY = Fl::event_y_root() - y();
+                }
+
+                redraw();
             }
         }
         else if(event == FL_DRAG) {
             if(curState == DRAWING) {
-                newSquareWidth = (Fl::event_x_root() - x()) - newSquareOriginX;
-                newSquareHeight = (Fl::event_y_root() - y()) - newSquareOriginY;
+                if(toolbar->curSelectedType == LINE) {
+                    Line *newLine = (Line*)newGeom;
+                    newLine->screenLengthX = (Fl::event_x_root() - x()) - newLine->screenLeft;
+                    newLine->screenLengthY = (Fl::event_y_root() - y()) - newLine->screenTop;
 
-                newSquareCenterX = newSquareOriginX + (newSquareWidth / 2);
-                newSquareCenterY = newSquareOriginY + (newSquareHeight / 2);
+                    newLine->screenCenterX = newLine->screenLeft + (newLine->screenLengthX / 2);
+                    newLine->screenCenterY = newLine->screenTop + (newLine->screenLengthY / 2);
+                }
+                else if(toolbar->curSelectedType == RECT) {
+                    Rect *newRect = (Rect*)newGeom;
+                    newRect->screenWidth = (Fl::event_x_root() - x()) - newRect->screenLeft;
+                    newRect->screenHeight = (Fl::event_y_root() - y()) - newRect->screenTop;
+
+                    newRect->screenCenterX = newRect->screenLeft + (newRect->screenWidth / 2);
+                    newRect->screenCenterY = newRect->screenTop + (newRect->screenHeight / 2);
+                }
+                else if(toolbar->curSelectedType == CIRCLE) {
+                    Circle *newCircle = (Circle*)newGeom;
+                    int distX = abs((Fl::event_x_root() - x()) - newCircle->screenCenterX);
+                    int distY = abs((Fl::event_y_root() - y()) - newCircle->screenCenterY);
+                    newCircle->screenRadius = distX > distY ? distX : distY;
+                }
+
+
+                Geometry *closest = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), (std::vector<Geometry*> &)(points));
+                if(closest) {
+                    curMouseOverElevation = closest->elevation;
+                }
 
                 redraw();
             }
             else if(curState == SELECTED) {
-                if(curSelectedSquare) {
-                    curSelectedSquare->screenX = (Fl::event_x_root() - x()) - (curSelectedSquare->screenWidth / 2);
-                    curSelectedSquare->screenY = (Fl::event_y_root() - y()) - (curSelectedSquare->screenHeight / 2);
+                if(curSelectedGeom) {
+                    SiteObject::moveCenter(curSelectedGeom, (Fl::event_x_root() - x()), (Fl::event_y_root() - y()));
 
-                    curSelectedSquare->screenCenterX = curSelectedSquare->screenX + (curSelectedSquare->screenWidth / 2);
-                    curSelectedSquare->screenCenterY = curSelectedSquare->screenY + (curSelectedSquare->screenHeight / 2);
+                    Geometry *closest = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), points);
+                    if(closest) {
+                        curMouseOverElevation = closest->elevation;
+                    }
 
                     redraw();
                 }
@@ -210,71 +294,60 @@ int SiteEditor::handle(int event) {
         }
         else if(event == FL_RELEASE) {
             if(curState == DRAWING) {
-                point newSiteObject;
-                newSiteObject.screenX = newSquareOriginX;
-                newSiteObject.screenY = newSquareOriginY;
-
-                newSiteObject.screenWidth = newSquareWidth;
-                newSiteObject.screenHeight = newSquareHeight;
-
-                newSiteObject.screenCenterX = newSiteObject.screenX + (newSiteObject.screenWidth / 2);
-                newSiteObject.screenCenterY = newSiteObject.screenY + (newSiteObject.screenHeight / 2);
-
-                newSiteObject.worldX = (newSiteObject.screenX / scaleX) + minX;
-                newSiteObject.worldY = (newSiteObject.screenY / scaleY) + minY;
-
-                newSiteObject.worldWidth = (newSiteObject.worldX / scaleX) + minX;
-                newSiteObject.worldHeight = (newSiteObject.worldY / scaleY) + minY;
-
-                newSiteObject.r = 255;
-                newSiteObject.g = 255;
-                newSiteObject.b = 255;
-
-                point *closest = closestPoint(newSiteObject.screenX, newSiteObject.screenY, points);
-
-                if(closest) {
-                    newSiteObject.elevation = closest->elevation;
-                }
-
-                char query[512];
-                sprintf(query, "INSERT INTO objects VALUES (%d, %d, %d, %d, %f, %f, %f, %f, %f, %u, %u, %u);",
-                        newSiteObject.screenX,
-                        newSiteObject.screenY,
-                        newSiteObject.screenWidth,
-                        newSiteObject.screenHeight,
-                        newSiteObject.worldX,
-                        newSiteObject.worldY,
-                        newSiteObject.worldWidth,
-                        newSiteObject.worldHeight,
-                        newSiteObject.elevation,
-                        newSiteObject.r,
-                        newSiteObject.g,
-                        newSiteObject.b);
-
-                sqlite3_exec(db, query, NULL, NULL, NULL);
-
-                siteObjects.push_back(newSiteObject);
-
-                newSquareWidth = newSquareHeight = 0;
-
                 curState = WAITING;
                 redraw();
-            }
-            else if(curState == SELECTED) {
-                curSelectedSquare->screenX = (Fl::event_x_root() - x()) - (curSelectedSquare->screenWidth / 2);
-                curSelectedSquare->screenY = (Fl::event_y_root() - y()) - (curSelectedSquare->screenHeight / 2);
+
+                siteGeoms.push_back(newGeom);
+
+                unsigned long blobSize = geometrySize(newGeom->type);
+                sqlite3_stmt* preparedStatement = NULL;
+                const char* unused;
 
                 char query[512];
-                sprintf(query, "UPDATE objects set screenX = %d, screenY = %d WHERE rowid = %d;",
-                        curSelectedSquare->screenX,
-                        curSelectedSquare->screenY,
-                        curSelectedSquare->id);
+                sprintf(query, "INSERT INTO objects (type, data) VALUES (%d, ?);", newGeom->type);
+                sqlite3_prepare_v2(db, query, -1, &preparedStatement, &unused);
+                sqlite3_bind_blob (preparedStatement, 1, newGeom, blobSize, SQLITE_STATIC);
+                sqlite3_step (preparedStatement);
+                sqlite3_finalize (preparedStatement);
 
-                sqlite3_exec(db, query, NULL, NULL, NULL);
+                sqlite_int64 rowid = sqlite3_last_insert_rowid(db);
+                newGeom->id = rowid;
+
+                siteGeoms.push_back(newGeom);
+
+                newGeom = NULL;
+            }
+            else if(curState == SELECTED) {
+                sqlite3_blob *blob;
+
+                int rc = sqlite3_blob_open(db, "main", "objects", "data", curSelectedGeom->id, 1, &blob);
+                if(SQLITE_OK != rc) {
+                    fprintf(stderr, "Couldn't get blob handle (%i): %s\n", rc, sqlite3_errmsg(db));
+                    exit(1);
+                }
+
+                //TODO: change this once we add color picker
+                curSelectedGeom->r = 255;
+                curSelectedGeom->g = 255;
+                curSelectedGeom->b = 255;
+
+                if(SQLITE_OK != (rc = sqlite3_blob_write(blob, curSelectedGeom, geometrySize(curSelectedGeom->type), 0))) {
+                    fprintf(stderr, "Error writing to blob handle\n");
+                    exit(1);
+                }
+
+                sqlite3_blob_close(blob);
+
+                //TODO: change this once we add color picker
+                curSelectedGeom->r = 255;
+                curSelectedGeom->g = 0;
+                curSelectedGeom->b = 0;
+
+                curState = WAITING;
             }
         }
         else {
-            point *closest = closestPoint(Fl::event_x_root() - x(), Fl::event_y_root() - y(), points);
+            Geometry *closest = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), points);
             if(closest) {
                 curMouseOverElevation = closest->elevation;
                 redraw(); //TODO: optimize this to only update the text, not redraw everything
@@ -287,20 +360,30 @@ int SiteEditor::handle(int event) {
 
         if(key == FL_Delete && curState == SELECTED) {
             char query[512];
-            sprintf(query, "DELETE FROM objects WHERE rowid = %d;", curSelectedSquare->id);
+            sprintf(query, "DELETE FROM objects WHERE rowid = %d;", curSelectedGeom->id);
             sqlite3_exec(db, query, NULL, NULL, NULL);
 
-            std::vector<point>::iterator it = siteObjects.begin();
+            std::vector<Geometry*>::iterator it = siteGeoms.begin();
 
-            for(; it != siteObjects.end(); it++) {
-                if(it->id == curSelectedSquare->id) {
-                    siteObjects.erase(it);
+            for(; it != siteGeoms.end(); it++) {
+                if((*it)->id == curSelectedGeom->id) {
+                    siteGeoms.erase(it);
                     break;
                 }
             }
 
             redraw();
             curState = WAITING;
+        }
+        else if(key == (FL_F + 1)) {
+            if(!toolbar->shown()) {
+                toolbar->show();
+            }
+            else {
+                toolbar->hide();
+            }
+
+            return 1;
         }
     }
 
@@ -311,47 +394,20 @@ void SiteEditor::draw() {
     fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), FL_BLACK);
 
     for(unsigned i = 0; i < points.size(); i++) {
-        fl_color(points[i].r, points[i].g, points[i].b);
-        fl_circle(points[i].screenX, points[i].screenY, 1);
+        SiteObject::draw(points[i], false);
     }
 
     fl_color(FL_WHITE);
     fl_line_style(FL_SOLID, 5);
 
-    for(unsigned i = 0; i < siteObjects.size(); i++) {
-        fl_color(siteObjects[i].r, siteObjects[i].g, siteObjects[i].b);
-        fl_begin_loop();
-        fl_vertex(siteObjects[i].screenX, siteObjects[i].screenY);
-        fl_vertex(siteObjects[i].screenX + siteObjects[i].screenWidth, siteObjects[i].screenY);
-        fl_vertex(siteObjects[i].screenX + siteObjects[i].screenWidth, siteObjects[i].screenY + siteObjects[i].screenHeight);
-        fl_vertex(siteObjects[i].screenX, siteObjects[i].screenY + siteObjects[i].screenHeight);
-        fl_vertex(siteObjects[i].screenX, siteObjects[i].screenY);
-        fl_end_loop();
-
-        fl_begin_loop();
-        fl_vertex(siteObjects[i].screenCenterX - 2, siteObjects[i].screenCenterY - 2);
-        fl_vertex(siteObjects[i].screenCenterX - 2, siteObjects[i].screenCenterY + 2);
-        fl_vertex(siteObjects[i].screenCenterX + 2, siteObjects[i].screenCenterY + 2);
-        fl_vertex(siteObjects[i].screenCenterX + 2, siteObjects[i].screenCenterY - 2);
-        fl_end_loop();
+    for(unsigned i = 0; i < siteGeoms.size(); i++) {
+        SiteObject::draw(siteGeoms[i]);
     }
 
     if(curState == DRAWING) {
-        fl_color(newSquareR, newSquareG, newSquareB);
-        fl_begin_loop();
-        fl_vertex(newSquareOriginX, newSquareOriginY);
-        fl_vertex(newSquareOriginX + newSquareWidth, newSquareOriginY);
-        fl_vertex(newSquareOriginX + newSquareWidth, newSquareOriginY + newSquareHeight);
-        fl_vertex(newSquareOriginX, newSquareOriginY + newSquareHeight);
-        fl_vertex(newSquareOriginX, newSquareOriginY);
-        fl_end_loop();
-
-        fl_begin_loop();
-        fl_vertex(newSquareCenterX - 2, newSquareCenterY - 2);
-        fl_vertex(newSquareCenterX - 2, newSquareCenterY + 2);
-        fl_vertex(newSquareCenterX + 2, newSquareCenterY + 2);
-        fl_vertex(newSquareCenterX + 2, newSquareCenterY - 2);
-        fl_end_loop();
+        if(newGeom) {
+            SiteObject::draw(newGeom);
+        }
     }
 
     fl_line_style(0);

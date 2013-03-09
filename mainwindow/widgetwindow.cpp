@@ -35,6 +35,11 @@
 #include "FlGlArcballWindow.h"
 #include "mgl2/fltk.h"
 #include "viewport.h"
+#include "geometry.h"
+#include "line.h"
+#include "rect.h"
+#include "circle.h"
+#include "toolbar.h"
 #include "siteeditor.h"
 #include "widgetwindow.h"
 
