@@ -1,5 +1,3 @@
-#define BUFLEN 128
-
 class WidgetWindow : public Fl_Window {
 
 public:

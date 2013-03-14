@@ -1,10 +1,3 @@
-enum geomType {
-    NONE = 0,
-    LINE,
-    RECT,
-    CIRCLE,
-};
-
 class Toolbar : public Fl_Window {
 
 public:
@@ -16,5 +9,5 @@ public:
     Fl_Button *rectButton;
     Fl_Button *circleButton;
 
-    geomType curSelectedType;
+    objType curSelectedObjType;
 };

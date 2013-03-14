@@ -12,17 +12,17 @@ public:
     virtual int handle(int event);
     virtual void draw();
 
-    std::vector<Geometry*> points;
-    std::vector<Geometry*> siteGeoms;
+    std::vector<SiteObject*> points;
+    std::vector<SiteObject*> siteObjects;
 
 private:
 
     static int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
 
     void processData(const char *filename);
-    Geometry* closestGeom(int screenX, int screenY, std::vector<Geometry*> &dataset, int *distance = NULL, bool clearColours = false);
+    SiteObject* closestGeom(int screenX, int screenY, std::vector<SiteObject*> &dataset, int *distance = NULL, bool clearColours = false);
 
-    Circle* curSelectedPoint;
+    CircleObject* curSelectedPoint;
 
     float minX;
     float minY;
@@ -41,10 +41,10 @@ private:
 
     state curState;
 
-    Geometry *curSelectedGeom;
+    SiteObject *curSelectedObject;
 
     sqlite3 *db;
     Toolbar *toolbar;
 
-    Geometry *newGeom;
+    SiteObject *newSiteObject;
 };

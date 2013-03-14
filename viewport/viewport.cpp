@@ -1,16 +1,23 @@
 #include <FL/Fl.H>
 #include <FL/Fl_Gl_Window.H>
+#include <FL/Fl_Double_Window.H>
+#include <FL/Fl_Button.H>
 #include <FL/fl_draw.H>
 #include <GL/glut.h>
 #include <vector>
 #include <list>
 #include <math.h>
+#include <sqlite3.h>
+#include "siteobject.h"
+#include "lineobject.h"
+#include "rectobject.h"
+#include "circleobject.h"
+#include "toolbar.h"
 #include "3dcontrols.h"
 #include "basic_ball.h"
 #include "row.h"
 #include "objmodel.h"
 #include "FlGlArcballWindow.h"
-#include "mgl2/fltk.h"
 #include "viewport.h"
 
 const static char* laser_type = "laser";
@@ -20,7 +27,37 @@ const static char* arm_type = "arm";
 const static char* plate_type = "plate";
 const static char* orientation_type = "orientation";
 
-const static char* objFilename = "../objects.txt";
+int Viewport::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
+    std::vector<SiteObject*>* objs = (std::vector<SiteObject*>*)arg;
+
+    int rowid = atoi(cols[0]);
+    objType type = (objType)(atoi(cols[1]));
+
+    SiteObject *obj;
+
+    switch(type) {
+    case LINE:
+        obj = new LineObject;
+        break;
+    case RECT:
+        obj = new RectObject;
+        break;
+    case CIRCLE:
+        obj = new CircleObject;
+        break;
+    default:
+        fprintf(stderr, "ERROR: undefined object type\n");
+    }
+
+    obj->fromString(cols[2]);
+    obj->id = rowid;
+
+    objs->push_back(obj);
+
+    return 0;
+}
+
+
 
 Viewport::Viewport(int x, int y, int w,int h,const char*l, bool dori, bool showCont) :
 FlGlArcballWindow(w,h,l) {
@@ -33,8 +70,7 @@ FlGlArcballWindow(w,h,l) {
     dori_body = NULL;
     dori_arm = NULL;
     dori_sensor_plate = NULL;
-
-    objFile = NULL;
+    db = NULL;
 
     if(showDORI) {
         dori_body = new ObjModel;
@@ -56,43 +92,46 @@ FlGlArcballWindow(w,h,l) {
     }
 
     if(showContour) {
-        //data.read_file("../3d/objmodel/poland.xyz",0,0);
+        int count = 0;
+        fprintf(stderr, "opening db\n");
+        sqlite3_open("../siteobjects.db", &db);
+        if(db) {
+            sqlite3_stmt* res = NULL;
+            const char* query = "SELECT rowid, * FROM objects;";
+            int ret = sqlite3_prepare_v2 (db, query, strlen(query), &res, 0);
 
-        char buf[512];
-        float fooFloat; // used for values we don't care about
-        int fooInt; // used for values we don't care about
+            if (SQLITE_OK == ret)
+            {
+                while (SQLITE_ROW == sqlite3_step(res))
+                {
+                    int rowid = (int)sqlite3_column_int(res, 0);
+                    int type = (int)sqlite3_column_int(res, 1);
+                    SiteObject *newObj;
 
-        objFile = fopen(objFilename, "r");
+                    count++;
 
-        if(objFile) {
-            while(fgets(buf, sizeof(buf), objFile)) {
-                siteObject newSiteObject;
+                    switch(type) {
+                    case LINE:
+                        newObj = new LineObject;
+                        break;
+                    case RECT:
+                        newObj = new RectObject;
+                        break;
+                    case CIRCLE:
+                        newObj = new CircleObject;
+                        break;
+                    }
 
-                sscanf(buf, "%d %d %d %d %f %f %f %f %f %f %f %f\n",
-                        &fooInt,
-                        &fooInt,
+                    newObj->id = rowid;
 
-                        &fooInt,
-                        &fooInt,
-
-                        &newSiteObject.x,
-                        &newSiteObject.y,
-
-                        &newSiteObject.width,
-                        &newSiteObject.length,
-
-                        &newSiteObject.elevation,
-
-                        &newSiteObject.r,
-                        &newSiteObject.g,
-                        &newSiteObject.b
-                       );
-
-                siteObjects.push_back(newSiteObject);
+                    siteObjects.push_back(newObj);
+                }
             }
-
-            redraw();
+            sqlite3_finalize(res);
         }
+
+        fprintf(stderr, "loaded %d objects\n", count);
+        redraw();
     }
 }
 
@@ -232,17 +271,9 @@ void Viewport::draw() {
 
         glPopMatrix();
 
+        fprintf(stderr, "siteObjects: %d\n", siteObjects.size());
         for(unsigned i = 0; i < siteObjects.size(); i++) {
-            glColor3f(1.0 * i / siteObjects.size(), 1.0 * i / siteObjects.size(), 1.0 * i / siteObjects.size());
-            glBegin(GL_POLYGON);
-
-            glVertex3f(siteObjects[i].x, 0.0, siteObjects[i].y);
-            glVertex3f(siteObjects[i].x + siteObjects[i].width, 0.0, siteObjects[i].y);
-            glVertex3f(siteObjects[i].x, 0.0, siteObjects[i].y + siteObjects[i].length);
-            glVertex3f(siteObjects[i].x + siteObjects[i].width, 0.0, siteObjects[i].y + siteObjects[i].length);
-            glVertex3f(siteObjects[i].x, 0.0, siteObjects[i].y);
-
-            glEnd();
+            siteObjects[i]->drawWorld();
         }
     }
 

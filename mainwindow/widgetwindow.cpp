@@ -34,13 +34,13 @@
 #include "Fl_Custom_Cursor.H"
 #include "FlGlArcballWindow.h"
 #include "mgl2/fltk.h"
-#include "viewport.h"
-#include "geometry.h"
-#include "line.h"
-#include "rect.h"
-#include "circle.h"
+#include "siteobject.h"
+#include "lineobject.h"
+#include "rectobject.h"
+#include "circleobject.h"
 #include "toolbar.h"
 #include "siteeditor.h"
+#include "viewport.h"
 #include "widgetwindow.h"
 
 static void spawnRadarWindow(Fl_Widget *widget, void *data) {
@@ -76,7 +76,7 @@ static void spawnModelViewer(Fl_Widget *widget, void *data) {
     }
 
     // showDORI = true
-    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, true, true);
+    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, false, true);
     viewport->user_data(&window->table->_rowdata);
 
     viewport->show();

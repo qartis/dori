@@ -12,8 +12,8 @@ FlGlArcballWindow.o: ../multiarcball/src/FLui/FlGlArcballWindow.cpp
 Fl_Custom_Cursor.o: ../multiarcball/src/flcursors/fltk1/Fl_Custom_Cursor.cxx
 	g++ -g -c ../multiarcball/src/flcursors/fltk1/Fl_Custom_Cursor.cxx
 
-viewport.o: viewport.cpp objmodel.cpp 3dcontrols.o basic_ball.o FlGlArcballWindow.o Fl_Custom_Cursor.o
-	g++ -g -c -O3 objmodel.cpp viewport.cpp -I/opt/X11/include -I../ -I../multiarcball/src/FLui -I../multiarcball/src/math -I../multiarcball/src/flcursors/fltk1 -I../mathgl/include/ `fltk-config --use-gl --cxxflags --ldflags` -L/opt/X11/lib -lglut -lGLU -lmgl -lmgl-fltk -lmgl-wnd
+viewport.o: viewport.cpp objmodel.cpp 3dcontrols.o basic_ball.o FlGlArcballWindow.o Fl_Custom_Cursor.o ../siteeditor/lineobject.o ../siteeditor/rectobject.o ../siteeditor/circleobject.o
+	g++ -g -c -O3 objmodel.cpp viewport.cpp -I/opt/X11/include -I../ -I../multiarcball/src/FLui -I../multiarcball/src/math -I../multiarcball/src/flcursors/fltk1 -I../mathgl/include/ -I../siteeditor/ `fltk-config --use-gl --cxxflags --ldflags` -L/opt/X11/lib -lglut -lGLU -lmgl -lmgl-fltk -lmgl-wnd
 
 clean:
 	rm *.o

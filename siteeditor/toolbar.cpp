@@ -2,6 +2,7 @@
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Pixmap.H>
+#include "siteobject.h"
 #include "toolbar.h"
 
 static const char *line_xpm[] = {
@@ -97,18 +98,18 @@ static Fl_Pixmap circle_pixmap(circle_xpm);
 static void button_cb(Fl_Widget *widget, void *data) {
     Toolbar *toolbar = (Toolbar *)data;
     if(widget == toolbar->lineButton) {
-        toolbar->curSelectedType = LINE;
+        toolbar->curSelectedObjType = LINE;
     }
     else if(widget == toolbar->rectButton) {
-        toolbar->curSelectedType = RECT;
+        toolbar->curSelectedObjType = RECT;
     }
     else if(widget == toolbar->circleButton) {
-        toolbar->curSelectedType = CIRCLE;
+        toolbar->curSelectedObjType = CIRCLE;
     }
 }
 
 Toolbar::Toolbar(int x, int y, int w, int h, const char *label) :
-  Fl_Window(x, y, w, h, label), lineButton(NULL), rectButton(NULL), circleButton(NULL), curSelectedType(NONE) {
+  Fl_Window(x, y, w, h, label), lineButton(NULL), rectButton(NULL), circleButton(NULL), curSelectedObjType(UNDEFINED) {
     lineButton = new Fl_Button(0, 0, w, h / 3);
     lineButton->image(line_pixmap);
     lineButton->type(FL_RADIO_BUTTON);

@@ -30,7 +30,6 @@ public:
 private:
     virtual int handle(int event);
 
-    std::vector<siteObject> siteObjects;
     std::vector<ObjModel> models;
     int graphType2d;
     int graphType3d;
@@ -42,5 +41,8 @@ private:
     bool showDORI;
     bool showContour;
 
-    FILE *objFile;
+    sqlite3 *db;
+    std::vector<SiteObject*> siteObjects;
+
+    int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
 };
