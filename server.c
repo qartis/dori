@@ -9,15 +9,45 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <time.h>
 
 #define MAX 1024
-#define PORT 1337
+#define DORIPORT 53
+#define TKPORT 1337
+#define SHELLPORT 1338
 #define BUFLEN 4096
+
+#define TERM_NORM  "\x1B[0m"
+#define TERM_RED  "\x1B[31m"
+#define TERM_GREEN  "\x1B[32m"
+#define TERM_YELLOW  "\x1B[33m"
+#define TERM_BLUE  "\x1B[34m"
+#define TEMR_MAGENTA  "\x1B[35m"
+#define TERM_CYAN  "\x1B[36m"
+#define TERM_WHITE  "\x1B[37m"
 
 sqlite3 *db;
 
-static int fds[128];
-static int nfds;
+typedef enum {
+    DORI,
+    TK,
+    SHELL,
+} client_type;
+
+typedef struct {
+    int fd;
+    client_type type;
+} client;
+
+char timestamp[128];
+static client clients[128];
+static int nclients;
+static int dorifd;
+static int tkfd;
+static int shellfd;
+const char* dori_log_filename = "dori.log";
+
+FILE *dori_log = NULL;
 
 void error(const char *str)
 {
@@ -35,17 +65,31 @@ int strprefix(const char *a, const char *b)
     return strncmp(a, b, strlen(b));
 }
 
+client* find_client(int fd)
+{
+    client* c = NULL;
+    int i;
+
+    for(i = 0; i < nclients; i++) {
+        if(clients[i].fd == fd) {
+            return &clients[i];
+        }
+    }
+
+    return c;
+}
+
 void remove_client(int fd)
 {
     int i;
 
     close(fd);
 
-    for (i = 0; i < nfds; i++) {
-        if (fds[i] == fd) {
-            memmove(&fds[i], &fds[i + 1],
-                    (nfds - i - 1) * sizeof(fds[0]));
-            nfds--;
+    for (i = 0; i < nclients; i++) {
+        if (clients[i].fd == fd) {
+            memmove(&clients[i], &clients[i + 1],
+                    (nclients - i - 1) * sizeof(clients[0]));
+            nclients--;
             i--;
             break;
         }
@@ -87,12 +131,14 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 {
     (void)rows;
 
-    int *fd = arg;
+    client *cl = arg;
     int i;
 
     for (i = 0; i < ncols; i++) {
-        printfd(*fd, "%s", cols[i]);
-        write(*fd, "", 1);
+        if(cl->type == TK) {
+            printfd(cl->fd, "%s", cols[i]);
+            write(cl->fd, "", 1);
+        }
     }
 
     return 0;
@@ -100,7 +146,7 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 
 int main()
 {
-    int tcpfd, newfd, maxfd;
+    int newfd, maxfd;
     struct sockaddr_in servaddr;
     struct sockaddr_in clientaddr;
     socklen_t len;
@@ -111,31 +157,70 @@ int main()
 
     sqlite3_open("db", &db);
 
-    tcpfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (tcpfd == -1)
-        error("tcp socket");
+    dorifd = socket(AF_INET, SOCK_STREAM, 0);
+    if (dorifd == -1)
+        error("dori socket");
+
+    shellfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (shellfd == -1)
+        error("shell socket");
+
+    tkfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (tkfd == -1)
+        error("tk socket");
 
     optval = 1;
-    setsockopt(tcpfd, SOL_SOCKET, SO_REUSEADDR,
-        &optval, sizeof(optval));
+    setsockopt(dorifd, SOL_SOCKET, SO_REUSEADDR,
+               &optval, sizeof(optval));
+
+    setsockopt(shellfd, SOL_SOCKET, SO_REUSEADDR,
+               &optval, sizeof(optval));
+
+    setsockopt(tkfd, SOL_SOCKET, SO_REUSEADDR,
+               &optval, sizeof(optval));
 
     memset(&servaddr, '\0', sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(PORT);
 
-    rc = bind(tcpfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+    servaddr.sin_port = htons(DORIPORT);
+    rc = bind(dorifd, (struct sockaddr *)&servaddr, sizeof(servaddr));
     if (rc == -1)
-        error("bind: tcp");
+        error("bind: dorifd");
 
-    rc = listen(tcpfd, MAX);
+    servaddr.sin_port = htons(SHELLPORT);
+    rc = bind(shellfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
     if (rc == -1)
-        error("listen: tcp");
+        error("bind: shellfd");
+
+    servaddr.sin_port = htons(TKPORT);
+    rc = bind(tkfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+    if (rc == -1)
+        error("bind: tkfd");
+
+    rc = listen(dorifd, MAX);
+    if (rc == -1)
+        error("listen: dorifd");
+
+    rc = listen(shellfd, MAX);
+    if (rc == -1)
+        error("listen: shellfd");
+
+    rc = listen(tkfd, MAX);
+    if (rc == -1)
+        error("listen: tkfd");
 
     FD_ZERO(&master);
-    FD_SET(tcpfd, &master);
+    FD_SET(tkfd, &master);
+    FD_SET(dorifd, &master);
+    FD_SET(shellfd, &master);
     FD_SET(0, &master);
-    maxfd = tcpfd;
+
+    maxfd = tkfd > dorifd ? tkfd : dorifd;
+    maxfd = shellfd > maxfd ?  shellfd : maxfd;
+
+    dori_log = fopen(dori_log_filename, "a");
+    setbuf(dori_log, NULL);
 
     for (;;) {
         readfds = master;
@@ -162,11 +247,10 @@ int main()
             printf("new row: rowid: %ld, %s, %d, %d, %d\n", rowid, types[type], a, b, c);
             sprintf(buf, "SELECT rowid, * FROM records WHERE rowid = '%ld';", rowid);
 
-
             int i;
-            for (i = 0; i < nfds; i++) {
+            for (i = 0; i < nclients; i++) {
                 rc = sqlite3_exec(db, buf, sqlite_cb,
-                                  &fds[i], NULL);
+                                  &clients[i], NULL);
 
                 if (rc != SQLITE_OK)
                     error(sqlite3_errmsg(db));
@@ -178,34 +262,72 @@ int main()
                 continue;
             }
 
-            if (fd == tcpfd) {
+            if (fd == tkfd || fd == dorifd || fd == shellfd) {
                 len = sizeof(clientaddr);
-                newfd = accept(tcpfd, (struct sockaddr *)&clientaddr, &len);
-                fds[nfds++] = newfd;
 
-                sqlite3_exec(db, "SELECT rowid, * FROM RECORDS", sqlite_cb, &newfd, NULL);
-
-                write(newfd, "-1", 3);
-                write(newfd, "", 1);
-                write(newfd, "", 1);
-                write(newfd, "", 1);
-                write(newfd, "", 1);
-                write(newfd, "", 1);
+                newfd = accept(fd, (struct sockaddr *)&clientaddr, &len);
+                clients[nclients].fd = newfd;
+                FD_SET(newfd, &master);
 
                 if (newfd > maxfd)
                     maxfd = newfd;
 
-                FD_SET(newfd, &master);
+                if(fd == tkfd) {
+                    printf("new tk\n");
+                    clients[nclients].type = TK;
+                    sqlite3_exec(db, "SELECT rowid, * FROM RECORDS", sqlite_cb, &newfd, NULL);
+
+                    write(newfd, "-1", 3);
+                    write(newfd, "", 1);
+                    write(newfd, "", 1);
+                    write(newfd, "", 1);
+                    write(newfd, "", 1);
+                    write(newfd, "", 1);
+                }
+                else if(fd == shellfd) {
+                    clients[nclients].type = SHELL;
+                    printf("Shell connected\n");
+                }
+                else if(fd == dorifd) {
+                    clients[nclients].type = DORI;
+                    printf("DORI connection established\n");
+                }
+
+                nclients++;
             } else {
                 rc = read(fd, buf, sizeof(buf));
                 if (rc == 0 || (rc < 0 && errno == ECONNRESET)) {
                     FD_CLR(fd, &master);
                     remove_client(fd);
                     printf("client died\n");
-                } else if (rc < 0)
+                } else if (rc < 0) {
                     error("read");
+                } else {
+                    if(buf[rc-1] == '\n')
+                        buf[rc-1] = '\0';
+                    else
+                        buf[rc] = '\0';
 
-                printf("client sent data\n");
+                    client *c = find_client(fd);
+
+                    if(c == NULL) {
+                        printf("couldn't find client!\n");
+                        continue;
+                    }
+                    if(c->type == SHELL) {
+                        printf("shell wrote: %s\n", buf);
+                    } else if(c->type == DORI) {
+                        printf("dori wrote: %s\n", buf);
+                        time_t ltime;
+                        ltime=time(NULL);
+                        char timestamp[128];
+                        int length = sprintf(timestamp, "%s", asctime(localtime(&ltime)));
+                        timestamp[length-1] = '\0';
+                        fprintf(dori_log, TERM_RED "%s: %s\n" TERM_NORM, timestamp, buf);
+                    } else if(c->type == TK) {
+                        printf("tk wrote: %s\n", buf);
+                    }
+                }
             }
         }
     }
