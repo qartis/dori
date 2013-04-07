@@ -41,8 +41,22 @@ private:
     bool showDORI;
     bool showContour;
 
+    float scaleColour;
+
+    float minX;
+    float minY; 
+    float minElevation;
+
+    float maxX;
+    float maxY;
+    float maxElevation;
+
+    float midX;
+    float midY;
+
     sqlite3 *db;
     std::vector<SiteObject*> siteObjects;
+    std::vector<RectObject*> points;
 
-    int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
+    static int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
 };

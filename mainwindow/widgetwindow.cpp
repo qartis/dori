@@ -42,6 +42,16 @@
 #include "siteeditor.h"
 #include "viewport.h"
 #include "widgetwindow.h"
+#include "mainwindow.h"
+
+static void window_cb(Fl_Widget *widget, void *data) {
+    WidgetWindow* widgetwindow = (WidgetWindow*)widget;
+    if(widget->user_data()) {
+        MainWindow* mw = (MainWindow*)widget->user_data();
+        mw->hide();
+    }
+    widgetwindow->hide();
+}
 
 static void spawnRadarWindow(Fl_Widget *widget, void *data) {
     (void)widget;
@@ -76,7 +86,7 @@ static void spawnModelViewer(Fl_Widget *widget, void *data) {
     }
 
     // showDORI = true
-    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, false, true);
+    Viewport *viewport = new Viewport(0, 0, 600, 600, NULL, true, true);
     viewport->user_data(&window->table->_rowdata);
 
     viewport->show();
@@ -131,6 +141,14 @@ static void graphCallback(Fl_Widget *widget, void *data) {
     */
 }
 
+static void shellCallback(Fl_Widget *widget, void *data) {
+    (void)widget;
+    (void)data;
+    popen("xterm -e \"PATH=`pwd`:$PATH;tail -f shell.log & bash\"", "w");
+}
+
+
+
 WidgetWindow::WidgetWindow(int x, int y, int w, int h, const char *label, Table *t) : Fl_Window(x, y, w, h, label), table(t) {
 
     widgetGroupLabel = new Fl_Box(15, 5, 50, 20, "Widgets:");
@@ -138,12 +156,15 @@ WidgetWindow::WidgetWindow(int x, int y, int w, int h, const char *label, Table 
     widgetGroupLabel->box(FL_NO_BOX);
     widgetGroupLabel->label();
 
-    widgetGroup = new Fl_Window(10, 25, w - 20, 100);
+    widgetGroup = new Fl_Window(10, 25, w - 20, 140);
     widgetGroup->box(FL_BORDER_BOX);
     widgetGroup->begin();
-    radar = new Fl_Button(widgetGroup->x() + 5, 5, 150, 30, "Radar");
-    modelViewer = new Fl_Button(radar->x(), radar->y() + radar->h(), 150, 30, "3D");
-    siteEditor = new Fl_Button(modelViewer->x(), modelViewer->y() + modelViewer->h(), 150, 30, "Site Editor");
+    radar = new Fl_Button(widgetGroup->x() + 5, 5, 150, 30, "LIDAR");
+    modelViewer = new Fl_Button(radar->x(), radar->y() + radar->h(), 150, 30, "3D visualizer");
+    siteEditor = new Fl_Button(modelViewer->x(), modelViewer->y() + modelViewer->h(), 150, 30, "Site editor");
+
+    shell = new Fl_Button(siteEditor->x(), siteEditor->y() + siteEditor->h(), 150, 30, "Shell");
+
     widgetGroup->end();
 
     graphGroupLabel = new Fl_Box(15, widgetGroup->y() + widgetGroup->h() + 15, 60, 20, "Graphing:");
@@ -151,13 +172,13 @@ WidgetWindow::WidgetWindow(int x, int y, int w, int h, const char *label, Table 
     graphGroupLabel->box(FL_NO_BOX);
     graphGroupLabel->label();
 
-    graphGroup = new Fl_Window(10, graphGroupLabel->y() + graphGroupLabel->h(), w - 20, 140);
+    graphGroup = new Fl_Window(10, graphGroupLabel->y() + graphGroupLabel->h(), w - 20, 120);
     graphGroup->box(FL_BORDER_BOX);
     graphGroup->begin();
     xAxis = new Fl_Choice(graphGroup->x() + 60, 5, 100, 30, "X Axis");
 
     yAxis = new Fl_Choice(xAxis->x(), xAxis->y() + xAxis->h(), 100, 30, "Y Axis");
-    graph = new Fl_Button(graphGroup->x(), yAxis->y() + yAxis->h() + 4, 160, 30, "Graph");
+    graph = new Fl_Button(graphGroup->x(), yAxis->y() + yAxis->h() + 4, 160, 30, "2D Visualizer");
     /*
     graphInput = new Fl_Input(graphGroup->x(), graph->y() + graph->h() + 20, 160, 20, "Graph Input");
     graphInput->align(FL_ALIGN_TOP);
@@ -168,17 +189,9 @@ WidgetWindow::WidgetWindow(int x, int y, int w, int h, const char *label, Table 
     modelViewer->callback(spawnModelViewer, this);
     siteEditor->callback(spawnSiteEditor, this);
     graph->callback(graphCallback, this);
+    shell->callback(shellCallback, this);
 
-    if(table) {
-        std::vector<const char*>::iterator it = table->headers->begin();
-        for(; it != table->headers->end(); it++) {
-            xAxis->add(*it);
-            yAxis->add(*it);
-        }
-    }
-
-    xAxis->value(0);
-    yAxis->value(0);
+    callback(window_cb);
 
     end();
 }
@@ -188,15 +201,22 @@ int WidgetWindow::handle(int event) {
     case FL_KEYDOWN: {
         int key = Fl::event_key();
         if(key == (FL_F + 1)) {
-            if(!shown()) {
-                show();
+            if(user_data()) {
+                MainWindow* mw = (MainWindow*)user_data();
+                if(!mw->shown()) {
+                    mw->show();
+                }
+                else {
+                    mw->hide();
+                }
             }
-            else {
-                hide();
-            }
+        }
+        if(key == (FL_F + 5)) {
+            table->clearNewQueries();
         }
         return 1;
     }
+
     default:
         return Fl_Window::handle(event);
     }

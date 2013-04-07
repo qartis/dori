@@ -2,11 +2,13 @@
 #include <FL/Fl_Gl_Window.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Button.H>
+#include <FL/Fl_Color_Chooser.H>
 #include <FL/fl_draw.H>
 #include <GL/glut.h>
 #include <vector>
 #include <list>
 #include <math.h>
+#include <limits.h>
 #include <sqlite3.h>
 #include "siteobject.h"
 #include "lineobject.h"
@@ -26,6 +28,30 @@ const static char* accel_type = "accel";
 const static char* arm_type = "arm";
 const static char* plate_type = "plate";
 const static char* orientation_type = "orientation";
+
+
+static void drawSphere(double r, int lats, int longs) {
+    int i, j;
+    for(i = 0; i <= lats; i++) {
+        double lat0 = M_PI * (-0.5 + (double) (i - 1) / lats);
+        double z0  = sin(lat0);
+        double zr0 =  cos(lat0);
+        double lat1 = M_PI * (-0.5 + (double) i / lats);
+        double z1 = sin(lat1);
+        double zr1 = cos(lat1);
+        glBegin(GL_QUAD_STRIP);
+        for(j = 0; j <= longs; j++) {
+            double lng = 2 * M_PI * (double) (j - 1) / longs;
+            double x = cos(lng);
+            double y = sin(lng);
+            glNormal3f(x * zr0, y * zr0, z0);
+            glVertex3f(x * zr0, y * zr0, z0);
+            glNormal3f(x * zr1, y * zr1, z1);
+            glVertex3f(x * zr1, y * zr1, z1);
+        }
+        glEnd();
+    }
+}
 
 int Viewport::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     std::vector<SiteObject*>* objs = (std::vector<SiteObject*>*)arg;
@@ -57,8 +83,6 @@ int Viewport::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     return 0;
 }
 
-
-
 Viewport::Viewport(int x, int y, int w,int h,const char*l, bool dori, bool showCont) :
 FlGlArcballWindow(w,h,l) {
     end();
@@ -71,6 +95,7 @@ FlGlArcballWindow(w,h,l) {
     dori_arm = NULL;
     dori_sensor_plate = NULL;
     db = NULL;
+    midX = midY = 0.0;
 
     if(showDORI) {
         dori_body = new ObjModel;
@@ -92,45 +117,80 @@ FlGlArcballWindow(w,h,l) {
     }
 
     if(showContour) {
-        int count = 0;
+        FILE *f = fopen("../viewport/poland.clean.xyz", "r");
+
+        char buf[512];
+
+        if(f == NULL) {
+            printf("file not found\n");
+            return;
+        }
+
+        float curX, curY, curElevation;
+
+        minX = minY = minElevation = INT_MAX;
+        maxX = maxY = maxElevation = 0;
+
+        while(fgets(buf, sizeof(buf), f)) {
+            if(buf[0] == '#') {
+                continue;
+            }
+            sscanf(buf, "%f %f %f", &curX, &curY, &curElevation);
+
+            RectObject *newPoint = new RectObject;
+            newPoint->worldLeft = curX / 5.0;
+            newPoint->worldTop = curY / 5.0;
+            newPoint->worldWidth = 0.02;
+            newPoint->worldLength = 0.02;
+            newPoint->elevation = curElevation / 1000.0;
+            newPoint->worldHeight = 0.02;
+
+            if(newPoint->worldLeft < minX) minX = newPoint->worldLeft;
+            if(newPoint->worldTop < minY) minY = newPoint->worldTop;
+
+            if(newPoint->worldLeft > maxX) maxX = newPoint->worldLeft;
+            if(newPoint->worldTop > maxY) maxY = newPoint->worldTop;
+
+            if(newPoint->elevation < minElevation) minElevation = newPoint->elevation;
+            if(newPoint->elevation > maxElevation) maxElevation = newPoint->elevation;
+
+            points.push_back(newPoint);
+        }
+
+        midX = minX + ((maxX - minX) / 2.0);
+        midY = minY + ((maxY - minY) / 2.0);
+
+        scaleColour = 6.0 / (maxElevation - minElevation);
+
+        for(unsigned i = 0; i < points.size(); i++) {
+            double r, g, b;
+            RectObject *point = (RectObject*)points[i];
+            Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i]->elevation - minElevation), 1.0, 1.0, r, g, b);
+
+            point->r = r * 255.0;
+            point->g = g * 255.0;
+            point->b = b * 255.0;
+
+            points[i]->worldLeft -= midX;
+            // invert Y
+            points[i]->worldTop = maxY - points[i]->worldTop + minY - midY;
+        }
+
         fprintf(stderr, "opening db\n");
         sqlite3_open("../siteobjects.db", &db);
         if(db) {
-            sqlite3_stmt* res = NULL;
             const char* query = "SELECT rowid, * FROM objects;";
-            int ret = sqlite3_prepare_v2 (db, query, strlen(query), &res, 0);
-
-            if (SQLITE_OK == ret)
+            int ret = sqlite3_exec(db, query, sqlite_cb, &siteObjects, NULL);
+            if (ret != SQLITE_OK)
             {
-                while (SQLITE_ROW == sqlite3_step(res))
-                {
-                    int rowid = (int)sqlite3_column_int(res, 0);
-                    int type = (int)sqlite3_column_int(res, 1);
-                    SiteObject *newObj;
-
-                    count++;
-
-                    switch(type) {
-                    case LINE:
-                        newObj = new LineObject;
-                        break;
-                    case RECT:
-                        newObj = new RectObject;
-                        break;
-                    case CIRCLE:
-                        newObj = new CircleObject;
-                        break;
-                    }
-
-                    newObj->id = rowid;
-
-                    siteObjects.push_back(newObj);
-                }
+                fprintf(stderr, "error executing query in viewport\n");
             }
-            sqlite3_finalize(res);
         }
 
-        fprintf(stderr, "loaded %d objects\n", count);
+        for(unsigned i = 0; i < siteObjects.size(); i++) {
+            siteObjects[i]->scaleWorldCoords(midX, minY, midY, maxY);
+        }
+
         redraw();
     }
 }
@@ -240,7 +300,8 @@ void Viewport::draw() {
         glLightfv(GL_LIGHT0, GL_POSITION, light_position);
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
-        glClearColor (0.25,0.5,0.5, 1.0);
+        //glClearColor (0.25,0.5,0.5, 1.0);
+        glClearColor (0.1,0.1,0.1, 1.0);
         glDepthFunc (GL_LESS);
         glEnable (GL_DEPTH_TEST);
         glDisable (GL_DITHER);
@@ -258,7 +319,6 @@ void Viewport::draw() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     if(showContour) {
-        glPushMatrix();
         /*
         // rotate contours to have the correct orientation
         float vAng	= 95.0;//Z
@@ -269,19 +329,22 @@ void Viewport::draw() {
         contour->draw();
         */
 
-        glPopMatrix();
 
-        fprintf(stderr, "siteObjects: %d\n", siteObjects.size());
+        for(unsigned i = 0; i < points.size(); i++) {
+            //switch my points to RectObjects and draw them properly
+            points[i]->drawWorld();
+        }
+
         for(unsigned i = 0; i < siteObjects.size(); i++) {
             siteObjects[i]->drawWorld();
+            //fprintf(stderr, "coords: %f, %f, %f, %f\n", ((RectObject*)(siteObjects[i]))->worldLeft, ((RectObject*)(siteObjects[i]))->worldTop, ((RectObject*)(siteObjects[i]))->worldWidth, ((RectObject*)(siteObjects[i]))->worldLength);
         }
     }
 
 
     glPushMatrix();
 
-    glScalef(0.1f, 0.1f, 0.1f);
-
+    glScalef(0.02f, 0.02f, 0.02f);
 
     if(!rowData) {
         rowData = (std::vector<Row>*)user_data();
@@ -298,11 +361,13 @@ void Viewport::draw() {
         dori_sensor_plate->yRot = 0;
 
         for(it = rowData->rbegin(); it != rowData->rend(); it++) {
+            /*
             if(strcmp(it->cols[1], orientation_type) == 0) {
                 dori_body->xRot = atof(it->cols[2]);
                 dori_body->yRot = atof(it->cols[3]);
                 dori_body->zRot = atof(it->cols[4]);
             }
+            */
             if(strcmp(it->cols[1], arm_type) == 0) {
                 dori_arm->xRot = atof(it->cols[2]);
             }
@@ -315,8 +380,6 @@ void Viewport::draw() {
         dori_arm->draw(false);
         dori_sensor_plate->draw(false);
     }
-
-
 
     glPopMatrix();
 

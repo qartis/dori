@@ -10,6 +10,7 @@ public:
     virtual void drawWorld() = 0;
     virtual void drawScreen(bool drawCenterPoint = true) = 0;
     virtual void calcWorldCoords(float scaleX, float scaleY, float minX, float minY) = 0;
+    virtual void scaleWorldCoords(float midX, float minY, float midY, float maxY) = 0;
     virtual void moveCenter(int newCenterX, int newCenterY) = 0;
 
     virtual void toString(char*) = 0;

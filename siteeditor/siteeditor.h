@@ -15,6 +15,8 @@ public:
     std::vector<SiteObject*> points;
     std::vector<SiteObject*> siteObjects;
 
+    Toolbar *toolbar;
+
 private:
 
     static int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
@@ -44,7 +46,6 @@ private:
     SiteObject *curSelectedObject;
 
     sqlite3 *db;
-    Toolbar *toolbar;
 
     SiteObject *newSiteObject;
 };

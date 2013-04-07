@@ -11,10 +11,12 @@
 #include "radarwindow.h"
 
 #define MAX_ARCS 8
+#define CUSTOM_FONT 69
 
 #define RADAR_TYPE "laser"
 
 RadarWindow::RadarWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label) {
+    Fl::set_font(CUSTOM_FONT, "OCRB");
     insideAngle = 360.0;
     originX = w / 2.0;
     originY = h / 2.0;
@@ -226,4 +228,9 @@ void RadarWindow::draw() {
         fl_draw(textBuffer, originX - textWidth / 2.0, originY - ((float)(i+1) * radius) - 1.0);
     }
 
+    fl_font(CUSTOM_FONT, 12);
+    fl_color(FL_GREEN);
+    sprintf(textBuffer, "CUR PT DIST: 34");
+    fl_measure(textBuffer, textWidth, textHeight, 0);
+    fl_draw(textBuffer, 5.0, 13.0);
 }

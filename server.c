@@ -17,15 +17,6 @@
 #define SHELLPORT 1338
 #define BUFLEN 4096
 
-#define TERM_NORM  "\x1B[0m"
-#define TERM_RED  "\x1B[31m"
-#define TERM_GREEN  "\x1B[32m"
-#define TERM_YELLOW  "\x1B[33m"
-#define TERM_BLUE  "\x1B[34m"
-#define TEMR_MAGENTA  "\x1B[35m"
-#define TERM_CYAN  "\x1B[36m"
-#define TERM_WHITE  "\x1B[37m"
-
 sqlite3 *db;
 
 typedef enum {
@@ -45,9 +36,6 @@ static int nclients;
 static int dorifd;
 static int tkfd;
 static int shellfd;
-const char* dori_log_filename = "dori.log";
-
-FILE *dori_log = NULL;
 
 void error(const char *str)
 {
@@ -131,14 +119,12 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 {
     (void)rows;
 
-    client *cl = arg;
+    int *fd = arg;
     int i;
 
     for (i = 0; i < ncols; i++) {
-        if(cl->type == TK) {
-            printfd(cl->fd, "%s", cols[i]);
-            write(cl->fd, "", 1);
-        }
+        printfd(*fd, "%s", cols[i]);
+        write(*fd, "", 1);
     }
 
     return 0;
@@ -218,9 +204,6 @@ int main()
 
     maxfd = tkfd > dorifd ? tkfd : dorifd;
     maxfd = shellfd > maxfd ?  shellfd : maxfd;
-
-    dori_log = fopen(dori_log_filename, "a");
-    setbuf(dori_log, NULL);
 
     for (;;) {
         readfds = master;
@@ -318,12 +301,6 @@ int main()
                         printf("shell wrote: %s\n", buf);
                     } else if(c->type == DORI) {
                         printf("dori wrote: %s\n", buf);
-                        time_t ltime;
-                        ltime=time(NULL);
-                        char timestamp[128];
-                        int length = sprintf(timestamp, "%s", asctime(localtime(&ltime)));
-                        timestamp[length-1] = '\0';
-                        fprintf(dori_log, TERM_RED "%s: %s\n" TERM_NORM, timestamp, buf);
                     } else if(c->type == TK) {
                         printf("tk wrote: %s\n", buf);
                     }

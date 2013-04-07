@@ -33,6 +33,13 @@ unsigned long geometrySize(int type) {
     }
 }
 
+
+static void window_cb(Fl_Widget *widget, void *data) {
+    SiteEditor* siteeditor = (SiteEditor*)widget;
+    siteeditor->toolbar->hide();
+    siteeditor->hide();
+}
+
 int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     std::vector<SiteObject*>* objs = (std::vector<SiteObject*>*)arg;
 
@@ -63,7 +70,7 @@ int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     return 0;
 }
 
-SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), curMouseOverElevation(0.0), curState(WAITING), curSelectedObject(NULL), toolbar(NULL), newSiteObject(NULL) {
+SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), curMouseOverElevation(0.0), curState(WAITING), curSelectedObject(NULL), newSiteObject(NULL) {
     processData("../viewport/poland.xyz");
     Fl::set_font(CUSTOM_FONT, "OCRB");
 
@@ -82,6 +89,8 @@ SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Doubl
 
         toolbar = new Toolbar(h, 0, 60, 200);
         toolbar->show();
+
+        callback(window_cb);
     }
 }
 
@@ -153,7 +162,7 @@ void SiteEditor::processData(const char * filename) {
         CircleObject *newPoint = new CircleObject;
         newPoint->worldCenterX = curX;
         newPoint->worldCenterY = curY;
-        newPoint->screenRadius = 1;
+        newPoint->screenRadius = 6;
         newPoint->elevation = curElevation;
         newPoint->worldHeight = 1;
         points.push_back(newPoint);
@@ -167,9 +176,8 @@ void SiteEditor::processData(const char * filename) {
     for(unsigned i = 0; i < points.size(); i++) {
         double r, g, b;
         CircleObject *point = (CircleObject *)points[i];
-        Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i]->elevation - minElevation), 1.0, 1.0, r, g, b);
+        Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i]->elevation - minElevation), 1.0, 3.0, r, g, b);
 
-        //TODO: change this once we add color picker
         point->r = r * 255.0;
         point->g = g * 255.0;
         point->b = b * 255.0;
@@ -186,7 +194,7 @@ int SiteEditor::handle(int event) {
         if(event == FL_PUSH) {
             int distance = 0;
 
-            curSelectedObject = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), siteObjects, &distance, true);
+            curSelectedObject = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), siteObjects, &distance, false);
 
             if(distance > SELECTION_DISTANCE) {
                 curSelectedObject = NULL;
@@ -210,9 +218,9 @@ int SiteEditor::handle(int event) {
                     newSiteObject = new LineObject;
                     LineObject *newLineObject = (LineObject*)newSiteObject;
                     //TODO: change this once we add color picker
-                    newLineObject->r = 255;
-                    newLineObject->g = 255;
-                    newLineObject->b = 255;
+                    newLineObject->r = rand() % 255;
+                    newLineObject->g = rand() % 255;
+                    newLineObject->b = rand() % 255;
                     newLineObject->screenLeft = Fl::event_x_root() - x();
                     newLineObject->screenTop = Fl::event_y_root() - y();
                 }
@@ -220,9 +228,9 @@ int SiteEditor::handle(int event) {
                     newSiteObject = new RectObject;
                     RectObject *newRectObject = (RectObject*)newSiteObject;
                     //TODO: change this once we add color picker
-                    newRectObject->r = 255;
-                    newRectObject->g = 255;
-                    newRectObject->b = 255;
+                    newRectObject->r = rand() % 255;
+                    newRectObject->g = rand() % 255;
+                    newRectObject->b = rand() % 255;
                     newRectObject->screenLeft = Fl::event_x_root() - x();
                     newRectObject->screenTop =  Fl::event_y_root() - y();
                 }
@@ -230,9 +238,9 @@ int SiteEditor::handle(int event) {
                     newSiteObject = new CircleObject;
                     CircleObject *newCircleObject = (CircleObject*)newSiteObject;
                     //TODO: change this once we add color picker
-                    newCircleObject->r = 255;
-                    newCircleObject->g = 255;
-                    newCircleObject->b = 255;
+                    newCircleObject->r = rand() % 255;
+                    newCircleObject->g = rand() % 255;
+                    newCircleObject->b = rand() % 255;
                     newCircleObject->screenCenterX = Fl::event_x_root() - x();
                     newCircleObject->screenCenterY = Fl::event_y_root() - y();
                 }
@@ -308,6 +316,7 @@ int SiteEditor::handle(int event) {
                 newSiteObject = NULL;
             }
             else if(curState == SELECTED && curSelectedObject) {
+                curSelectedObject->calcWorldCoords(scaleX, scaleY, minX, minY);
 
                 //TODO: change this once we add color picker
                 curSelectedObject->r = 255;
@@ -323,7 +332,6 @@ int SiteEditor::handle(int event) {
                 if(SQLITE_OK != rc) {
                     fprintf(stderr, "Couldn't update object entry in db\n");
                 }
-                curSelectedObject->calcWorldCoords(scaleX, scaleY, minX, minY);
 
                 //TODO: change this once we add color picker
                 curSelectedObject->r = 255;
@@ -376,7 +384,9 @@ int SiteEditor::handle(int event) {
 }
 
 void SiteEditor::draw() {
-    fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), FL_BLACK);
+    fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), fl_rgb_color(25, 25, 25));
+
+    fl_line_style(0,2);
 
     for(unsigned i = 0; i < points.size(); i++) {
         points[i]->drawScreen(false);

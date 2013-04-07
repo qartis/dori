@@ -14,6 +14,7 @@ public:
     Fl_Button *radar;
     Fl_Button *modelViewer;
     Fl_Button *siteEditor;
+    Fl_Button *shell;
 
     Fl_Window *graphGroup;
     Fl_Box *graphGroupLabel;

@@ -40,6 +40,18 @@
 #define PORT 1337
 #define SERVER "127.0.0.1"
 
+#define TERM_NORM  "\x1B[0m"
+#define TERM_RED  "\x1B[31m"
+#define TERM_GREEN  "\x1B[32m"
+#define TERM_YELLOW  "\x1B[33m"
+#define TERM_BLUE  "\x1B[34m"
+#define TEMR_MAGENTA  "\x1B[35m"
+#define TERM_CYAN  "\x1B[36m"
+#define TERM_WHITE  "\x1B[37m"
+
+
+const char* MainWindow::shell_log_filename = "shell.log";
+
 int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
 {
     char buf[512] = { 0 };
@@ -58,6 +70,18 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
         for(int i = 0; i < ncols; i++) {
             window->headers.push_back(strdup(colNames[i]));
         }
+
+        window->widgetWindow->xAxis->clear();
+        window->widgetWindow->yAxis->clear();
+
+        std::vector<const char*>::iterator it = window->table->headers->begin();
+        for(; it != window->table->headers->end(); it++) {
+            window->widgetWindow->xAxis->add(*it);
+            window->widgetWindow->yAxis->add(*it);
+        }
+
+        window->widgetWindow->xAxis->value(0);
+        window->widgetWindow->yAxis->value(0);
 
         window->clearTable(window);
         window->needFlush = false;
@@ -137,10 +161,24 @@ static void handleFD(int fd, void *data) {
                     printf("sqlite error: %s\n", sqlite3_errmsg(window->db));
                 }
 
+                window->shell_log = fopen(window->shell_log_filename, "a");
+                setbuf(window->shell_log, NULL);
+
                 window->table->readyToDraw = 1;
                 window->performQuery(window);
                 index = 0;
                 continue;
+            }
+
+
+            if(window->shell_log) {
+                time_t ltime;
+                ltime=time(NULL);
+                char timestamp[128];
+                int length = sprintf(timestamp, "%s", asctime(localtime(&ltime)));
+                timestamp[length-1] = '\0';
+
+                fprintf(window->shell_log, TERM_RED "%s: '%s' '%s' '%s' '%s' '%s'\n" TERM_NORM, timestamp, field[1], field[2], field[3], field[4], field[5]);
             }
 
             sprintf(query, "INSERT INTO records (rowid, type, a, b, c, time) VALUES (%s, '%s', %s, %s, %s, %s);", field[0], field[1], field[2], field[3], field[4], field[5]);
@@ -166,7 +204,7 @@ static void handleFD(int fd, void *data) {
 }
 
 
-MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), greenify(false)
+MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), greenify(false), shell_log(NULL)
 {
     sqlite3_enable_shared_cache(1);
     queryInput = new QueryInput(w * 0.2, 0, w * 0.75, 20, "Query:");
@@ -193,7 +231,9 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     end();
 
     // resize this window to the size of the buttons below
-    widgetWindow = new WidgetWindow(w, 0, 200, 320, NULL, table);
+    widgetWindow = new WidgetWindow(w, 0, 200, 340, NULL, table);
+    widgetWindow->user_data(this);
+    widgetWindow->show();
 
     struct sockaddr_in serv_addr;
     struct hostent *server = NULL;
@@ -218,7 +258,6 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
 
     if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
         printf("error connecting to server\n");
-        exit(0);
     }
 
     Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
@@ -240,12 +279,7 @@ int MainWindow::handle(int event) {
     case FL_KEYDOWN: {
         int key = Fl::event_key();
         if(key == (FL_F + 1)) {
-            if(!widgetWindow->shown()) {
-                widgetWindow->show();
-            }
-            else {
-                widgetWindow->hide();
-            }
+            hide();
         }
         if(key == (FL_F + 5)) {
             table->clearNewQueries();

@@ -27,7 +27,10 @@ public:
     bool needFlush;
 
     bool greenify;
-    
+
     std::vector<const char *> headers;
     std::vector<const char *> prev_queries;
+
+    FILE *shell_log;
+    static const char* shell_log_filename;
 };
