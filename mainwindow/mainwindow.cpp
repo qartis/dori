@@ -2,12 +2,14 @@
 #include <FL/Fl_Input.H>
 #include <FL/Fl_Float_Input.H>
 #include <FL/Fl_Table_Row.H>
+#include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Gl_Window.H>
 #include <FL/Fl_Tile.H>
 #include <FL/fl_ask.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Choice.H>
+#include <FL/Fl_Color_Chooser.H>
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>
@@ -87,7 +89,7 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
         window->needFlush = false;
     }
 
-    window->table->add_row(buf, window->greenify);
+    window->table->add_row(buf, window->greenify, window->receivedFirstDump);
 
     return 0;
 }
@@ -156,7 +158,7 @@ static void handleFD(int fd, void *data) {
             }
 
             if(rowid == -1) {
-                int err = sqlite3_exec(window->db, "COMMIT TRANSACTION", NULL, NULL, NULL);
+                int err = sqlite3_exec(window->db, "END TRANSACTION", NULL, NULL, NULL);
                 if(err != SQLITE_OK) {
                     printf("sqlite error: %s\n", sqlite3_errmsg(window->db));
                 }
@@ -165,6 +167,7 @@ static void handleFD(int fd, void *data) {
                 setbuf(window->shell_log, NULL);
 
                 window->table->readyToDraw = 1;
+                window->receivedFirstDump = true;
                 window->performQuery(window);
                 index = 0;
                 continue;
@@ -185,16 +188,19 @@ static void handleFD(int fd, void *data) {
             sqlite3_exec(window->db, query, NULL, NULL, NULL);
             index = 0;
 
-            sqlite3_exec(window->db_tmp, query, NULL, NULL, NULL);
-            sqlite3_exec(window->db_tmp, window->queryInput->getSearchString(), window->sqlite_cb, window, NULL);
 
+            if(window->receivedFirstDump) {
+                fprintf(stderr, "new live data\n");
+                sqlite3_exec(window->db_tmp, query, NULL, NULL, NULL);
+                sqlite3_exec(window->db_tmp, window->queryInput->getSearchString(), window->sqlite_cb, window, NULL);
 
-            sqlite3_exec(window->db_tmp, "DELETE FROM records;", NULL, NULL, NULL);
-            window->table->sortUI();
-            int limit = window->queryInput->getLimit();
-            if(limit > 0) {
-                if(window->table->totalRows() > limit) {
-                    window->table->remove_last_row();
+                sqlite3_exec(window->db_tmp, "DELETE FROM records;", NULL, NULL, NULL);
+                window->table->sortUI();
+                int limit = window->queryInput->getLimit();
+                if(limit > 0) {
+                    if(window->table->totalRows() > limit) {
+                        window->table->remove_last_row();
+                    }
                 }
             }
 
@@ -204,7 +210,7 @@ static void handleFD(int fd, void *data) {
 }
 
 
-MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), greenify(false), shell_log(NULL)
+MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), greenify(false), receivedFirstDump(false), shell_log(NULL)
 {
     sqlite3_enable_shared_cache(1);
     queryInput = new QueryInput(w * 0.2, 0, w * 0.75, 20, "Query:");

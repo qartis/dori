@@ -27,6 +27,7 @@ public:
     bool needFlush;
 
     bool greenify;
+    bool receivedFirstDump;
 
     std::vector<const char *> headers;
     std::vector<const char *> prev_queries;

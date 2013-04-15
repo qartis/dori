@@ -6,7 +6,7 @@
 #include <vector>
 #include "queryinput.h"
 
-static const char *defaultQuery = "select rowid, * from records order by time";
+static const char *defaultQuery = "select rowid, type, a, b, c, strftime('%H:%M:%S', time, 'unixepoch') as time from records;";
 
 QueryInput::QueryInput(int x, int y, int w, int h, const char *label) : Fl_Input(x, y, w, h, label), callback(NULL)
 {

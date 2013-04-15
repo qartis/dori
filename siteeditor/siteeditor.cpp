@@ -20,24 +20,16 @@
 #define CUSTOM_FONT 69
 #define SELECTION_DISTANCE 30
 
-unsigned long geometrySize(int type) {
-    switch(type) {
-    case LINE:
-        return sizeof(LineObject);
-    case RECT:
-        return sizeof(RectObject);
-    case CIRCLE:
-        return sizeof(CircleObject);
-    default:
-        return sizeof(SiteObject);
-    }
-}
-
-
 static void window_cb(Fl_Widget *widget, void *data) {
     SiteEditor* siteeditor = (SiteEditor*)widget;
     siteeditor->toolbar->hide();
     siteeditor->hide();
+}
+
+float SiteEditor::scaledSelectionDistance() {
+    int minX = (SELECTION_DISTANCE / maxScreenWidth) * w();
+    int minY = (SELECTION_DISTANCE / maxScreenHeight) * h();
+    return minX < minY ? minX : minY;
 }
 
 int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
@@ -70,28 +62,9 @@ int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     return 0;
 }
 
-SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), curMouseOverElevation(0.0), curState(WAITING), curSelectedObject(NULL), newSiteObject(NULL) {
-    processData("../viewport/poland.xyz");
+SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), curMouseOverElevation(0.0), curState(WAITING), curSelectedObject(NULL), newSiteObject(NULL), db(NULL), maxScreenWidth(w), maxScreenHeight(h) {
+    processData("../viewport/poland.xyz", "../siteobjects.db");
     Fl::set_font(CUSTOM_FONT, "OCRB");
-
-    sqlite3_open("../siteobjects.db", &db);
-
-    if(db) {
-        const char* query = "SELECT rowid, * FROM objects;";
-        int ret = sqlite3_exec(db, query, sqlite_cb, &siteObjects, NULL);
-        if (ret != SQLITE_OK)
-        {
-            fprintf(stderr, "error executing query\n");
-        }
-
-        redraw();
-        end();
-
-        toolbar = new Toolbar(h, 0, 60, 200);
-        toolbar->show();
-
-        callback(window_cb);
-    }
 }
 
 SiteEditor::~SiteEditor() {
@@ -108,14 +81,11 @@ SiteObject* SiteEditor::closestGeom(int mouseX, int mouseY, std::vector<SiteObje
     minSquare = INT_MAX;
 
     for(unsigned i = 0; i < dataset.size(); i++) {
-        if(clearColours) {
-            //TODO: change this once we add color picker
-            dataset[i]->r = 255;
-            dataset[i]->g = 255;
-            dataset[i]->b = 255;
-        }
+        int scaledScreenCenterX = dataset[i]->scaledScreenCenterX(w(), maxScreenWidth);
+        int scaledScreenCenterY = dataset[i]->scaledScreenCenterY(h(), maxScreenHeight);
 
-        square = ((mouseX - dataset[i]->screenCenterX) * (mouseX - dataset[i]->screenCenterX)) + ((mouseY - dataset[i]->screenCenterY) * (mouseY - dataset[i]->screenCenterY));
+        square = ((mouseX - scaledScreenCenterX) * (mouseX - scaledScreenCenterX)) + ((mouseY - scaledScreenCenterY) * (mouseY - scaledScreenCenterY));
+
         if(square < minSquare) {
             minSquare = square;
             closest = dataset[i];
@@ -129,9 +99,7 @@ SiteObject* SiteEditor::closestGeom(int mouseX, int mouseY, std::vector<SiteObje
     return closest;
 }
 
-void SiteEditor::processData(const char * filename) {
-    float maxX, maxY, maxElevation;
-
+void SiteEditor::processData(const char * filename, const char * db_name) {
     minX = minY = minElevation = INT_MAX;
     maxX = maxY = maxElevation = 0;
 
@@ -168,45 +136,64 @@ void SiteEditor::processData(const char * filename) {
         points.push_back(newPoint);
     }
 
+    double scaleColour = 6.0 / (maxElevation - minElevation);
+
     scaleX = w() / (maxX - minX);
     scaleY = h() / (maxY - minY);
-
-    double scaleColour = 6.0 / (maxElevation - minElevation);
 
     for(unsigned i = 0; i < points.size(); i++) {
         double r, g, b;
         CircleObject *point = (CircleObject *)points[i];
-        Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i]->elevation - minElevation), 1.0, 3.0, r, g, b);
+        Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i]->elevation - minElevation), 1.0, 0.6, r, g, b);
 
         point->r = r * 255.0;
         point->g = g * 255.0;
         point->b = b * 255.0;
 
+        strcpy(points[i]->special, "filled");
         point->screenCenterX = (int)(scaleX * (point->worldCenterX - minX));
         point->screenCenterY = h() - (int)(scaleY * (point->worldCenterY - minY));
     }
+
+
+    if(!db) {
+        sqlite3_open(db_name, &db);
+    }
+
+    const char* query = "SELECT rowid, * FROM objects;";
+    int ret = sqlite3_exec(db, query, sqlite_cb, &siteObjects, NULL);
+    if (ret != SQLITE_OK)
+    {
+        fprintf(stderr, "error executing query\n");
+    }
+
+    end();
+
+    toolbar = new Toolbar(h(), 0, 200, 200);
+    toolbar->show();
+
+    callback(window_cb);
 
     redraw();
 }
 
 int SiteEditor::handle(int event) {
     if(Fl::event_button()) {
+        int unscaledMouseX = (Fl::event_x_root() - x()) * (maxScreenWidth / w());
+        int unscaledMouseY = (Fl::event_y_root() - y()) * (maxScreenHeight / h());
+
         if(event == FL_PUSH) {
             int distance = 0;
 
-            curSelectedObject = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), siteObjects, &distance, false);
+            curSelectedObject = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), siteObjects, &distance, true);
 
-            if(distance > SELECTION_DISTANCE) {
+            if(distance > scaledSelectionDistance()) {
                 curSelectedObject = NULL;
                 redraw();
             }
 
-            if(curSelectedObject && distance < SELECTION_DISTANCE) {
+            if(curSelectedObject && distance < scaledSelectionDistance()) {
                 curState = SELECTED;
-                //TODO: change this once we add color picker
-                curSelectedObject->r = 255;
-                curSelectedObject->g = 0;
-                curSelectedObject->b = 0;
                 redraw();
             }
             else {
@@ -217,32 +204,29 @@ int SiteEditor::handle(int event) {
                 if(toolbar->curSelectedObjType == LINE) {
                     newSiteObject = new LineObject;
                     LineObject *newLineObject = (LineObject*)newSiteObject;
-                    //TODO: change this once we add color picker
-                    newLineObject->r = rand() % 255;
-                    newLineObject->g = rand() % 255;
-                    newLineObject->b = rand() % 255;
-                    newLineObject->screenLeft = Fl::event_x_root() - x();
-                    newLineObject->screenTop = Fl::event_y_root() - y();
+
+                    newLineObject->screenLeft = unscaledMouseX;//Fl::event_x_root() - x();
+                    newLineObject->screenTop = unscaledMouseY;//Fl::event_y_root() - y();
                 }
                 else if(toolbar->curSelectedObjType == RECT) {
                     newSiteObject = new RectObject;
                     RectObject *newRectObject = (RectObject*)newSiteObject;
-                    //TODO: change this once we add color picker
-                    newRectObject->r = rand() % 255;
-                    newRectObject->g = rand() % 255;
-                    newRectObject->b = rand() % 255;
-                    newRectObject->screenLeft = Fl::event_x_root() - x();
-                    newRectObject->screenTop =  Fl::event_y_root() - y();
+
+                    newRectObject->screenLeft = unscaledMouseX;
+                    newRectObject->screenTop =  unscaledMouseY;
                 }
                 else if(toolbar->curSelectedObjType == CIRCLE) {
                     newSiteObject = new CircleObject;
                     CircleObject *newCircleObject = (CircleObject*)newSiteObject;
-                    //TODO: change this once we add color picker
-                    newCircleObject->r = rand() % 255;
-                    newCircleObject->g = rand() % 255;
-                    newCircleObject->b = rand() % 255;
-                    newCircleObject->screenCenterX = Fl::event_x_root() - x();
-                    newCircleObject->screenCenterY = Fl::event_y_root() - y();
+
+                    newCircleObject->screenCenterX = unscaledMouseX;
+                    newCircleObject->screenCenterY = unscaledMouseY;
+                }
+
+                if(newSiteObject) {
+                    newSiteObject->r = toolbar->colorChooser->r() * 255.0;
+                    newSiteObject->g = toolbar->colorChooser->g() * 255.0;
+                    newSiteObject->b = toolbar->colorChooser->b() * 255.0;
                 }
 
                 redraw();
@@ -252,27 +236,26 @@ int SiteEditor::handle(int event) {
             if(curState == DRAWING) {
                 if(toolbar->curSelectedObjType == LINE) {
                     LineObject *newLineObject = (LineObject*)newSiteObject;
-                    newLineObject->screenLengthX = (Fl::event_x_root() - x()) - newLineObject->screenLeft;
-                    newLineObject->screenLengthY = (Fl::event_y_root() - y()) - newLineObject->screenTop;
+                    newLineObject->screenLengthX = unscaledMouseX - newLineObject->screenLeft;
+                    newLineObject->screenLengthY = unscaledMouseY - newLineObject->screenTop;
 
                     newLineObject->screenCenterX = newLineObject->screenLeft + (newLineObject->screenLengthX / 2);
                     newLineObject->screenCenterY = newLineObject->screenTop + (newLineObject->screenLengthY / 2);
                 }
                 else if(toolbar->curSelectedObjType == RECT) {
                     RectObject *newRectObject = (RectObject*)newSiteObject;
-                    newRectObject->screenWidth = (Fl::event_x_root() - x()) - newRectObject->screenLeft;
-                    newRectObject->screenHeight = (Fl::event_y_root() - y()) - newRectObject->screenTop;
+                    newRectObject->screenWidth = unscaledMouseX - newRectObject->screenLeft;
+                    newRectObject->screenHeight = unscaledMouseY - newRectObject->screenTop;
 
                     newRectObject->screenCenterX = newRectObject->screenLeft + (newRectObject->screenWidth / 2);
                     newRectObject->screenCenterY = newRectObject->screenTop + (newRectObject->screenHeight / 2);
                 }
                 else if(toolbar->curSelectedObjType == CIRCLE) {
                     CircleObject *newCircleObject = (CircleObject*)newSiteObject;
-                    int distX = abs((Fl::event_x_root() - x()) - newCircleObject->screenCenterX);
-                    int distY = abs((Fl::event_y_root() - y()) - newCircleObject->screenCenterY);
+                    int distX = abs(unscaledMouseX - newCircleObject->screenCenterX);
+                    int distY = abs(unscaledMouseY - newCircleObject->screenCenterY);
                     newCircleObject->screenRadius = distX > distY ? distX : distY;
                 }
-
 
                 SiteObject *closest = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), (std::vector<SiteObject*> &)(points));
                 if(closest) {
@@ -282,19 +265,19 @@ int SiteEditor::handle(int event) {
                 redraw();
             }
             else if(curState == SELECTED && curSelectedObject) {
-                curSelectedObject->moveCenter((Fl::event_x_root() - x()), (Fl::event_y_root() - y()));
-
                 SiteObject *closest = closestGeom(Fl::event_x_root() - x(), Fl::event_y_root() - y(), points);
                 if(closest) {
                     curMouseOverElevation = closest->elevation;
                 }
 
+                curSelectedObject->moveCenter(unscaledMouseX, unscaledMouseY);
                 redraw();
             }
         }
         else if(event == FL_RELEASE) {
             if(curState == DRAWING) {
                 curState = WAITING;
+
                 redraw();
 
                 newSiteObject->calcWorldCoords(scaleX, scaleY, minX, minY);
@@ -318,11 +301,6 @@ int SiteEditor::handle(int event) {
             else if(curState == SELECTED && curSelectedObject) {
                 curSelectedObject->calcWorldCoords(scaleX, scaleY, minX, minY);
 
-                //TODO: change this once we add color picker
-                curSelectedObject->r = 255;
-                curSelectedObject->g = 255;
-                curSelectedObject->b = 255;
-
                 char data[512];
                 char query[512];
                 curSelectedObject->toString(data);
@@ -332,11 +310,6 @@ int SiteEditor::handle(int event) {
                 if(SQLITE_OK != rc) {
                     fprintf(stderr, "Couldn't update object entry in db\n");
                 }
-
-                //TODO: change this once we add color picker
-                curSelectedObject->r = 255;
-                curSelectedObject->g = 0;
-                curSelectedObject->b = 0;
             }
         }
         else {
@@ -367,6 +340,7 @@ int SiteEditor::handle(int event) {
 
             curState = WAITING;
             redraw();
+            return 1;
         }
         else if(key == (FL_F + 1)) {
             if(!toolbar->shown()) {
@@ -378,6 +352,20 @@ int SiteEditor::handle(int event) {
 
             return 1;
         }
+        else if(key == FL_Escape) {
+            curSelectedObject = NULL;
+            curState = WAITING;
+            toolbar->curSelectedObjType = UNDEFINED;
+            toolbar->lineButton->value(0);
+            toolbar->rectButton->value(0);
+            toolbar->circleButton->value(0);
+            redraw();
+            return 1;
+        }
+        else {
+            return Fl_Window::handle(event);
+        }
+
     }
 
     return Fl_Window::handle(event);
@@ -389,26 +377,60 @@ void SiteEditor::draw() {
     fl_line_style(0,2);
 
     for(unsigned i = 0; i < points.size(); i++) {
-        points[i]->drawScreen(false);
+        points[i]->drawScreen(false, w(), maxScreenWidth, h(), maxScreenHeight);
     }
 
     fl_color(FL_WHITE);
     fl_line_style(FL_SOLID, 5);
 
+    // draw DORI
+    fl_draw_box(FL_FLAT_BOX, (288.0 / maxScreenWidth) * w(), (295.0 / maxScreenHeight) * h(), (23.0 / maxScreenWidth) * w(), (19.0 / maxScreenHeight) * h(), FL_BLACK);
+    fl_draw_box(FL_FLAT_BOX, (290.0 / maxScreenWidth) * w(), (297.0 / maxScreenHeight) * h(), (20.0 / maxScreenWidth) * w(), (15.0 / maxScreenHeight) * h(), FL_RED);
+
+    char textBuffer[256];
+    int textHeight = 0, textWidth = 0;
+
     for(unsigned i = 0; i < siteObjects.size(); i++) {
-        siteObjects[i]->drawScreen();
+        if(curSelectedObject == siteObjects[i]) {
+            unsigned oldR, oldG, oldB;
+            oldR = curSelectedObject->r;
+            oldG = curSelectedObject->g;
+            oldB = curSelectedObject->b;
+
+            curSelectedObject->r = 255;
+            curSelectedObject->g = 0;
+            curSelectedObject->b = 0;
+
+            curSelectedObject->drawScreen(true, w(), maxScreenWidth, h(), maxScreenHeight);
+
+            curSelectedObject->r = oldR;
+            curSelectedObject->g = oldG;
+            curSelectedObject->b = oldB;
+        }
+        else
+        {
+            siteObjects[i]->drawScreen(true, w(), maxScreenWidth, h(), maxScreenHeight);
+        }
+        /*
+        SiteObject *closest = closestGeom(objectScaledX, objectScaledY, points, &unused);
+        if(closest) {
+            fl_line_style(0);
+            sprintf(textBuffer, "%f", closest->elevation);
+            fl_color(FL_WHITE);
+            fl_font(CUSTOM_FONT, 8);
+            fl_measure(textBuffer, textWidth, textHeight, 0);
+            fl_draw(textBuffer, objectScaledX - (textWidth / 2.0), objectScaledY);
+        }
+        */
     }
 
     if(curState == DRAWING) {
         if(newSiteObject) {
-            newSiteObject->drawScreen();
+            newSiteObject->drawScreen(true, w(), maxScreenWidth, h(), maxScreenHeight);
         }
     }
 
     fl_line_style(0);
-
-    char textBuffer[256];
-    int textHeight = 0, textWidth = 0;
     sprintf(textBuffer, "CLOSEST PT ELEV %f", curMouseOverElevation);
     fl_color(FL_WHITE);
     fl_font(CUSTOM_FONT, 12);

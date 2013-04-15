@@ -165,7 +165,7 @@ FlGlArcballWindow(w,h,l) {
         for(unsigned i = 0; i < points.size(); i++) {
             double r, g, b;
             RectObject *point = (RectObject*)points[i];
-            Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i]->elevation - minElevation), 1.0, 1.0, r, g, b);
+            Fl_Color_Chooser::hsv2rgb(scaleColour * (points[i]->elevation - minElevation), 1.0, 0.6, r, g, b);
 
             point->r = r * 255.0;
             point->g = g * 255.0;
@@ -367,13 +367,13 @@ void Viewport::draw() {
                 dori_body->yRot = atof(it->cols[3]);
                 dori_body->zRot = atof(it->cols[4]);
             }
-            */
             if(strcmp(it->cols[1], arm_type) == 0) {
                 dori_arm->xRot = atof(it->cols[2]);
             }
             if(strcmp(it->cols[1], plate_type) == 0) {
                 dori_sensor_plate->yRot = atof(it->cols[2]);
             }
+            */
         }
 
         dori_body->draw(false);

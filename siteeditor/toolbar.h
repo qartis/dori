@@ -8,6 +8,7 @@ public:
     Fl_Button *lineButton;
     Fl_Button *rectButton;
     Fl_Button *circleButton;
+    Fl_Color_Chooser *colorChooser;
 
     objType curSelectedObjType;
 };

@@ -19,16 +19,20 @@ public:
 
 private:
 
+    float scaledSelectionDistance();
     static int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
 
-    void processData(const char *filename);
+    void processData(const char *filename, const char *db_name);
     SiteObject* closestGeom(int screenX, int screenY, std::vector<SiteObject*> &dataset, int *distance = NULL, bool clearColours = false);
 
     CircleObject* curSelectedPoint;
 
     float minX;
     float minY;
+    float maxX;
+    float maxY;
     float minElevation;
+    float maxElevation;
 
     float scaleX;
     float scaleY;
@@ -44,8 +48,10 @@ private:
     state curState;
 
     SiteObject *curSelectedObject;
+    SiteObject *newSiteObject;
 
     sqlite3 *db;
 
-    SiteObject *newSiteObject;
+    float maxScreenWidth;
+    float maxScreenHeight;
 };

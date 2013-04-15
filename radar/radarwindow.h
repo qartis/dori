@@ -1,6 +1,6 @@
 #define MAX_ANGLES 360
 
-class RadarWindow : public Fl_Window {
+class RadarWindow : public Fl_Double_Window {
 
 public:
     RadarWindow(int x, int y, int w, int h, const char *label = NULL);
@@ -10,13 +10,15 @@ public:
     // overridden functions
     virtual int handle(int event);
     virtual void draw();
+    virtual void resize(int x, int y, int w, int h);
 
     struct DataPoint {
         int screenX;
         int screenY;
+        int distance;
     };
 
-    std::vector<Row>* rowData;
+    Table* table;
 
 private:
 
@@ -32,4 +34,10 @@ private:
 
     int curPointRowID;
     std::map<int, DataPoint> pointCache;
+
+    int rowidCol;
+    int typeCol;
+    int angleCol;
+    int distanceCol;
+
 };

@@ -11,6 +11,7 @@
 #include <FL/Fl_Menu.H>
 #include <FL/Fl_Choice.H>
 #include <FL/Fl_Output.H>
+#include <FL/Fl_Color_Chooser.H>
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>
@@ -62,7 +63,7 @@ static void spawnRadarWindow(Fl_Widget *widget, void *data) {
     }
 
     RadarWindow *newRadar = new RadarWindow(0, 0, 600, 600);
-    newRadar->user_data(&window->table->_rowdata);
+    newRadar->table = window->table;
     newRadar->show();
     window->table->spawned_windows->push_back(newRadar);
 }
@@ -114,7 +115,7 @@ static void graphCallback(Fl_Widget *widget, void *data) {
 
     std::vector<Row>::iterator it = window->table->_rowdata.begin();
 
-    system("gnuplot -p -e \"plot \\\"plotfifo\\\"\" &");
+    system("gnuplot -p -e \"plot \\\"plotfifo\\\" with lines\" &");
 
     int fd = open("plotfifo", O_WRONLY);
 

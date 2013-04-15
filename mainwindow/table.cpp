@@ -141,7 +141,7 @@ void Table::resize_window() {
     window()->resize(window()->x(), window()->y(), width, window()->h());  // resize window to fit
 }
 
-void Table::add_row(const char *row, bool greenify) {
+void Table::add_row(const char *row, bool greenify, bool perform_autowidth) {
     char s[512];
     Row newrow;
 
@@ -166,7 +166,11 @@ void Table::add_row(const char *row, bool greenify) {
     // How many rows we loaded
     rows((int)_rowdata.size());
     // Auto-calculate widths, with 20 pixel padding
-    autowidth(20);
+
+    if(perform_autowidth)
+    {
+        autowidth(20);
+    }
 
     redrawSpawnables();
 }
