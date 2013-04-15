@@ -62,6 +62,10 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
     int index = 0;
 
     for(int i = 0; i < ncols; i++) {
+        if(cols[i] == NULL) {
+            sprintf(&buf[index++], "\t");
+            continue;
+        }
         sprintf(&buf[index], "%s\t", cols[i]);
         index += strlen(cols[i]) + 1;
     }

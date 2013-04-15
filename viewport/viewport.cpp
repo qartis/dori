@@ -344,7 +344,7 @@ void Viewport::draw() {
 
     glPushMatrix();
 
-    glScalef(0.02f, 0.02f, 0.02f);
+    glScalef(0.012f, 0.012f, 0.012f);
 
     if(!rowData) {
         rowData = (std::vector<Row>*)user_data();

@@ -65,7 +65,7 @@ int RadarWindow::rowidOfClosestPoint(int mouseX, int mouseY) {
     int square;
 
     minSquare = INT_MAX;
-    minRowID = 0;
+    minRowID = -1;
 
     for(it = pointCache.begin(); it != pointCache.end(); it++) {
         square = ((mouseX - it->second.screenX) * (mouseX - it->second.screenX)) + ((mouseY - it->second.screenY) * (mouseY - it->second.screenY));
@@ -97,9 +97,11 @@ int RadarWindow::handle(int event) {
         }
         return 1;
     case FL_MOUSEWHEEL:
-        pointCache.clear();
-        scale += Fl::event_dy();
-        redraw();
+        if(scale + Fl::event_dy() >= 0) {
+            pointCache.clear();
+            scale += Fl::event_dy();
+            redraw();
+        }
         return 1;
         break;
     default:

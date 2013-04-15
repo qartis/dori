@@ -384,8 +384,8 @@ void SiteEditor::draw() {
     fl_line_style(FL_SOLID, 5);
 
     // draw DORI
-    fl_draw_box(FL_FLAT_BOX, (288.0 / maxScreenWidth) * w(), (295.0 / maxScreenHeight) * h(), (23.0 / maxScreenWidth) * w(), (19.0 / maxScreenHeight) * h(), FL_BLACK);
-    fl_draw_box(FL_FLAT_BOX, (290.0 / maxScreenWidth) * w(), (297.0 / maxScreenHeight) * h(), (20.0 / maxScreenWidth) * w(), (15.0 / maxScreenHeight) * h(), FL_RED);
+    fl_draw_box(FL_FLAT_BOX, (293.0 / maxScreenWidth) * w(), (295.0 / maxScreenHeight) * h(), (13.0 / maxScreenWidth) * w(), (11.0 / maxScreenHeight) * h(), FL_BLACK);
+    fl_draw_box(FL_FLAT_BOX, (295.0 / maxScreenWidth) * w(), (297.0 / maxScreenHeight) * h(), (10.0 / maxScreenWidth) * w(), (8.0 / maxScreenHeight) * h(), FL_RED);
 
     char textBuffer[256];
     int textHeight = 0, textWidth = 0;
