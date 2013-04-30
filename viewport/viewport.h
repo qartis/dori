@@ -25,7 +25,7 @@ public:
     ObjModel *dori_arm;
     ObjModel *dori_sensor_plate;
 
-    std::vector<Row>* rowData;
+    Table* table;
 
 private:
     virtual int handle(int event);

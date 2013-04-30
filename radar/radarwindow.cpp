@@ -97,16 +97,29 @@ int RadarWindow::handle(int event) {
         }
         return 1;
     case FL_MOUSEWHEEL:
-        if(scale + Fl::event_dy() >= 0) {
+        if(scale + Fl::event_dy() > 0) {
             pointCache.clear();
-            scale += Fl::event_dy();
+
+            int offset = Fl::event_dy();
+
+            // faster zooming
+            if(Fl::event_shift()) {
+                offset *= 10;
+            }
+
+            scale += offset;
             redraw();
+        }
+        else {
+            scale = 1.0;
         }
         return 1;
         break;
     default:
         return Fl_Double_Window::handle(event);
     }
+
+    return Fl_Double_Window::handle(event);
 }
 
 void RadarWindow::resize(int x, int y, int w, int h) {

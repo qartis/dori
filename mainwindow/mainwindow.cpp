@@ -93,7 +93,7 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
         window->needFlush = false;
     }
 
-    window->table->add_row(buf, window->greenify, window->receivedFirstDump);
+    window->table->add_row(buf, window->greenify);
 
     return 0;
 }
@@ -115,6 +115,7 @@ void MainWindow::performQuery(void *arg) {
         }
     }
 
+    window->table->autowidth(20);
     window->queryInput->redraw();
     window->needFlush = false;
 }
@@ -140,7 +141,9 @@ static void handleFD(int fd, void *data) {
     static int count = 0;
 
     rc = read(fd, buf + count, sizeof(buf) - count);
+
     if (rc <= 0) {
+        Fl::remove_fd(fd);
         return;
     }
 
@@ -269,18 +272,19 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
         printf("error connecting to server\n");
     }
+    else {
+        Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
 
-    Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
+        sqlite3_open("", &db);
+        sqlite3_exec(db, "CREATE TABLE records(type, a, b, c, time timestamp);", NULL, NULL, NULL);
 
-    sqlite3_open("", &db);
-    sqlite3_exec(db, "CREATE TABLE records(type, a, b, c, time timestamp);", NULL, NULL, NULL);
+        sqlite3_open("", &db_tmp);
+        sqlite3_exec(db_tmp, "CREATE TABLE records(type, a, b, c, time timestamp);", NULL, NULL, NULL);
 
-    sqlite3_open("", &db_tmp);
-    sqlite3_exec(db_tmp, "CREATE TABLE records(type, a, b, c, time timestamp);", NULL, NULL, NULL);
-
-    int err = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, NULL);
-    if(err != SQLITE_OK) {
-        printf("sqlite error: %s\n", sqlite3_errmsg(db));
+        int err = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+        if(err != SQLITE_OK) {
+            printf("sqlite error: %s\n", sqlite3_errmsg(db));
+        }
     }
 }
 
