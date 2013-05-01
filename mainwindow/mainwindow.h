@@ -21,6 +21,8 @@ public:
 
     std::vector<Fl_Window*> spawned_windows;
     static int sqlite_cb(void *arg, int ncols, char **cols, char **rows);
+
+    static void testQuery(void *arg);
     static void performQuery(void *arg);
 
     void clearTable(void *arg);

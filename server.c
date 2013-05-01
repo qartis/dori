@@ -177,8 +177,7 @@ void exec_query_and_push(char *query) {
 
 
 void process_CAN_frame(CAN_frame msg) {
-    msg.id = ((msg.id & 0b11100000) >> 3 ) | (msg.id & 0b00000011);
-
+    /*
     printf("DORI sent CAN frame:\n");
     printf("type: %u\n", msg.type);
     printf("id: %u\n", msg.id);
@@ -192,6 +191,7 @@ void process_CAN_frame(CAN_frame msg) {
     }
 
     printf("\n\n\n");
+    */
 
     char buf[256];
 

@@ -31,14 +31,14 @@ int sockfd;
 int write_CAN_frame(unsigned char type, unsigned char id, unsigned char ex_data_bytes[2], unsigned char data_len, unsigned char *reg_data_bytes) {
     unsigned char CAN_frame_bytes[13];
     CAN_frame_bytes[0] = type;
-    CAN_frame_bytes[1] = ((id & 0b00011100) << 3) | (id & 0b00000011);
+    CAN_frame_bytes[1] = id;
     CAN_frame_bytes[2] = ex_data_bytes[0];
     CAN_frame_bytes[3] = ex_data_bytes[1];
     CAN_frame_bytes[4] = data_len & 0x0f;
 
     printf("sending data\n");
     printf("type: %u\n", CAN_frame_bytes[0]);
-    printf("id: %u\n", id);
+    printf("id: %u\n", CAN_frame_bytes[1]);
     printf("ex_data_byte[0]: %u\n", CAN_frame_bytes[2]);
     printf("ex_data_byte[1]: %u\n", CAN_frame_bytes[3]);
     printf("data_len: %u\n", CAN_frame_bytes[4]);

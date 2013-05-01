@@ -38,6 +38,7 @@
 #include "viewport.h"
 #include "widgetwindow.h"
 #include "mainwindow.h"
+#include <sys/time.h>
 
 #define PORT 1337
 #define SERVER "127.0.0.1"
@@ -98,17 +99,41 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
     return 0;
 }
 
+void MainWindow::testQuery(void *arg) {
+    MainWindow *window = (MainWindow*)arg;
+
+    int err = sqlite3_exec(window->db, window->queryInput->getSearchString(), NULL, window, NULL);
+    if(err != SQLITE_OK) {
+        window->queryInput->color(FL_RED);
+    }
+    else {
+        window->queryInput->color(FL_WHITE);
+    }
+
+    window->queryInput->redraw();
+}
+
 void MainWindow::performQuery(void *arg) {
     MainWindow *window = (MainWindow*)arg;
 
     window->needFlush = true;
     window->greenify = false;
 
+    /*
+    timeval stop, start;
+    printf("before sqlite3_exec\n");
+    gettimeofday(&start, NULL);
+    */
+
     int err = sqlite3_exec(window->db, window->queryInput->getSearchString(), sqlite_cb, window, NULL);
     if(err != SQLITE_OK) {
         window->queryInput->color(FL_RED);
     }
     else {
+        /*gettimeofday(&stop, NULL);
+        printf("after sqlite3_exec\n");
+        printf("took %lu\n", stop.tv_usec - start.tv_usec);
+        */
         window->queryInput->color(FL_WHITE);
         if(window->needFlush) {
             window->clearTable(window);
@@ -197,7 +222,6 @@ static void handleFD(int fd, void *data) {
 
 
             if(window->receivedFirstDump) {
-                fprintf(stderr, "new live data\n");
                 sqlite3_exec(window->db_tmp, query, NULL, NULL, NULL);
                 sqlite3_exec(window->db_tmp, window->queryInput->getSearchString(), window->sqlite_cb, window, NULL);
 
@@ -221,7 +245,8 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
 {
     sqlite3_enable_shared_cache(1);
     queryInput = new QueryInput(w * 0.2, 0, w * 0.75, 20, "Query:");
-    queryInput->callback = performQuery;
+    queryInput->performQuery = performQuery;
+    queryInput->testQuery = testQuery;
 
     table = new Table(0, queryInput->h(), w, h - 20);
     table->selection_color(FL_YELLOW);

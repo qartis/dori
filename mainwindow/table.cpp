@@ -87,9 +87,9 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
             else {
                 bgcolor = row_selected(R) ? selection_color() : FL_WHITE;
             }
-            fl_color(bgcolor); fl_rectf(X,Y,W,H); 
+            fl_color(bgcolor); fl_rectf(X,Y,W,H);
             fl_font(FL_HELVETICA, 16);
-            fl_color(FL_BLACK); 
+            fl_color(FL_BLACK);
             fl_draw(s, X+2,Y,W,H, FL_ALIGN_LEFT);     // +2=pad left
             fl_color(FL_LIGHT2); fl_rect(X,Y,W,H);
         }
@@ -103,6 +103,18 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
 
 void Table::autowidth(int pad) {
     fl_font(FL_COURIER, 16);
+
+    if(_rowdata.size() == 0) {
+        redraw();
+        return;
+    }
+
+    cols((int)_rowdata.back().cols.size());
+
+    if(cols() == 0) {
+        redraw();
+        return;
+    }
 
     int columns_width = 0;
     int w, h;
@@ -126,7 +138,7 @@ void Table::autowidth(int pad) {
             }
         }
     }
-
+    rows((int)_rowdata.size());
     table_resized();
     redraw();
 }
@@ -157,15 +169,6 @@ void Table::add_row(const char *row, bool greenify) {
     for(int t=0; (t==0)?(ss=strtok(s,delim)):(ss=strtok(NULL,delim)); t++) {
         rc.push_back(strdup(ss));
     }
-
-    // Keep track of max # columns
-    if ( (int)rc.size() > cols() ) {
-        cols((int)rc.size());
-    }
-
-    // How many rows we loaded
-    rows((int)_rowdata.size());
-    // Auto-calculate widths, with 20 pixel padding
 
     redrawSpawnables();
 }
@@ -295,7 +298,7 @@ void Table::changeSort() {
     }
 
     queryInput->value(buf);
-    queryInput->performQuery();
+    queryInput->performQuery(queryInput->parent());
 
     _sort_lastcol = _sort_curcol;
 }
