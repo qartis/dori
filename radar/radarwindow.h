@@ -39,5 +39,4 @@ private:
     int typeCol;
     int angleCol;
     int distanceCol;
-
 };

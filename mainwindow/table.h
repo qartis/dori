@@ -51,7 +51,7 @@ public:
         callback(event_callback, (void*)this);
     }
     ~Table() { }
-    void add_row(const char *row, bool greenify, bool perform_autowidth);
+    void add_row(const char *row, bool greenify);
     void autowidth(int pad);
     void resize_window();
     void remove_row(int index);

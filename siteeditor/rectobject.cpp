@@ -113,12 +113,13 @@ void RectObject::moveCenter(int newCenterX, int newCenterY) {
 }
 
 void RectObject::calcWorldCoords(float scaleX, float scaleY, float minX, float minY) {
-    worldLeft = ((screenLeft / scaleX) + minX) / 100.0;
-    worldTop =  ((screenTop / scaleY) + minY) / 100.0;
+    worldLeft = 0.0;//((screenLeft / scaleX) + minX) / 100.0;
+    worldTop =  0.0;//((screenTop / scaleY) + minY) / 100.0;
     worldHeight = 1;
 
-    worldWidth = (screenWidth / scaleX) / 100.0;
-    worldLength =  (screenHeight / scaleY) / 100.0;
+    worldWidth = 10.0;//(screenWidth / scaleX) / 100.0;
+    worldLength =  10.0;//(screenHeight / scaleY) / 100.0;
+    printf("%f %f\n", worldLeft, worldTop);
 }
 
 void RectObject::toString(char* output) {
@@ -126,6 +127,19 @@ void RectObject::toString(char* output) {
         fprintf(stderr, "output is NULL in serialize()\n");
         return;
     }
+
+    printf("%d %d %d %d "
+            "%d %d "
+            "%f %f %f %f "
+            "%f %f "
+            "%u %u %u "
+            "%d ",
+            screenLeft, screenTop, screenWidth, screenHeight,
+            screenCenterX, screenCenterY,
+            worldLeft, worldTop, worldWidth, worldLength,
+            elevation, worldHeight,
+            r, g, b,
+            (int)type);
 
     sprintf(output, "%d %d %d %d "
            "%d %d "

@@ -6,18 +6,11 @@
 #include <vector>
 #include "queryinput.h"
 
-static const char *defaultQuery = "select rowid, type, a, b from records;";
+static const char *defaultQuery = "select rowid, type, a, b, c, time from records;";
 
-QueryInput::QueryInput(int x, int y, int w, int h, const char *label) : Fl_Input(x, y, w, h, label), callback(NULL)
+QueryInput::QueryInput(int x, int y, int w, int h, const char *label) : Fl_Input(x, y, w, h, label), performQuery(NULL), testQuery(NULL)
 {
     value(defaultQuery);
-}
-
-void QueryInput::performQuery()
-{
-    if (callback) {
-        callback(parent());
-    }
 }
 
 int QueryInput::getLimit() {
@@ -48,18 +41,23 @@ int QueryInput::handle(int event) {
         key = Fl::event_key();
         if (key == FL_Escape) {
             value(defaultQuery);
-            performQuery();
+            performQuery(parent());
             return 1;
         } else {
-            if(!Fl_Input::handle(event)) {
-                return 0;
-            }
-            if(key == FL_Left || key == FL_Right) {
+            if (key == FL_Enter) {
+                if(performQuery) {
+                    performQuery(parent());
+                }
+
                 return 1;
             }
 
-            performQuery();
-            return 1;
+            if(testQuery) {
+                Fl_Input::handle(event);
+                testQuery(parent());
+                return 1;
+            }
+
         }
     default:
         return Fl_Input::handle(event);

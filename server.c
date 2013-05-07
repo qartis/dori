@@ -10,6 +10,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <time.h>
+#include "candefs.h"
+#include <signal.h>
 
 #define MAX 1024
 #define DORIPORT 53
@@ -18,6 +20,7 @@
 #define BUFLEN 4096
 
 sqlite3 *db;
+fd_set master;
 
 typedef enum {
     DORI,
@@ -30,12 +33,24 @@ typedef struct {
     client_type type;
 } client;
 
+
+typedef struct {
+    unsigned char type;
+    unsigned char id;
+    unsigned char ex_data_bytes[2];
+    unsigned char data_len; // only the length of the last 2 data bytes, NOT the exended data bytes
+    unsigned char reg_data_bytes[8];
+} CAN_frame;
+
+char *msg_ids[] = { "any", "ping", "pong", "laser", "gps", "temp", "time", "log", "invalid" };
+
 char timestamp[128];
 static client clients[128];
 static int nclients;
 static int dorifd;
 static int tkfd;
 static int shellfd;
+
 
 void error(const char *str)
 {
@@ -82,6 +97,8 @@ void remove_client(int fd)
             break;
         }
     }
+
+    FD_CLR(fd, &master);
 }
 
 ssize_t safe_write(int fd, const char *buf, size_t count)
@@ -91,9 +108,12 @@ ssize_t safe_write(int fd, const char *buf, size_t count)
 
     wroteb = 0;
     while (wroteb < count) {
-        rc = write(fd, buf + wroteb, count - wroteb);
-        if (rc < 1)
-            error("write");
+        rc = send(fd, buf + wroteb, count - wroteb, MSG_NOSIGNAL);
+        if (rc < 1) {
+            remove_client(fd);
+            printf("err 1: client disconnected during write\n");
+            break;
+        }
 
         wroteb += rc;
     }
@@ -124,11 +144,96 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 
     for (i = 0; i < ncols; i++) {
         printfd(*fd, "%s", cols[i]);
-        write(*fd, "", 1);
+        if(send(*fd, "", 1, MSG_NOSIGNAL) < 1) {
+            printf("err 2: client disconnected during write\n");
+            remove_client(*fd);
+            return -1;
+        }
     }
 
     return 0;
 }
+
+void exec_query_and_push(char *query) {
+    sqlite3_exec(db, query, NULL, NULL, NULL);
+    int64_t rowid = sqlite3_last_insert_rowid(db);
+    //printf("running query: %s\n", query);
+
+    char buf[256];
+    sprintf(buf, "SELECT rowid, * FROM records WHERE rowid = '%ld';", rowid);
+
+    int i;
+    for (i = 0; i < nclients; i++) {
+        if(clients[i].type == TK) {
+            int rc = sqlite3_exec(db, buf, sqlite_cb,
+                                  &clients[i], NULL);
+
+            if (rc != SQLITE_OK) {
+                printf("sqlite error: %s\n", sqlite3_errmsg(db));
+            }
+        }
+    }
+}
+
+
+void process_CAN_frame(CAN_frame msg) {
+    /*
+    printf("DORI sent CAN frame:\n");
+    printf("type: %u\n", msg.type);
+    printf("id: %u\n", msg.id);
+    printf("ex_data_byte[0]: %u\n", msg.ex_data_bytes[0]);
+    printf("ex_data_byte[1]: %u\n", msg.ex_data_bytes[1]);
+    printf("data_len: %u\n", msg.data_len);
+
+    int i;
+    for(i = 0; i < msg.data_len; i++) {
+        printf("reg_data_byte[%d]: %u\n", i, msg.reg_data_bytes[i]);
+    }
+
+    printf("\n\n\n");
+    */
+
+    char buf[256];
+
+    switch(msg.id) {
+    case ID_LASER:
+        {
+            if(msg.data_len == 4) {
+                int a = ((msg.reg_data_bytes[0] & 0xFF) << 8) | (msg.reg_data_bytes[1] & 0xFF);
+                int b = ((msg.reg_data_bytes[2] & 0xFF) << 8) | (msg.reg_data_bytes[3] & 0xFF);
+                int c = 0;
+
+                sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', %d, %d, %d)", msg_ids[msg.id], a, b, c);
+                exec_query_and_push(buf);
+            }
+            else {
+                printf("invalid laser message\n");
+            }
+        }
+        break;
+    case ID_GPS:
+        break;
+    case ID_TEMP:
+        if(msg.data_len == 2) {
+            int a = ((msg.reg_data_bytes[0] & 0xFF) << 8) | (msg.reg_data_bytes[1] & 0xFF);
+            int b = 0;
+            int c = 0;
+
+            sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', %d, %d, %d)", msg_ids[msg.id], a, b, c);
+            exec_query_and_push(buf);
+        }
+        else {
+            printf("invalid temp message\n");
+        }
+        break;
+    case ID_TIME:
+        break;
+    case ID_LOGGER:
+        break;
+    }
+
+}
+
 
 int main()
 {
@@ -136,7 +241,6 @@ int main()
     struct sockaddr_in servaddr;
     struct sockaddr_in clientaddr;
     socklen_t len;
-    fd_set master;
     fd_set readfds;
     int optval, rc, fd;
     char buf[BUFLEN];
@@ -225,19 +329,7 @@ int main()
             c = rand() % 100;
 
             sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', %d, %d, %d)", types[type], a, b, c);
-            sqlite3_exec(db, buf, NULL, NULL, NULL);
-            int64_t rowid = sqlite3_last_insert_rowid(db);
-            printf("new row: rowid: %ld, %s, %d, %d, %d\n", rowid, types[type], a, b, c);
-            sprintf(buf, "SELECT rowid, * FROM records WHERE rowid = '%ld';", rowid);
-
-            int i;
-            for (i = 0; i < nclients; i++) {
-                rc = sqlite3_exec(db, buf, sqlite_cb,
-                                  &clients[i], NULL);
-
-                if (rc != SQLITE_OK)
-                    error(sqlite3_errmsg(db));
-            }
+            exec_query_and_push(buf);
         }
         // for server connections
         for (fd = 1; fd <= maxfd; fd++) {
@@ -260,12 +352,15 @@ int main()
                     clients[nclients].type = TK;
                     sqlite3_exec(db, "SELECT rowid, * FROM RECORDS", sqlite_cb, &newfd, NULL);
 
-                    write(newfd, "-1", 3);
-                    write(newfd, "", 1);
-                    write(newfd, "", 1);
-                    write(newfd, "", 1);
-                    write(newfd, "", 1);
-                    write(newfd, "", 1);
+                    if(send(newfd, "-1", 3, MSG_NOSIGNAL) < 1 ||
+                       send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
+                       send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
+                       send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
+                       send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
+                       send(newfd, "", 1, MSG_NOSIGNAL) < 1) {
+                        printf("err 3: client disconnected during write\n");
+                        remove_client(fd);
+                    }
                 }
                 else if(fd == shellfd) {
                     clients[nclients].type = SHELL;
@@ -280,29 +375,33 @@ int main()
             } else {
                 rc = read(fd, buf, sizeof(buf));
                 if (rc == 0 || (rc < 0 && errno == ECONNRESET)) {
-                    FD_CLR(fd, &master);
                     remove_client(fd);
                     printf("client died\n");
                 } else if (rc < 0) {
                     error("read");
                 } else {
-                    if(buf[rc-1] == '\n')
-                        buf[rc-1] = '\0';
-                    else
-                        buf[rc] = '\0';
-
                     client *c = find_client(fd);
 
                     if(c == NULL) {
                         printf("couldn't find client!\n");
                         continue;
                     }
-                    if(c->type == SHELL) {
-                        printf("shell wrote: %s\n", buf);
-                    } else if(c->type == DORI) {
-                        printf("dori wrote: %s\n", buf);
-                    } else if(c->type == TK) {
-                        printf("tk wrote: %s\n", buf);
+                    if(c->type == DORI) {
+                        CAN_frame msg = { 0 };
+                        memcpy((void*)&msg, buf, rc);
+                        process_CAN_frame(msg);
+                    }
+                    else {
+                        if(buf[rc-1] == '\n')
+                            buf[rc-1] = '\0';
+                        else
+                            buf[rc] = '\0';
+
+                        if(c->type == SHELL) {
+                            printf("shell wrote: %s\n", buf);
+                        } else if(c->type == TK) {
+                            printf("tk wrote: %s\n", buf);
+                        }
                     }
                 }
             }

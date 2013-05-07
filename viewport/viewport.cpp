@@ -2,6 +2,7 @@
 #include <FL/Fl_Gl_Window.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Button.H>
+#include <FL/Fl_Table_Row.H>
 #include <FL/Fl_Color_Chooser.H>
 #include <FL/fl_draw.H>
 #include <GL/glut.h>
@@ -18,6 +19,8 @@
 #include "3dcontrols.h"
 #include "basic_ball.h"
 #include "row.h"
+#include "../mainwindow/queryinput.h"
+#include "../mainwindow/table.h"
 #include "objmodel.h"
 #include "FlGlArcballWindow.h"
 #include "viewport.h"
@@ -90,7 +93,8 @@ FlGlArcballWindow(w,h,l) {
     showDORI = dori;
     showContour = showCont;
 
-    rowData = NULL;
+    user_data(NULL);
+    table = NULL;
     dori_body = NULL;
     dori_arm = NULL;
     dori_sensor_plate = NULL;
@@ -329,7 +333,6 @@ void Viewport::draw() {
         contour->draw();
         */
 
-
         for(unsigned i = 0; i < points.size(); i++) {
             //switch my points to RectObjects and draw them properly
             points[i]->drawWorld();
@@ -337,7 +340,6 @@ void Viewport::draw() {
 
         for(unsigned i = 0; i < siteObjects.size(); i++) {
             siteObjects[i]->drawWorld();
-            //fprintf(stderr, "coords: %f, %f, %f, %f\n", ((RectObject*)(siteObjects[i]))->worldLeft, ((RectObject*)(siteObjects[i]))->worldTop, ((RectObject*)(siteObjects[i]))->worldWidth, ((RectObject*)(siteObjects[i]))->worldLength);
         }
     }
 
@@ -346,36 +348,67 @@ void Viewport::draw() {
 
     glScalef(0.012f, 0.012f, 0.012f);
 
-    if(!rowData) {
-        rowData = (std::vector<Row>*)user_data();
-    }
     if(showDORI) {
-        std::vector<Row>::reverse_iterator it;
+        if(table) {
+            std::vector<Row>::reverse_iterator it;
 
-        // reset rotations
-        dori_body->xRot = 0;
-        dori_body->yRot = 0;
-        dori_body->zRot = 0;
+            // reset rotations
+            dori_body->xRot = 0;
+            dori_body->yRot = 0;
+            dori_body->zRot = 0;
 
-        dori_arm->xRot = 0;
-        dori_sensor_plate->yRot = 0;
+            dori_arm->xRot = 0;
+            dori_sensor_plate->yRot = 0;
 
-        for(it = rowData->rbegin(); it != rowData->rend(); it++) {
-            /*
-            if(strcmp(it->cols[1], orientation_type) == 0) {
-                dori_body->xRot = atof(it->cols[2]);
-                dori_body->yRot = atof(it->cols[3]);
-                dori_body->zRot = atof(it->cols[4]);
+            int rowidCol, typeCol, aCol, bCol, cCol;
+            rowidCol = typeCol = aCol = bCol = cCol = -1;
+
+            for(std::vector<Row>::iterator it = table->_rowdata.begin(); it != table->_rowdata.end(); it++) {
+                for(unsigned i = 0; i < table->headers->size(); i++) {
+                    if(strncmp((*(table->headers))[i], "row", strlen("row")) == 0) {
+                        rowidCol = i;
+                    }
+                    else if(strcmp((*(table->headers))[i], "type") == 0) {
+                        typeCol = i;
+                    }
+                    else if(strcmp((*(table->headers))[i], "a") == 0) {
+                        aCol = i;
+                    }
+                    else if(strcmp((*(table->headers))[i], "b") == 0) {
+                        bCol = i;
+                    }
+                    else if(strcmp((*(table->headers))[i], "c") == 0) {
+                        cCol = i;
+                    }
+                }
+
+                if(typeCol != -1) {
+                    if(strcmp(it->cols[typeCol], orientation_type) == 0) {
+                        if(aCol != -1) {
+                            dori_body->xRot = atof(it->cols[aCol]);
+                        }
+
+                        if(bCol !=- 1) {
+                            dori_body->yRot = atof(it->cols[bCol]);
+                        }
+
+                        if(cCol != -1) {
+                            dori_body->zRot = atof(it->cols[cCol]);
+                        }
+                    }
+                    if(strcmp(it->cols[typeCol], arm_type) == 0) {
+                        if(aCol != -1) {
+                            dori_arm->xRot = atof(it->cols[aCol]);
+                        }
+                    }
+                    if(strcmp(it->cols[typeCol], plate_type) == 0) {
+                        if(aCol != -1) {
+                            dori_sensor_plate->yRot = atof(it->cols[aCol]);
+                        }
+                    }
+                }
             }
-            if(strcmp(it->cols[1], arm_type) == 0) {
-                dori_arm->xRot = atof(it->cols[2]);
-            }
-            if(strcmp(it->cols[1], plate_type) == 0) {
-                dori_sensor_plate->yRot = atof(it->cols[2]);
-            }
-            */
         }
-
         dori_body->draw(false);
         dori_arm->draw(false);
         dori_sensor_plate->draw(false);
