@@ -1,0 +1,78 @@
+=== Main Modem node ===
+* Main modem (uart)
+
+
+=== Backup Modem node ===
+* Backup modem (uart)
+
+
+=== Logger node ===
+* SD card (spi)
+
+
+=== Arm node ===
+* Arm control (2 relays)
+* Linear actuator feedback (analog)
+
+
+=== Sensor plate node ===
+* Sensor plate spin control (L298N)
+* Floodlight control (relay)
+
+
+=== Motors node ===
+* Drive control (2 h-bridges)
+* Ultrasonic (2 io)
+
+
+=== 9DOF node ===
+* nunchuk (i2c)
+* compass (i2c)
+* gyro (i2c)
+
+
+=== Rain (environmental) node ===
+* Rainfall (1 io)
+* pH (spi)
+* Humidity (analog)
+
+
+=== Air (environmental) node ===
+* LPG gas sensor (analog)
+* Windspeed nunchuk (i2c)
+* Air Pressure (i2c)
+* Shadow Temperature (1wire)
+* Sunlight Temperature (1wire)
+
+
+=== Battery node ===
+* Battery level (analog)
+* Current sensor (analog)
+
+
+=== Heating node ===
+* Heat control pads (peltier, motorcycle grip heaters)
+* Temperature x 9 (1wire)
+	Temp: motor1
+	Temp: motor2
+	Temp: linear actuator
+	Temp: stepper
+	Temp: Powershot
+	Temp: lidar
+	Temp: usb modem
+	Temp: nokia
+	Temp: battery
+
+
+=== Powershot/logger backup node ===
+* Powershot (spi)
+
+
+=== LIDAR node ===
+* LIDAR (3 io)
+* PIR motion (1 io)
+
+
+=== GPS node ===
+* GPS (uart)
+* IR Thermo (spi)
