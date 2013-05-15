@@ -10,9 +10,9 @@
 #include <vector>
 #include <limits.h>
 #include "ctype.h"
-#include "../mainwindow/queryinput.h"
-#include "../row.h"
-#include "../mainwindow/table.h"
+#include "queryinput.h"
+#include "row.h"
+#include "table.h"
 #include "radarwindow.h"
 
 #define MAX_ARCS 8

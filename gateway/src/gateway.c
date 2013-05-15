@@ -37,10 +37,8 @@ typedef struct {
 typedef struct {
     unsigned char type;
     unsigned char id;
-    unsigned char ex_data_bytes[2];
-    unsigned char data_len; // only the length of the last 2 data bytes, NOT the exended data bytes
-    unsigned char reg_data_bytes[8];
-} CAN_frame;
+    unsigned char data[10];
+} dori_msg;
 
 char *msg_ids[] = { "any", "ping", "pong", "laser", "gps", "temp", "time", "log", "invalid" };
 
@@ -50,7 +48,7 @@ static int nclients;
 static int dorifd;
 static int tkfd;
 static int shellfd;
-
+static int siteid;
 
 void error(const char *str)
 {
@@ -154,12 +152,22 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
     return 0;
 }
 
+int site_cb(void *arg, int ncols, char **cols, char **rows)
+{
+    (void)rows;
+    (void)arg;
+    if(ncols == 1 && cols[0] != '\0') {
+        siteid = atoi(cols[0]);
+    }
+    return 0;
+}
+
+
 void exec_query_and_push(char *query) {
     sqlite3_exec(db, query, NULL, NULL, NULL);
     int64_t rowid = sqlite3_last_insert_rowid(db);
-    //printf("running query: %s\n", query);
 
-    char buf[256];
+    char buf[512];
     sprintf(buf, "SELECT rowid, * FROM records WHERE rowid = '%ld';", rowid);
 
     int i;
@@ -176,62 +184,53 @@ void exec_query_and_push(char *query) {
 }
 
 
-void process_CAN_frame(CAN_frame msg) {
-    /*
-    printf("DORI sent CAN frame:\n");
+void process_dori_msg(dori_msg msg) {
+    printf("DORI sent msg:\n");
     printf("type: %u\n", msg.type);
     printf("id: %u\n", msg.id);
-    printf("ex_data_byte[0]: %u\n", msg.ex_data_bytes[0]);
-    printf("ex_data_byte[1]: %u\n", msg.ex_data_bytes[1]);
-    printf("data_len: %u\n", msg.data_len);
-
     int i;
-    for(i = 0; i < msg.data_len; i++) {
-        printf("reg_data_byte[%d]: %u\n", i, msg.reg_data_bytes[i]);
+    printf("data: ");
+    for(i = 9; i >= 0; i--) {
+        printf("%u\n", msg.data[i]);
     }
 
-    printf("\n\n\n");
-    */
+    printf("\n");
 
     char buf[256];
 
     switch(msg.id) {
     case ID_LASER:
         {
-            if(msg.data_len == 4) {
-                int a = ((msg.reg_data_bytes[0] & 0xFF) << 8) | (msg.reg_data_bytes[1] & 0xFF);
-                int b = ((msg.reg_data_bytes[2] & 0xFF) << 8) | (msg.reg_data_bytes[3] & 0xFF);
-                int c = 0;
+            int a = (msg.data[0] & 0xFF) | ((msg.data[1] & 0xFF) << 8);
+            int b = (msg.data[2] & 0xFF) | ((msg.data[3] & 0xFF) << 8);
+            int c = 0;
 
-                sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', %d, %d, %d)", msg_ids[msg.id], a, b, c);
-                exec_query_and_push(buf);
-            }
-            else {
-                printf("invalid laser message\n");
-            }
+            printf("laser angle: %d, dist: %d\n", a, b);
+            sprintf(buf, "INSERT INTO records (type, a, b, c, site) VALUES ('%s', %d, %d, %d, %d)", msg_ids[msg.id], a, b, c, siteid);
+            exec_query_and_push(buf);
         }
         break;
     case ID_GPS:
         break;
     case ID_TEMP:
-        if(msg.data_len == 2) {
-            int a = ((msg.reg_data_bytes[0] & 0xFF) << 8) | (msg.reg_data_bytes[1] & 0xFF);
+        {
+            int a = (msg.data[0] & 0xFF) | ((msg.data[1] & 0xFF) << 8);
             int b = 0;
             int c = 0;
 
-            sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', %d, %d, %d)", msg_ids[msg.id], a, b, c);
+            printf("temp: %d\n", a);
+            sprintf(buf, "INSERT INTO records (type, a, b, c, site) VALUES ('%s', %d, %d, %d, %d)", msg_ids[msg.id], a, b, c, siteid);
             exec_query_and_push(buf);
-        }
-        else {
-            printf("invalid temp message\n");
         }
         break;
     case ID_TIME:
         break;
     case ID_LOGGER:
         break;
+    case ID_DRIVE:
+        siteid++;
+        break;
     }
-
 }
 
 
@@ -246,6 +245,11 @@ int main()
     char buf[BUFLEN];
 
     sqlite3_open("db", &db);
+
+    if(db) {
+        sqlite3_exec(db, "select max(site) from records;", site_cb, NULL, NULL);
+    }
+
 
     dorifd = socket(AF_INET, SOCK_STREAM, 0);
     if (dorifd == -1)
@@ -317,6 +321,7 @@ int main()
             error("select");
 
         if(FD_ISSET(0, &readfds)) {
+            /*
             char buf[256];
             read(0, buf, sizeof(buf));
             char *types[] = {
@@ -330,6 +335,18 @@ int main()
 
             sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', %d, %d, %d)", types[type], a, b, c);
             exec_query_and_push(buf);
+            */
+
+            rc = read(0, buf, sizeof(buf));
+            buf[rc] = '\0';
+
+            int i;
+            for(i = 0; i < nclients; i++) {
+                if(clients[i].type == DORI) {
+                    write(clients[i].fd, buf, strlen(buf));
+                    break;
+                }
+            }
         }
         // for server connections
         for (fd = 1; fd <= maxfd; fd++) {
@@ -339,7 +356,6 @@ int main()
 
             if (fd == tkfd || fd == dorifd || fd == shellfd) {
                 len = sizeof(clientaddr);
-
                 newfd = accept(fd, (struct sockaddr *)&clientaddr, &len);
                 clients[nclients].fd = newfd;
                 FD_SET(newfd, &master);
@@ -353,6 +369,7 @@ int main()
                     sqlite3_exec(db, "SELECT rowid, * FROM RECORDS", sqlite_cb, &newfd, NULL);
 
                     if(send(newfd, "-1", 3, MSG_NOSIGNAL) < 1 ||
+                       send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
                        send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
                        send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
                        send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
@@ -387,9 +404,9 @@ int main()
                         continue;
                     }
                     if(c->type == DORI) {
-                        CAN_frame msg = { 0 };
+                        dori_msg msg = { 0 };
                         memcpy((void*)&msg, buf, rc);
-                        process_CAN_frame(msg);
+                        process_dori_msg(msg);
                     }
                     else {
                         if(buf[rc-1] == '\n')

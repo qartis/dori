@@ -9,6 +9,7 @@ typedef enum {
     ID_TEMP  = 5,
     ID_TIME  = 6,
     ID_LOGGER = 7,
+    ID_DRIVE = 8,
     ID_INVALID = 0xff
 } id;
 

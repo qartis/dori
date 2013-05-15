@@ -44,9 +44,10 @@ public:
     // Ctor
     Table(int x, int y, int w, int h, const char *l=0) : Fl_Table_Row(x,y,w,h,l) {
         _sort_reverse = 1;
-        _sort_lastcol = 5; // set these to 4 by default (Timestamp)
-        _sort_curcol = 5;
+        _sort_lastcol = 6; // set these to 5 by default (Timestamp)
+        _sort_curcol = 6;
         readyToDraw = 0;
+        headers = NULL;
         end();
         callback(event_callback, (void*)this);
     }
