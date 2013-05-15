@@ -1,0 +1,25 @@
+====Instincts=====
+---Signal--
+-when signal is poor, do something
+---Power---
+- automatically position arm for best solar panel usage
+- selectively power up/down nodes based on current supply
+- phone home with coords if power too low
+
+---Sensor--
+- take pictures of animals when they're detected
+
+-- Heat --
+- use temperature data to turn on/off heaters
+
+-- Logging --
+- when log reaches critical size, send it off to gateway
+
+-- Redundancy --
+ - Detect when modem is unavailable and switch to the other one, send a message
+ - maintain list of live nodes (responsive) and report when one fails
+ - 'sip' time data from different sources and update clock
+ 
+-- Motion --
+ - avoid objects when sensed with ultra sonics
+ - detect deviation between actual position and projected position
