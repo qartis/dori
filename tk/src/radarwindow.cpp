@@ -198,10 +198,6 @@ void RadarWindow::draw() {
         int screenX, screenY;
         computeCoords(it, screenX, screenY);
 
-        if(it->is_live_data) {
-            fl_color(FL_YELLOW);
-            fl_circle(screenX, screenY, 7);
-        }
 
         fl_color(FL_RED);
         fl_circle(screenX, screenY, 5);

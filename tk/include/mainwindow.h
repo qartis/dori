@@ -10,7 +10,6 @@ public:
 
     Table* table;
     sqlite3 *db;
-    sqlite3 *db_tmp;
     QueryInput *queryInput;
     char buffer[BUFLEN];
     int bufMsgStartIndex;
@@ -28,7 +27,6 @@ public:
     void clearTable(void *arg);
     bool needFlush;
 
-    bool greenify;
     bool receivedFirstDump;
 
     std::vector<const char *> headers;
