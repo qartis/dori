@@ -1,7 +1,7 @@
 IDIRS=-I../shared/include/ -I./include/ -I../multiarcball/include
 CXX=g++
 CXXFLAGS=-Wall -Wextra $(IDIRS)
-LDFLAGS=`fltk-config --use-gl --cxxflags --ldflags` -lsqlite3 -lmultiarcball -lglut -lGLU -L/opt/X11/lib -lXcursor
+LDFLAGS=-L../multiarcball `fltk-config --use-gl --cxxflags --ldflags` -lsqlite3 -lmultiarcball -lglut -lGLU -L/opt/X11/lib -lXcursor
 SRCDIR=./src
 BUILDDIR=./obj
 

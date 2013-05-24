@@ -78,15 +78,7 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
         return;
     case CONTEXT_CELL: {
         fl_push_clip(X,Y,W,H); {
-            Fl_Color bgcolor;
-
-            if(_rowdata[R].is_live_data)
-            {
-                bgcolor = row_selected(R) ? selection_color() : FL_GREEN;
-            }
-            else {
-                bgcolor = row_selected(R) ? selection_color() : FL_WHITE;
-            }
+            Fl_Color bgcolor = row_selected(R) ? selection_color() : FL_WHITE;
             fl_color(bgcolor); fl_rectf(X,Y,W,H);
             fl_font(FL_HELVETICA, 16);
             fl_color(FL_BLACK);
@@ -154,11 +146,9 @@ void Table::resize_window() {
     window()->resize(window()->x(), window()->y(), width, window()->h());  // resize window to fit
 }
 
-void Table::add_row(const char *row, bool greenify) {
+void Table::add_row(const char *row) {
     char s[512];
     Row newrow;
-
-    newrow.is_live_data = greenify;
 
     strcpy(newrow.col_str, row);
     _rowdata.push_back(newrow);
@@ -215,16 +205,6 @@ void Table::clear() {
     _rowdata.clear();
     rows(0);
     cols(0);
-    redraw();
-}
-
-void Table::clearNewQueries() {
-    std::vector<Row>::iterator it = _rowdata.begin();
-    for(; it != _rowdata.end(); it++) {
-        it->is_live_data = false;
-    }
-
-    redrawSpawnables();
     redraw();
 }
 

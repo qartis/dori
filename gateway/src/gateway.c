@@ -163,23 +163,10 @@ int site_cb(void *arg, int ncols, char **cols, char **rows)
 }
 
 
-void exec_query_and_push(char *query) {
-    sqlite3_exec(db, query, NULL, NULL, NULL);
-    int64_t rowid = sqlite3_last_insert_rowid(db);
-
-    char buf[512];
-    sprintf(buf, "SELECT rowid, * FROM records WHERE rowid = '%ld';", rowid);
-
-    int i;
-    for (i = 0; i < nclients; i++) {
-        if(clients[i].type == TK) {
-            int rc = sqlite3_exec(db, buf, sqlite_cb,
-                                  &clients[i], NULL);
-
-            if (rc != SQLITE_OK) {
-                printf("sqlite error: %s\n", sqlite3_errmsg(db));
-            }
-        }
+void exec_query(char *query) {
+    int rc = sqlite3_exec(db, query, NULL, NULL, NULL);
+    if (rc != SQLITE_OK) {
+        printf("sqlite error: %s\n", sqlite3_errmsg(db));
     }
 }
 
@@ -207,7 +194,7 @@ void process_dori_msg(dori_msg msg) {
 
             printf("laser angle: %d, dist: %d\n", a, b);
             sprintf(buf, "INSERT INTO records (type, a, b, c, site) VALUES ('%s', %d, %d, %d, %d)", msg_ids[msg.id], a, b, c, siteid);
-            exec_query_and_push(buf);
+            exec_query(buf);
         }
         break;
     case ID_GPS:
@@ -220,7 +207,7 @@ void process_dori_msg(dori_msg msg) {
 
             printf("temp: %d\n", a);
             sprintf(buf, "INSERT INTO records (type, a, b, c, site) VALUES ('%s', %d, %d, %d, %d)", msg_ids[msg.id], a, b, c, siteid);
-            exec_query_and_push(buf);
+            exec_query(buf);
         }
         break;
     case ID_TIME:
@@ -244,7 +231,7 @@ int main()
     int optval, rc, fd;
     char buf[BUFLEN];
 
-    sqlite3_open("db", &db);
+    sqlite3_open("data/db", &db);
 
     if(db) {
         sqlite3_exec(db, "select max(site) from records;", site_cb, NULL, NULL);
@@ -321,22 +308,6 @@ int main()
             error("select");
 
         if(FD_ISSET(0, &readfds)) {
-            /*
-            char buf[256];
-            read(0, buf, sizeof(buf));
-            char *types[] = {
-                "gps", "laser", "accel", "temp", "arm", "plate", "orientation"
-            };
-            int type = rand() % (sizeof(types) / sizeof(*types));
-            int a, b, c;
-            a = rand() % 360;
-            b = rand() % 100;
-            c = rand() % 100;
-
-            sprintf(buf, "INSERT INTO records (type, a, b, c) VALUES ('%s', %d, %d, %d)", types[type], a, b, c);
-            exec_query_and_push(buf);
-            */
-
             rc = read(0, buf, sizeof(buf));
             buf[rc] = '\0';
 
@@ -358,15 +329,19 @@ int main()
                 len = sizeof(clientaddr);
                 newfd = accept(fd, (struct sockaddr *)&clientaddr, &len);
                 clients[nclients].fd = newfd;
-                FD_SET(newfd, &master);
 
                 if (newfd > maxfd)
                     maxfd = newfd;
 
                 if(fd == tkfd) {
                     printf("new tk\n");
+                    rc = read(newfd, buf, sizeof(buf));
+                    buf[rc] = '\0';
+                    int next_tk_rowid = atoi(buf);
                     clients[nclients].type = TK;
-                    sqlite3_exec(db, "SELECT rowid, * FROM RECORDS", sqlite_cb, &newfd, NULL);
+                    char query[256];
+                    sprintf(query, "SELECT rowid, * FROM RECORDS where rowid >= %d", next_tk_rowid);
+                    sqlite3_exec(db, query, sqlite_cb, &newfd, NULL);
 
                     if(send(newfd, "-1", 3, MSG_NOSIGNAL) < 1 ||
                        send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
@@ -389,6 +364,8 @@ int main()
                 }
 
                 nclients++;
+                FD_SET(newfd, &master);
+
             } else {
                 rc = read(fd, buf, sizeof(buf));
                 if (rc == 0 || (rc < 0 && errno == ECONNRESET)) {

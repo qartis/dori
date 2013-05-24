@@ -63,7 +63,7 @@ int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
 }
 
 SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), curMouseOverElevation(0.0), curState(WAITING), curSelectedObject(NULL), newSiteObject(NULL), db(NULL), maxScreenWidth(w), maxScreenHeight(h) {
-    processData("../viewport/poland.xyz", "../siteobjects.db");
+    processData("data/poland.xyz", "data/siteobjects.db");
     Fl::set_font(CUSTOM_FONT, "OCRB");
 }
 

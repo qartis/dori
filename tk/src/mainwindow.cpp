@@ -94,7 +94,7 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
         window->needFlush = false;
     }
 
-    window->table->add_row(buf, window->greenify);
+    window->table->add_row(buf);
 
     return 0;
 }
@@ -117,7 +117,6 @@ void MainWindow::performQuery(void *arg) {
     MainWindow *window = (MainWindow*)arg;
 
     window->needFlush = true;
-    window->greenify = false;
 
     int err = sqlite3_exec(window->db, window->queryInput->getSearchString(), sqlite_cb, window, NULL);
     if(err != SQLITE_OK) {
@@ -176,10 +175,6 @@ static void handleFD(int fd, void *data) {
         if(index == NUM_DB_FIELDS) {
             int rowid = atoi(field[0]);
 
-            if(window->table->readyToDraw) {
-                window->greenify = true;
-            }
-
             if(rowid == -1) {
                 int err = sqlite3_exec(window->db, "END TRANSACTION", NULL, NULL, NULL);
                 if(err != SQLITE_OK) {
@@ -209,28 +204,28 @@ static void handleFD(int fd, void *data) {
             sprintf(query, "INSERT INTO records (rowid, type, a, b, c, site, time) VALUES (%s, '%s', %s, %s, %s, %s, %s);", field[0], field[1], field[2], field[3], field[4], field[5], field[6]);
             sqlite3_exec(window->db, query, NULL, NULL, NULL);
             index = 0;
-
-            if(window->receivedFirstDump) {
-                sqlite3_exec(window->db_tmp, query, NULL, NULL, NULL);
-                sqlite3_exec(window->db_tmp, window->queryInput->getSearchString(), window->sqlite_cb, window, NULL);
-
-                sqlite3_exec(window->db_tmp, "DELETE FROM records;", NULL, NULL, NULL);
-                window->table->sortUI();
-                int limit = window->queryInput->getLimit();
-                if(limit > 0) {
-                    if(window->table->totalRows() > limit) {
-                        window->table->remove_last_row();
-                    }
-                }
-            }
-
-            window->greenify = false;
         }
     }
 }
 
+int send_max_row_cb(void *arg, int ncols, char **cols, char **rows) {
+    int fd = *(int*)arg;
 
-MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), greenify(false), receivedFirstDump(false), shell_log(NULL)
+    if(ncols == 0 || cols[0] == NULL) {
+        write(fd, "0", 1);
+    }
+    else {
+        int rowid = atoi(cols[0]);
+        char buf[32];
+        sprintf(buf, "%d", rowid + 1);
+        write(fd, buf, strlen(buf));
+    }
+
+    return 0;
+}
+
+
+MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), receivedFirstDump(false), shell_log(NULL)
 {
     sqlite3_enable_shared_cache(1);
     queryInput = new QueryInput(w * 0.2, 0, w * 0.75, 20, "Query:");
@@ -282,11 +277,12 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     else {
         Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
 
-        sqlite3_open("", &db);
-        sqlite3_exec(db, "CREATE TABLE records(type, a, b, c, site, time timestamp);", NULL, NULL, NULL);
+        sqlite3_open("data/db", &db);
+        sqlite3_exec(db, "CREATE TABLE if not exists records(type, a, b, c, site, time timestamp);", NULL, NULL, NULL);
 
-        sqlite3_open("", &db_tmp);
-        sqlite3_exec(db_tmp, "CREATE TABLE records(type, a, b, c, site, time timestamp);", NULL, NULL, NULL);
+        char query[256];
+        sprintf(query, "SELECT MAX(rowid) from records;");
+        sqlite3_exec(db, query, send_max_row_cb, &sockfd, NULL);
 
         int err = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, NULL);
         if(err != SQLITE_OK) {
@@ -301,9 +297,6 @@ int MainWindow::handle(int event) {
         int key = Fl::event_key();
         if(key == (FL_F + 1)) {
             hide();
-        }
-        if(key == (FL_F + 5)) {
-            table->clearNewQueries();
         }
 
         return 1;

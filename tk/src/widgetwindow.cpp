@@ -212,9 +212,6 @@ int WidgetWindow::handle(int event) {
                 }
             }
         }
-        if(key == (FL_F + 5)) {
-            table->clearNewQueries();
-        }
         return 1;
     }
 

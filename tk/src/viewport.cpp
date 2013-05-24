@@ -81,13 +81,13 @@ FlGlArcballWindow(x, y, w,h,l) {
 
     if(showDORI) {
         dori_body = new ObjModel;
-        dori_body->load("../viewport/models/dori_body.obj");
+        dori_body->load("data/dori_body.obj");
 
         dori_arm = new ObjModel;
-        dori_arm->load("../viewport/models/dori_arm.obj");
+        dori_arm->load("data/dori_arm.obj");
 
         dori_sensor_plate = new ObjModel;
-        dori_sensor_plate->load("../viewport/models/dori_sensor_plate.obj");
+        dori_sensor_plate->load("data/dori_sensor_plate.obj");
 
         // line the arm up
         dori_arm->setPos(-0.72682, 0.66008, -0.37968);
@@ -99,7 +99,7 @@ FlGlArcballWindow(x, y, w,h,l) {
     }
 
     if(showContour) {
-        FILE *f = fopen("../viewport/poland.clean.xyz", "r");
+        FILE *f = fopen("data/poland.clean.xyz", "r");
 
         char buf[512];
 
