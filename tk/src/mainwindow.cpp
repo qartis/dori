@@ -225,7 +225,7 @@ int send_max_row_cb(void *arg, int ncols, char **cols, char **rows) {
 }
 
 
-MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), db_tmp(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), receivedFirstDump(false), shell_log(NULL)
+MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), receivedFirstDump(false), shell_log(NULL)
 {
     sqlite3_enable_shared_cache(1);
     queryInput = new QueryInput(w * 0.2, 0, w * 0.75, 20, "Query:");
