@@ -42,6 +42,9 @@ void Fl_Gauge::draw(void)
     double major_angle = (angle2() - angle1()) / num_major_ticks;
     int i;
 
+    fl_color(FL_WHITE);
+    fl_line_style(FL_SOLID, 1);
+
 /* minor ticks */
     fl_push_matrix();
     fl_color(FL_WHITE);
@@ -110,9 +113,9 @@ void Fl_Gauge::draw(void)
 /* arrow */
     fl_begin_polygon();
     fl_vertex(-0.02, 0.03);
-    fl_vertex(-0.02, 0.30);
-    fl_vertex( 0.00, 0.35);
-    fl_vertex( 0.02, 0.30);
+    fl_vertex(-0.02, 0.35);
+    fl_vertex( 0.00, 0.37);
+    fl_vertex( 0.02, 0.35);
     fl_vertex( 0.02, 0.03);
     fl_end_polygon();
 
@@ -121,14 +124,12 @@ void Fl_Gauge::draw(void)
     fl_circle(0.0, 0.0, 0.48);
     fl_end_loop();
 
-/* center spindle */
-    fl_color(FL_GRAY);
-    fl_line_style(FL_SOLID, 5);
-    fl_begin_loop();
-    fl_circle(0.0, 0.0, 0.04);
-    fl_end_loop();
-
     fl_pop_matrix();
+
+    fl_color(FL_GRAY);
+    fl_pie(cx - d * 0.05, cy - d * 0.05, d * 0.1, d * 0.1, 0, 360.0);
+    fl_color(FL_BLACK);
+    fl_pie(cx - d * 0.025, cy - d * 0.025, d * 0.05, d * 0.05, 0, 360.0);
 
     draw_label();
 }
