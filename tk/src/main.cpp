@@ -12,6 +12,7 @@
 #include "row.h"
 #include "queryinput.h"
 #include "ctype.h"
+#include "sparkline.h"
 #include "table.h"
 #include "widgetwindow.h"
 #include "mainwindow.h"

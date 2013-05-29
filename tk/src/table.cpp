@@ -4,6 +4,7 @@
 #include <FL/Fl_Table_Row.H>
 #include <FL/fl_draw.H>
 #include <FL/Fl_Gl_Window.H>
+#include <FL/Fl_Button.H>
 #include <stdlib.h>
 #include <stdio.h>
 #include <vector>
@@ -12,14 +13,31 @@
 #include "ctype.h"
 #include "row.h"
 #include "queryinput.h"
+#include "sparkline.h"
 #include "table.h"
+#include <errno.h>
 
 #define MARGIN 20
 
+Table::Table(int x, int y, int w, int h, const char *l) : Fl_Table_Row(x,y,w,h,l) {
+    _sort_reverse = 1;
+    _sort_lastcol = 6; // set these to 5 by default (Timestamp)
+    _sort_curcol = 6;
+    readyToDraw = 0;
+    headers = NULL;
+    spawned_windows = NULL;
+    col_header_height(100);
+    end();
+    callback(event_callback, (void*)this);
+    dummy = new Fl_Button(0, 0,0,0, "123");
+}
+
+Table::~Table() {
+}
+
 // Sort a column up or down
 void Table::sort_column(int col, int reverse) {
-    std::stable_sort(_rowdata.begin(), _rowdata.end(), SortColumn(col, reverse));
-
+    std::stable_sort(rowdata.begin(), rowdata.end(), SortColumn(col, reverse));
     redraw();
 }
 
@@ -53,21 +71,29 @@ void Table::draw() {
         return;
     }
 
+    printf("table's draw\n");
     return Fl_Table_Row::draw();
 }
 // Handle drawing all cells in table
 void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, int H) {
     const char *s = "";
-    if ( R < (int)_rowdata.size() && C < (int)_rowdata[R].cols.size() )
-        s = _rowdata[R].cols[C];
+    if ( R < (int)rowdata.size() && C < (int)rowdata[R].cols.size() )
+        s = rowdata[R].cols[C];
     switch ( context ) {
     case CONTEXT_COL_HEADER:
         fl_push_clip(X,Y,W,H); {
             fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, FL_BACKGROUND_COLOR);
             if ( C < 9 ) {
+                if(C < sparklines.size()) {
+                    sparklines[C]->resize(X, Y + 20, W,  H - 20);
+                    printf("redrawing sparkline\n");
+                    sparklines[C]->damage(1);
+                }
+                //dummy->resize(X, Y, W, H);
+                //dummy->redraw();
                 fl_font(FL_HELVETICA_BOLD, 16);
                 fl_color(FL_BLACK);
-                fl_draw((*headers)[C], X+2,Y,W,H, FL_ALIGN_LEFT, 0, 0);
+                fl_draw((*headers)[C], X+2,Y,W,H, FL_ALIGN_TOP, 0, 0);
                 // Draw sort arrow
                 if ( C == _sort_lastcol ) {
                     draw_sort_arrow(X,Y,W,H, _sort_reverse);
@@ -96,12 +122,12 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
 void Table::autowidth(int pad) {
     fl_font(FL_COURIER, 16);
 
-    if(_rowdata.size() == 0) {
+    if(rowdata.size() == 0) {
         redraw();
         return;
     }
 
-    cols((int)_rowdata.back().cols.size());
+    cols((int)rowdata.back().cols.size());
 
     if(cols() == 0) {
         redraw();
@@ -111,18 +137,17 @@ void Table::autowidth(int pad) {
     int columns_width = 0;
     int w, h;
     for ( int c=0; c<cols(); c++ ) col_width(c, pad);
-    for ( int r=0; r<(int)_rowdata.size(); r++ ) {
-        for ( int c=0; c<(int)_rowdata[r].cols.size(); c++ ) {
-            fl_measure(_rowdata[r].cols[c], w, h, 0);
+    for ( int r=0; r<(int)rowdata.size(); r++ ) {
+        for ( int c=0; c<(int)rowdata[r].cols.size(); c++ ) {
+            fl_measure(rowdata[r].cols[c], w, h, 0);
             if ( (w + pad) > col_width(c)) col_width(c, w + pad);
-            if(r == ((int)_rowdata.size() - 1)) {
+            if(r == ((int)rowdata.size() - 1)) {
                 columns_width += col_width(c);
             }
         }
     }
-
-    if(_rowdata.size() > 0 && (columns_width < this->w())) {
-        int difference_per_col = (this->w() - columns_width - MARGIN) / _rowdata[0].cols.size();
+    if(rowdata.size() > 0 && (columns_width < this->w())) {
+        int difference_per_col = (this->w() - columns_width - MARGIN) / rowdata[0].cols.size();
 
         if(difference_per_col > 0) {
             for ( int c=0; c<cols(); c++ ) {
@@ -130,9 +155,9 @@ void Table::autowidth(int pad) {
             }
         }
     }
-    rows((int)_rowdata.size());
+    rows((int)rowdata.size());
     table_resized();
-    printf("redrawing table\n");
+    printf("autowidth\n");
     redraw();
 }
 
@@ -146,52 +171,69 @@ void Table::resize_window() {
     window()->resize(window()->x(), window()->y(), width, window()->h());  // resize window to fit
 }
 
-void Table::add_row(const char *row) {
-    char s[512];
-    Row newrow;
-
-    strcpy(newrow.col_str, row);
-    _rowdata.push_back(newrow);
-    std::vector<char*> &rc = _rowdata.back().cols;
-
-    char *ss;
-    const char *delim = "\t";
-    strcpy(s, row);
-    for(int t=0; (t==0)?(ss=strtok(s,delim)):(ss=strtok(NULL,delim)); t++) {
-        rc.push_back(strdup(ss));
+void Table::add_row(Row &newRow) {
+    if(values == NULL) {
+        values = new float*[newRow.cols.size()];
+        for(int i = 0; i < newRow.cols.size(); i++) {
+            values[i] = new float[20000];
+        }
     }
 
+    for(unsigned i = 0; i < newRow.cols.size(); i++) {
+        float f = 0;
+        sscanf(newRow.cols[i], "%f", &f);
+        values[i][rows()] = f;
+    }
+    rowdata.push_back(newRow);
+    rows(rows() + 1);
     redrawSpawnables();
 }
 
+void Table::done() {
+    //printf("cols: %d\n", cols());
+    printf("done p: %p, t: %p\n", parent(), this);
+    float *whatever = new float[100];
+    for(int i = 0; i < 100; i++) {
+        whatever[i] = i;
+    }
+
+    for(int i = 0; i < cols(); i++) {
+        Fl_Sparkline *sparkline = new Fl_Sparkline(0, 0, 0, 0);
+        //Fl_Button *sparkline = new Fl_Button(0, 0, 0, 0, "fuck");
+        parent()->add(sparkline);
+        sparkline->setValues(whatever, 100);
+        sparklines.push_back(sparkline);
+    }
+}
+
 void Table::remove_row(int index) {
-    _rowdata.erase(_rowdata.begin() + index);
+    rowdata.erase(rowdata.begin() + index);
     rows(rows() - 1);
 
     redrawSpawnables();
 }
 
 void Table::remove_last_row() {
-    remove_row(_rowdata.size() - 1);
+    remove_row(rowdata.size() - 1);
 }
 
 int Table::minimum_row(unsigned int column_index) {
     int min_val;;
     int min_index;
 
-    if(_rowdata.size() == 0) {
+    if(rowdata.size() == 0) {
         return -1;
     }
 
-    if(column_index >= _rowdata[0].cols.size()) {
+    if(column_index >= rowdata[0].cols.size()) {
         return -1;
     }
 
-    min_val = atoi(_rowdata[0].cols[column_index]);
+    min_val = atoi(rowdata[0].cols[column_index]);
     min_index = 0;
 
-    for(unsigned int i = 1; i < _rowdata.size(); i++) {
-        int row = atoi(_rowdata[i].cols[column_index]);
+    for(unsigned int i = 1; i < rowdata.size(); i++) {
+        int row = atoi(rowdata[i].cols[column_index]);
         if(row < min_val) {
             min_val = row;
             min_index = i;
@@ -202,7 +244,8 @@ int Table::minimum_row(unsigned int column_index) {
 }
 
 void Table::clear() {
-    _rowdata.clear();
+    values = NULL;
+    rowdata.clear();
     rows(0);
     cols(0);
     redraw();
@@ -308,4 +351,3 @@ void Table::event_callback2() {
         return;
     }
 }
-

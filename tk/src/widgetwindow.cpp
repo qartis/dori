@@ -27,6 +27,7 @@
 #include "row.h"
 #include "queryinput.h"
 #include "ctype.h"
+#include "sparkline.h"
 #include "table.h"
 #include "objmodel.h"
 #include "radarwindow.h"
@@ -68,16 +69,6 @@ static void spawnRadarWindow(Fl_Widget *widget, void *data) {
     window->table->spawned_windows->push_back(newRadar);
 }
 
-/*
-static void graphInputCallback(Fl_Widget *widget, void *data) {
-    WidgetWindow *window = (WidgetWindow*)data;
-    char buf[256] = { 0 };
-    sprintf(buf, "echo \"%s\" > plotfifo &", ((Fl_Input*)widget)->value());
-    system(buf);
-    write(window->controlFD, "plot \"plotfifo\"\n", strlen("plot \"plotfifo\"\n"));
-}
-*/
-
 static void spawnModelViewer(Fl_Widget *widget, void *data) {
     (void)widget;
     WidgetWindow *window = (WidgetWindow*)data;
@@ -100,7 +91,7 @@ static void spawnSiteEditor(Fl_Widget *widget, void *data) {
     //WidgetWindow *window = (WidgetWindow*)data;
 
     SiteEditor *siteEditor = new SiteEditor(0, 0, 600, 600, NULL);
-    //siteEditor->user_data(&window->table->_rowdata);
+    //siteEditor->user_data(&window->table->rowdata);
 
     siteEditor->show();
     //window->table->spawned_windows->push_back(viewport);
@@ -113,7 +104,7 @@ static void graphCallback(Fl_Widget *widget, void *data) {
     system("rm plotfifo");
     system("mkfifo plotfifo");
 
-    std::vector<Row>::iterator it = window->table->_rowdata.begin();
+    std::vector<Row>::iterator it = window->table->rowdata.begin();
 
     system("gnuplot -p -e \"plot \\\"plotfifo\\\" with lines\" &");
 
@@ -122,7 +113,7 @@ static void graphCallback(Fl_Widget *widget, void *data) {
     int xAxis = window->xAxis->value();
     int yAxis = window->yAxis->value();
 
-    for(; it != window->table->_rowdata.end(); it++) {
+    for(; it != window->table->rowdata.end(); it++) {
         write(fd, it->cols[xAxis], strlen(it->cols[xAxis]));
         write(fd, "\t", strlen("\t"));
         write(fd, it->cols[yAxis], strlen(it->cols[yAxis]));

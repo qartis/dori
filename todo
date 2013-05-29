@@ -6,10 +6,12 @@ Table view
     select from log database,
     sparklines (graph previews) under column headers
 
-Graphing tool, support multiple datasets,
+Graphing tool,
+    support multiple datasets,
     set x, y for each dataset,
     tries to guess X axis on dataset load,
-    Site editor
+
+Site editor
     Panning + Zooming,
     Grid to show scale (to the nearest half a meter),
     Hierarchy by type of object,
@@ -20,7 +22,7 @@ Graphing tool, support multiple datasets,
     time (arrival, departure)
 
 tk: sends its rowid for each table (records + logs) to gateway on execution, gateway sends back records with higher row id,
-    store database on disk, not memory,
+    X store database on disk, not memory,
     sync up files (audio, pictures) with tk
 
 gateway

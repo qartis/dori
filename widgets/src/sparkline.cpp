@@ -1,4 +1,5 @@
 #include <FL/Fl.H>
+#include <FL/names.h>
 #include <math.h>
 #include <FL/Fl_Dial.H>
 #include <limits.h>
@@ -58,7 +59,7 @@ void Fl_Sparkline::drawPoint(int x)
         return;
     }
     int index = num_values * x / width;
-    int value = map(values[index], values[min_index], values[max_index], height, 0);
+    float value = map(values[index], values[min_index], values[max_index], height, 0);
     fl_point(Fl_Sparkline::x() + padding + x, y() + value + padding);
 }
 
@@ -97,7 +98,7 @@ void Fl_Sparkline::drawCursor(void)
 
     x = index * width / num_values;
 
-    int value = map(values[index], values[min_index], values[max_index], height, 0);
+    float value = map(values[index], values[min_index], values[max_index], height, 0);
         
     fl_color(FL_BLUE);
     fl_rectf(Fl_Widget::x() + padding + x - 1, y() + value + padding - 1, 3, 3);
@@ -156,6 +157,7 @@ int Fl_Sparkline::snap(int index)
 
 void Fl_Sparkline::draw(void) 
 {
+    printf("draw!\n");
     int i;
 
     if (damage() == FL_DAMAGE_USER1) {
@@ -175,12 +177,6 @@ void Fl_Sparkline::draw(void)
 
     draw_box();
 
-    int index = num_values * (Fl::event_x() - padding) / width;
-    index = snap(index);
-    tip->position(Fl::event_x_root() + 10, Fl::event_y_root() + 10);
-    tip->value(values[index]);
-    tip->show();
-
     fl_color(FL_BLACK);
     for (i = 0; i < width; i++) {
         drawPoint(i);
@@ -189,7 +185,6 @@ void Fl_Sparkline::draw(void)
     drawPeaks();
 
     draw_label();
-
 }
 
 void Fl_Sparkline::drawPeaks(void)
@@ -209,7 +204,7 @@ void Fl_Sparkline::drawPeaks(void)
     }
 }
 
-void Fl_Sparkline::setValues(int *_values, int _num_values)
+void Fl_Sparkline::setValues(float *_values, float _num_values)
 {
     int i;
 
@@ -242,6 +237,7 @@ void Fl_Sparkline::setValues(int *_values, int _num_values)
 
 int Fl_Sparkline::handle(int e)
 {
+    printf("event: %s\n", fl_eventnames[e]);
     switch (e) {
     case FL_MOVE:
         damage(FL_DAMAGE_USER1);

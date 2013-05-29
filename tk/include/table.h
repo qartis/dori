@@ -41,18 +41,9 @@ protected:
     void redrawSpawnables();
 
 public:
-    // Ctor
-    Table(int x, int y, int w, int h, const char *l=0) : Fl_Table_Row(x,y,w,h,l) {
-        _sort_reverse = 1;
-        _sort_lastcol = 6; // set these to 5 by default (Timestamp)
-        _sort_curcol = 6;
-        readyToDraw = 0;
-        headers = NULL;
-        end();
-        callback(event_callback, (void*)this);
-    }
-    ~Table() { }
-    void add_row(const char *row);
+    Table(int x, int y, int w, int h, const char *l=0);
+    ~Table();
+    void add_row(Row &newRow);
     void autowidth(int pad);
     void resize_window();
     void remove_row(int index);
@@ -62,15 +53,16 @@ public:
     void clearNewQueries();
     void changeSort();
     void sortUI();
+    void done();
 
+    float ** values;
     std::vector<const char *>* headers;
+    std::vector<Fl_Widget*> sparklines;
     std::vector<Fl_Window*>* spawned_windows;
     QueryInput *queryInput;
     int readyToDraw;
-    std::vector<Row> _rowdata;
-
-    int totalRows() { return _rowdata.size(); }
-
+    std::vector<Row> rowdata;
+    Fl_Widget *dummy;
 };
 
 

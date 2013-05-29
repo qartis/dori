@@ -5,7 +5,7 @@ public:
 
     Fl_Sparkline(int x, int y, int w, int h, const char *l = 0);
 
-    void setValues(int *_values, int _num_values);
+    void setValues(float *_values, float _num_values);
 
 private:
     void draw(void);
@@ -15,8 +15,8 @@ private:
     int snap(int index);
     int handle(int);
 
-    int *values;
-    int num_values;
+    float *values;
+    float num_values;
 
     int max_index;
     int min_index;

@@ -4,6 +4,7 @@
 #include <FL/Fl_Table_Row.H>
 #include <FL/Fl_Input.H>
 #include <FL/fl_draw.H>
+#include <FL/Fl_Button.H>
 #include <FL/gl.h>
 #include <math.h>
 #include <map>
@@ -12,6 +13,7 @@
 #include "ctype.h"
 #include "queryinput.h"
 #include "row.h"
+#include "sparkline.h"
 #include "table.h"
 #include "radarwindow.h"
 
@@ -167,7 +169,7 @@ void RadarWindow::draw() {
 
     rowidCol = typeCol = angleCol = distanceCol = -1;
 
-    for(it = table->_rowdata.begin(); it != table->_rowdata.end(); it++) {
+    for(it = table->rowdata.begin(); it != table->rowdata.end(); it++) {
         for(unsigned i = 0; i < table->headers->size(); i++) {
             if(strncmp((*(table->headers))[i], "row", strlen("row")) == 0) {
                 rowidCol = i;

@@ -20,6 +20,7 @@
 #include "basic_ball.h"
 #include "row.h"
 #include "queryinput.h"
+#include "sparkline.h"
 #include "table.h"
 #include "objmodel.h"
 #include "FlGlArcballWindow.h"
@@ -341,7 +342,7 @@ void Viewport::draw() {
             int typeCol, aCol, bCol, cCol;
             typeCol = aCol = bCol = cCol = -1;
 
-            for(std::vector<Row>::iterator it = table->_rowdata.begin(); it != table->_rowdata.end(); it++) {
+            for(std::vector<Row>::iterator it = table->rowdata.begin(); it != table->rowdata.end(); it++) {
                 for(unsigned i = 0; i < table->headers->size(); i++) {
                     /*if(strncmp((*(table->headers))[i], "row", strlen("row")) == 0) {
                         rowidCol = i;

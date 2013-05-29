@@ -5,11 +5,11 @@
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Gl_Window.H>
 #include <FL/Fl_Tile.H>
-#include <FL/fl_ask.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Choice.H>
 #include <FL/Fl_Color_Chooser.H>
+#include <FL/Fl_File_Chooser.H>
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>
@@ -26,6 +26,7 @@
 #include "basic_ball.h"
 #include "FlGlArcballWindow.h"
 #include "ctype.h"
+#include "sparkline.h"
 #include "table.h"
 #include "objmodel.h"
 #include "radarwindow.h"
@@ -58,16 +59,20 @@ const char* MainWindow::shell_log_filename = "shell.log";
 int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
 {
     char buf[512] = { 0 };
+    int index = 0;
 
     MainWindow *window = (MainWindow*)arg;
-    int index = 0;
+
+    Row newRow;
 
     for(int i = 0; i < ncols; i++) {
         if(cols[i] == NULL) {
             sprintf(&buf[index++], "\t");
+            newRow.cols.push_back(strdup("\t"));
             continue;
         }
-        sprintf(&buf[index], "%s\t", cols[i]);
+        sprintf(&buf[index], "%s", cols[i]);
+        newRow.cols.push_back(strdup(&buf[index]));
         index += strlen(cols[i]) + 1;
     }
 
@@ -94,7 +99,7 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
         window->needFlush = false;
     }
 
-    window->table->add_row(buf);
+    window->table->add_row(newRow);
 
     return 0;
 }
@@ -129,7 +134,8 @@ void MainWindow::performQuery(void *arg) {
         }
     }
 
-    window->table->autowidth(20);
+    window->table->autowidth(0);
+    window->table->done();
     window->queryInput->redraw();
     window->needFlush = false;
 }
@@ -209,6 +215,7 @@ static void handleFD(int fd, void *data) {
 }
 
 int send_max_row_cb(void *arg, int ncols, char **cols, char **rows) {
+    (void)rows;
     int fd = *(int*)arg;
 
     if(ncols == 0 || cols[0] == NULL) {
@@ -234,11 +241,11 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
 
     table = new Table(0, queryInput->h(), w, h - 20);
     table->selection_color(FL_YELLOW);
-    table->col_header(1);
-    table->col_resize(1);
     table->when(FL_WHEN_RELEASE);
     table->spawned_windows = &spawned_windows;
     table->headers = &headers;
+    table->col_header(1);
+    table->col_resize(1);
 
     add(queryInput);
     table->queryInput = queryInput;
@@ -271,23 +278,24 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
           server->h_length);
     serv_addr.sin_port = htons(PORT);
 
+    sqlite3_open("data/db", &db);
+    sqlite3_exec(db, "CREATE TABLE if not exists records(type, a, b, c, site, time timestamp);", NULL, NULL, NULL);
+
     if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
-        printf("error connecting to server\n");
+        printf("No Gateway connection available, tk is in offline mode\n");
+        table->readyToDraw = 1;
+        receivedFirstDump = true;
+        performQuery(this);
     }
     else {
-        Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
-
-        sqlite3_open("data/db", &db);
-        sqlite3_exec(db, "CREATE TABLE if not exists records(type, a, b, c, site, time timestamp);", NULL, NULL, NULL);
-
-        char query[256];
-        sprintf(query, "SELECT MAX(rowid) from records;");
-        sqlite3_exec(db, query, send_max_row_cb, &sockfd, NULL);
-
         int err = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, NULL);
         if(err != SQLITE_OK) {
             printf("sqlite error: %s\n", sqlite3_errmsg(db));
         }
+        Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
+        char query[256];
+        sprintf(query, "SELECT MAX(rowid) from records;");
+        sqlite3_exec(db, query, send_max_row_cb, &sockfd, NULL);
     }
 }
 
@@ -297,9 +305,48 @@ int MainWindow::handle(int event) {
         int key = Fl::event_key();
         if(key == (FL_F + 1)) {
             hide();
+            return 1;
         }
+        else if(key == 's' && Fl::event_ctrl()) {
+            // Fl_File_Chooser(directory, filter, type, title)
+            Fl_File_Chooser chooser(".",
+                                    "*.csv",
+                                    Fl_File_Chooser::CREATE,
+                                    "Save dataset as CSV...");
+            chooser.show();
 
-        return 1;
+            while(chooser.shown()) {
+                Fl::wait();
+            }
+
+            if (chooser.value() != NULL) {
+                printf("saving to %s\n", chooser.value());
+
+                std::vector<Row>::iterator it = table->rowdata.begin();
+
+                FILE *fp = fopen(chooser.value(), "w");
+
+
+                if(fp == NULL) {
+                    perror("fopen()");
+                    return 0;
+                }
+                for(; it != table->rowdata.end(); it++) {
+                    for(unsigned i = 0; i < it->cols.size(); i++) {
+                        fprintf(fp, "%s", it->cols[i]);
+
+                        if(i < it->cols.size() - 1) {
+                            fprintf(fp, ",");
+                        }
+                    }
+
+                    fprintf(fp, "\n");
+                }
+
+                fclose(fp);
+            }
+            return 1;
+        }
     }
     default:
         return Fl_Window::handle(event);
