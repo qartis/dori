@@ -1,3 +1,5 @@
+class TipWin;
+
 class Fl_Sparkline : public Fl_Widget {
 public:
 
@@ -10,6 +12,7 @@ private:
     void drawCursor(void);
     void drawPeaks(void);
     void drawPoint(int x);
+    int snap(int index);
     int handle(int);
 
     int *values;
@@ -26,4 +29,6 @@ private:
     int padding;
     int width;
     int height;
+
+    TipWin *tip;
 };
