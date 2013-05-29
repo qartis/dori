@@ -39,10 +39,12 @@ Fl_Sparkline::Fl_Sparkline(int x, int y, int w, int h, const char *l)
 {
     selection_color(FL_RED);
     box(FL_FLAT_BOX);
-    color(FL_WHITE);
-    padding = 10;
+    color(0xfffbcfff);
+    padding = 2;
+    Fl_Group *save = Fl_Group::current();
     tip = new TipWin();
     tip->hide();
+    Fl_Group::current(save);
 }
 
 int map(int value, int in_min, int in_max, int out_min, int out_max)
@@ -52,22 +54,25 @@ int map(int value, int in_min, int in_max, int out_min, int out_max)
 
 void Fl_Sparkline::drawPoint(int x)
 {
-        int index = num_values * x / width;
-        int value = map(values[index], values[min_index], values[max_index], height, 0);
-        fl_point(padding + x, value + padding);
+    if (x >= width || x < 0) {
+        return;
+    }
+    int index = num_values * x / width;
+    int value = map(values[index], values[min_index], values[max_index], height, 0);
+    fl_point(Fl_Sparkline::x() + padding + x, y() + value + padding);
 }
 
 void Fl_Sparkline::drawCursor(void)
 {
     static int prev_x = -1;
 
-    int x = Fl::event_x();
+    int x = Fl::event_x() - Fl_Widget::x();
 
     if (prev_x > -1) {
-        fl_color(FL_WHITE);
+        fl_color(color());
 
         fl_line_style(FL_SOLID, 3);
-        fl_line(padding + prev_x, 0, padding + prev_x, h());
+        fl_line(Fl_Widget::x() + padding + prev_x, y(), Fl_Widget::x() + padding + prev_x, y() + h());
 
         fl_color(FL_BLACK);
 
@@ -80,13 +85,13 @@ void Fl_Sparkline::drawCursor(void)
         prev_x = -1;
     }
 
+
     if (x < padding || x >= padding + width) {
         return;
     }
 
     x -= padding;
 
-    fl_color(FL_BLUE);
     int index = num_values * x / width;
     index = snap(index);
 
@@ -94,10 +99,11 @@ void Fl_Sparkline::drawCursor(void)
 
     int value = map(values[index], values[min_index], values[max_index], height, 0);
         
-    fl_rectf(padding + x - 1, value + padding - 1, 3, 3);
+    fl_color(FL_BLUE);
+    fl_rectf(Fl_Widget::x() + padding + x - 1, y() + value + padding - 1, 3, 3);
     fl_color(FL_RED);
     fl_line_style(FL_SOLID, 1);
-    fl_line(padding + x, padding, padding + x, h() - padding);
+    fl_line(Fl_Widget::x() + padding + x, y() + padding, Fl_Widget::x() + padding + x, y() + h() - padding);
 
     prev_x = x;
 }
@@ -153,7 +159,7 @@ void Fl_Sparkline::draw(void)
     int i;
 
     if (damage() == FL_DAMAGE_USER1) {
-        int index = num_values * (Fl::event_x() - padding) / width;
+        int index = num_values * (Fl::event_x() - x() - padding) / width;
         index = snap(index);
         tip->position(Fl::event_x_root() + 10, Fl::event_y_root() + 10);
         tip->value(values[index]);
@@ -165,6 +171,7 @@ void Fl_Sparkline::draw(void)
 
     width = w() - padding * 2;
     height = h() - padding * 2;
+
 
     draw_box();
 
@@ -193,12 +200,12 @@ void Fl_Sparkline::drawPeaks(void)
     fl_color(FL_RED);
     for (i = 0; i < num_peaks; i++) {
         position = width * peak_indices[i] / num_values;
-        fl_rectf(padding + position, padding, 3, 3);
+        fl_rectf(x() + padding + position, y() + padding, 3, 3);
     }
 
     for (i = 0; i < num_troughs; i++) {
         position = width * trough_indices[i] / num_values;
-        fl_rectf(padding + position, padding + height - 3, 3, 3);
+        fl_rectf(x() + padding + position, y() + padding + height - 3, 3, 3);
     }
 }
 
