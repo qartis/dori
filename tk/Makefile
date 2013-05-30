@@ -8,7 +8,7 @@ BUILDDIR=./obj
 vpath %.cpp ./src
 vpath %.h ./include
 
-tk: $(BUILDDIR)/graph.o $(BUILDDIR)/radarwindow.o $(BUILDDIR)/viewport.o $(BUILDDIR)/siteeditor.o $(BUILDDIR)/rectobject.o $(BUILDDIR)/circleobject.o $(BUILDDIR)/lineobject.o $(BUILDDIR)/toolbar.o $(BUILDDIR)/objmodel.o $(BUILDDIR)/mainwindow.o $(BUILDDIR)/table.o $(BUILDDIR)/queryinput.o $(BUILDDIR)/widgetwindow.o
+tk: $(SRCDIR)/main.cpp $(BUILDDIR)/graph.o $(BUILDDIR)/radarwindow.o $(BUILDDIR)/viewport.o $(BUILDDIR)/siteeditor.o $(BUILDDIR)/rectobject.o $(BUILDDIR)/circleobject.o $(BUILDDIR)/lineobject.o $(BUILDDIR)/toolbar.o $(BUILDDIR)/objmodel.o $(BUILDDIR)/mainwindow.o $(BUILDDIR)/table.o $(BUILDDIR)/queryinput.o $(BUILDDIR)/widgetwindow.o
 	$(CXX) $(CXXFLAGS) $(BUILDDIR)/*.o $(SRCDIR)/main.cpp -o tk $(LDFLAGS)
 
 $(BUILDDIR)/%.o: %.cpp %.h

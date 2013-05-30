@@ -168,7 +168,7 @@ int main() {
 
     int i;
     for(i = 0; i <= MAX_MESSAGE_ID; i++) {
-        p[i].seconds = i + 1;
+        p[i].seconds = 1;//i + 1;
         p[i].id = i;
         pthread_create(&threads[i], NULL, send_message, (void*)&p[i]);
     }

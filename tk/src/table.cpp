@@ -29,7 +29,7 @@ Table::Table(int x, int y, int w, int h, const char *l) : Fl_Table_Row(x,y,w,h,l
     col_header_height(100);
     end();
     callback(event_callback, (void*)this);
-    dummy = new Fl_Button(0, 0,0,0, "123");
+    values = NULL;
 }
 
 Table::~Table() {
@@ -71,7 +71,6 @@ void Table::draw() {
         return;
     }
 
-    printf("table's draw\n");
     return Fl_Table_Row::draw();
 }
 // Handle drawing all cells in table
@@ -84,13 +83,10 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
         fl_push_clip(X,Y,W,H); {
             fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, FL_BACKGROUND_COLOR);
             if ( C < 9 ) {
-                if(C < sparklines.size()) {
-                    sparklines[C]->resize(X, Y + 20, W,  H - 20);
-                    printf("redrawing sparkline\n");
+                if(C < (int)(sparklines.size())) {
+                    sparklines[C]->resize(X + 3, Y + 20, W - 6,  H - 25);
                     sparklines[C]->damage(1);
                 }
-                //dummy->resize(X, Y, W, H);
-                //dummy->redraw();
                 fl_font(FL_HELVETICA_BOLD, 16);
                 fl_color(FL_BLACK);
                 fl_draw((*headers)[C], X+2,Y,W,H, FL_ALIGN_TOP, 0, 0);
@@ -157,7 +153,6 @@ void Table::autowidth(int pad) {
     }
     rows((int)rowdata.size());
     table_resized();
-    printf("autowidth\n");
     redraw();
 }
 
@@ -172,36 +167,31 @@ void Table::resize_window() {
 }
 
 void Table::add_row(Row &newRow) {
-    if(values == NULL) {
-        values = new float*[newRow.cols.size()];
-        for(int i = 0; i < newRow.cols.size(); i++) {
-            values[i] = new float[20000];
-        }
-    }
-
-    for(unsigned i = 0; i < newRow.cols.size(); i++) {
-        float f = 0;
-        sscanf(newRow.cols[i], "%f", &f);
-        values[i][rows()] = f;
-    }
     rowdata.push_back(newRow);
     rows(rows() + 1);
     redrawSpawnables();
 }
 
 void Table::done() {
-    //printf("cols: %d\n", cols());
-    printf("done p: %p, t: %p\n", parent(), this);
-    float *whatever = new float[100];
-    for(int i = 0; i < 100; i++) {
-        whatever[i] = i;
+    if(cols() == 0)
+        return;
+
+    if(values == NULL) {
+        values = new float*[cols()];
+        for(int i = 0; i < cols(); i++) {
+            values[i] = new float[rows()];
+        }
     }
 
-    for(int i = 0; i < cols(); i++) {
+    for(int c = 0; c < cols(); c++) {
         Fl_Sparkline *sparkline = new Fl_Sparkline(0, 0, 0, 0);
-        //Fl_Button *sparkline = new Fl_Button(0, 0, 0, 0, "fuck");
         parent()->add(sparkline);
-        sparkline->setValues(whatever, 100);
+        for(int r = 0; r < rows(); r++) {
+            float f = 0;
+            sscanf(rowdata[r].cols[c], "%f", &f);
+            values[c][r] = f;
+        }
+        sparkline->setValues(values[c], rows());
         sparklines.push_back(sparkline);
     }
 }
@@ -244,8 +234,15 @@ int Table::minimum_row(unsigned int column_index) {
 }
 
 void Table::clear() {
+    for(int i = 0; i < cols(); i++) {
+        delete values[i];
+        delete sparklines[i];
+    }
+    delete values;
     values = NULL;
+
     rowdata.clear();
+    sparklines.clear();
     rows(0);
     cols(0);
     redraw();
