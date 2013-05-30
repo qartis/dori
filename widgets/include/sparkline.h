@@ -10,6 +10,7 @@ public:
 private:
     void draw(void);
     void drawCursor(void);
+    void hideCursor(void);
     void drawPeaks(void);
     void drawPoint(int x);
     int snap(int index);
@@ -29,6 +30,8 @@ private:
     int padding;
     int width;
     int height;
+
+    int prev_x;
 
     TipWin *tip;
 };
