@@ -9,6 +9,7 @@
 
 #include "sparkline.h"
 
+/* from erco's cheats */
 class TipWin : public Fl_Menu_Window {
     char tip[40];
 public:
@@ -40,8 +41,10 @@ Fl_Sparkline::Fl_Sparkline(int x, int y, int w, int h, const char *l)
 {
     selection_color(FL_RED);
     box(FL_FLAT_BOX);
-    color(0xfffbcfff);
-    padding = 2;
+    color(0xfffbcfff); /* greyish yellow */
+    padding = 5;
+    prev_x = -1;
+
     Fl_Group *save = Fl_Group::current();
     tip = new TipWin();
     tip->hide();
@@ -55,56 +58,66 @@ int map(int value, int in_min, int in_max, int out_min, int out_max)
 
 void Fl_Sparkline::drawPoint(int x)
 {
-    if (x >= width || x < 0) {
+    int index;
+    float value;
+
+    if (x >= width || x < 0)
         return;
-    }
-    int index = num_values * x / width;
-    float value = map(values[index], values[min_index], values[max_index], height, 0);
+
+    index = num_values * x / width;
+    value = map(values[index], values[min_index], values[max_index], height, 0);
+    
     fl_point(Fl_Sparkline::x() + padding + x, y() + value + padding);
+}
+
+void Fl_Sparkline::hideCursor(void)
+{
+    if (prev_x < 0)
+        return;
+
+    fl_color(color());
+
+    fl_line_style(FL_SOLID, 3);
+    fl_line(Fl_Widget::x() + padding + prev_x, y(),
+        Fl_Widget::x() + padding + prev_x, y() + h());
+
+    fl_color(FL_BLACK);
+
+    drawPoint(prev_x - 1);
+    drawPoint(prev_x);
+    drawPoint(prev_x + 1);
+
+    drawPeaks();
+
+    prev_x = -1;
 }
 
 void Fl_Sparkline::drawCursor(void)
 {
-    static int prev_x = -1;
-
     int x = Fl::event_x() - Fl_Widget::x();
+    int index;
+    float value;
 
-    if (prev_x > -1) {
-        fl_color(color());
-
-        fl_line_style(FL_SOLID, 3);
-        fl_line(Fl_Widget::x() + padding + prev_x, y(), Fl_Widget::x() + padding + prev_x, y() + h());
-
-        fl_color(FL_BLACK);
-
-        drawPoint(prev_x - 1);
-        drawPoint(prev_x);
-        drawPoint(prev_x + 1);
-
-        drawPeaks();
-
-        prev_x = -1;
-    }
-
-
-    if (x < padding || x >= padding + width) {
-        return;
-    }
+    hideCursor();
 
     x -= padding;
 
-    int index = num_values * x / width;
+    index = num_values * x / width;
     index = snap(index);
 
     x = index * width / num_values;
 
-    float value = map(values[index], values[min_index], values[max_index], height, 0);
+    value = map(values[index], values[min_index], values[max_index],
+        height, 0);
         
     fl_color(FL_BLUE);
-    fl_rectf(Fl_Widget::x() + padding + x - 1, y() + value + padding - 1, 3, 3);
+    fl_rectf(Fl_Widget::x() + padding + x - 1, y() + value + padding - 1,
+        3, 3);
+
     fl_color(FL_RED);
     fl_line_style(FL_SOLID, 1);
-    fl_line(Fl_Widget::x() + padding + x, y() + padding, Fl_Widget::x() + padding + x, y() + h() - padding);
+    fl_line(Fl_Widget::x() + padding + x, y() + padding,
+        Fl_Widget::x() + padding + x, y() + h() - padding);
 
     prev_x = x;
 }
@@ -112,14 +125,17 @@ void Fl_Sparkline::drawCursor(void)
 int Fl_Sparkline::snap(int index)
 {
     int i;
+    int dist;
 
     int peak_dist = INT_MAX;
     int peak_index = -1;
     int trough_dist = INT_MAX;
     int trough_index = -1;
 
+    float snap_dist = num_values / 30.0;
+
     for (i = 0; i < num_peaks; i++) {
-        int dist = abs(index - peak_indices[i]);
+        dist = abs(index - peak_indices[i]);
         if (dist < peak_dist) {
             peak_dist = dist;
             peak_index = i;
@@ -127,41 +143,40 @@ int Fl_Sparkline::snap(int index)
     }
 
     for (i = 0; i < num_troughs; i++) {
-        int dist = abs(index - trough_indices[i]);
+        dist = abs(index - trough_indices[i]);
         if (dist < trough_dist) {
             trough_dist = dist;
             trough_index = i;
         }
     }
 
+    /* snap to trough or peak? */
     if (trough_dist < peak_dist) {
-        if (trough_dist < 50) {
+        if (trough_dist < snap_dist)
             return trough_indices[trough_index];
-        }
     } else {
-        if (peak_dist < 50) {
+        if (peak_dist < snap_dist)
             return peak_indices[peak_index];
-        }
     }
 
-    if (index < 50) {
+    /* snap to start? */
+    if (index < snap_dist)
         return 0;
-    }
 
-    if (index > num_values - 50) {
+    /* snap to end? */
+    if (index > num_values - snap_dist)
         return num_values - 1;
-    }
 
     return index;
 }
 
 void Fl_Sparkline::draw(void) 
 {
-    printf("draw!\n");
     int i;
+    int index;
 
     if (damage() == FL_DAMAGE_USER1) {
-        int index = num_values * (Fl::event_x() - x() - padding) / width;
+        index = num_values * (Fl::event_x() - x() - padding) / width;
         index = snap(index);
         tip->position(Fl::event_x_root() + 10, Fl::event_y_root() + 10);
         tip->value(values[index]);
@@ -174,13 +189,12 @@ void Fl_Sparkline::draw(void)
     width = w() - padding * 2;
     height = h() - padding * 2;
 
-
     draw_box();
 
     fl_color(FL_BLACK);
-    for (i = 0; i < width; i++) {
+
+    for (i = 0; i < width; i++)
         drawPoint(i);
-    }
 
     drawPeaks();
 
@@ -217,34 +231,34 @@ void Fl_Sparkline::setValues(float *_values, float _num_values)
     num_values = _num_values;
 
     for (i = 0; i < num_values; i++) {
-        if (values[i] < values[min_index]) {
+        if (values[i] < values[min_index])
             min_index = i;
-        }
-        if (values[i] > values[max_index]) {
+
+        if (values[i] > values[max_index])
             max_index = i;
-        }
     }
 
     for (i = 0; i < num_values; i++) {
-        if (values[i] == values[max_index]) {
+        if (values[i] == values[max_index])
             peak_indices[num_peaks++] = i;
-        }
-        if (values[i] == values[min_index]) {
+
+        if (values[i] == values[min_index])
             trough_indices[num_troughs++] = i;
-        }
     }
 }
 
 int Fl_Sparkline::handle(int e)
 {
-    printf("event: %s\n", fl_eventnames[e]);
     switch (e) {
     case FL_MOVE:
         damage(FL_DAMAGE_USER1);
         return 1;
 
-    case FL_HIDE:
     case FL_LEAVE:
+        damage(1);
+        /* fall through */
+
+    case FL_HIDE:
         tip->hide();
         return 1;
 
