@@ -28,8 +28,8 @@ private:
     int num_troughs;
 
     int padding;
-    int width;
-    int height;
+    float width;
+    float height;
 
     int prev_x;
 

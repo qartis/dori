@@ -18,7 +18,7 @@
 #include "mainwindow.h"
 
 int main(int argc, char **argv) {
-    MainWindow window(0, 0, 600, 600, "Tableview");
+    MainWindow window(0, 0, 1024, 700, "Tableview");
     window.end();
     window.show(argc, argv);
     return Fl::run();

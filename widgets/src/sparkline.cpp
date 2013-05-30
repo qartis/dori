@@ -37,13 +37,14 @@ public:
 };
 
 Fl_Sparkline::Fl_Sparkline(int x, int y, int w, int h, const char *l)
-    : Fl_Widget(x,y,w,h,l) 
+    : Fl_Widget(x,y,w,h,l)
 {
     selection_color(FL_RED);
     box(FL_FLAT_BOX);
     color(0xfffbcfff); /* greyish yellow */
     padding = 5;
     prev_x = -1;
+    num_values = 0;
 
     Fl_Group *save = Fl_Group::current();
     tip = new TipWin();
@@ -51,7 +52,7 @@ Fl_Sparkline::Fl_Sparkline(int x, int y, int w, int h, const char *l)
     Fl_Group::current(save);
 }
 
-int map(int value, int in_min, int in_max, int out_min, int out_max)
+int map(float value, float in_min, float in_max, float out_min, float out_max)
 {
     return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
@@ -66,7 +67,7 @@ void Fl_Sparkline::drawPoint(int x)
 
     index = num_values * x / width;
     value = map(values[index], values[min_index], values[max_index], height, 0);
-    
+
     fl_point(Fl_Sparkline::x() + padding + x, y() + value + padding);
 }
 
@@ -170,10 +171,16 @@ int Fl_Sparkline::snap(int index)
     return index;
 }
 
-void Fl_Sparkline::draw(void) 
+void Fl_Sparkline::draw(void)
 {
     int i;
     int index;
+
+
+    if(num_values == 0) {
+        damage(1);
+        return;
+    }
 
     if (damage() == FL_DAMAGE_USER1) {
         index = num_values * (Fl::event_x() - x() - padding) / width;
@@ -193,8 +200,9 @@ void Fl_Sparkline::draw(void)
 
     fl_color(FL_BLACK);
 
-    for (i = 0; i < width; i++)
+    for (i = 0; i < width; i++) {
         drawPoint(i);
+    }
 
     drawPeaks();
 
