@@ -22,9 +22,9 @@ private:
     int max_index;
     int min_index;
 
-    int peak_indices[128];
+    int peak_indices[10000];
     int num_peaks;
-    int trough_indices[128];
+    int trough_indices[10000];
     int num_troughs;
 
     int padding;

@@ -1,14 +1,16 @@
-IDIRS=-I../shared/include/ -I./include/ -I../multiarcball/include -I../widgets/include
-CXX=g++
-CXXFLAGS=-Wno-write-strings -Wall -Wextra $(IDIRS) -g
+INCDIRS = ../shared/include/ ./include/ ../multiarcball/include ../widgets/include
+#CXX=g++
+CXXFLAGS=-g -Wno-write-strings -Wall -Wextra $(foreach DIR,$(INCLUDES), -I$(DIR))
 LDFLAGS=-L../multiarcball -L../widgets `fltk-config --use-gl --cxxflags --ldflags` -lsqlite3 -lwidgets -lmultiarcball -lglut -lGLU -L/opt/X11/lib -lXcursor
 SRCDIR=./src
 BUILDDIR=./obj
+INCLUDES = $(wildcard $(foreach DIR,$(INCDIRS), $(DIR)/*))
+OBJS = $(patsubst %.cpp,%.o,$(wildcard src/*.cpp))
 
 vpath %.cpp ./src
 vpath %.h ./include
 
-tk: $(SRCDIR)/main.cpp $(BUILDDIR)/graph.o $(BUILDDIR)/radarwindow.o $(BUILDDIR)/viewport.o $(BUILDDIR)/siteeditor.o $(BUILDDIR)/rectobject.o $(BUILDDIR)/circleobject.o $(BUILDDIR)/lineobject.o $(BUILDDIR)/toolbar.o $(BUILDDIR)/objmodel.o $(BUILDDIR)/mainwindow.o $(BUILDDIR)/table.o $(BUILDDIR)/queryinput.o $(BUILDDIR)/widgetwindow.o
+tk: $(SRCDIR)/main.cpp $(OBJS) $(INCLUDES)
 	$(CXX) $(CXXFLAGS) $(BUILDDIR)/*.o $(SRCDIR)/main.cpp -o tk $(LDFLAGS)
 
 $(BUILDDIR)/%.o: %.cpp %.h

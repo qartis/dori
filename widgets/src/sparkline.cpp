@@ -133,7 +133,7 @@ int Fl_Sparkline::snap(int index)
     int trough_dist = INT_MAX;
     int trough_index = -1;
 
-    float snap_dist = num_values / 30.0;
+    float snap_dist = num_values / 10.0;
 
     for (i = 0; i < num_peaks; i++) {
         dist = abs(index - peak_indices[i]);
