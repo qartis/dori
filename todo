@@ -1,10 +1,12 @@
 Table view
     X kill live support
     X add local db support
-    export to CSV -> dump current table to selected file,
+    X export to CSV -> dump current table to selected file,
     ability to launch graphing tool with current dataset,
     select from log database,
-    sparklines (graph previews) under column headers
+    X sparklines (graph previews) under column headers
+    make sparkline jump to row
+    make sparklines vertically resizable
 
 Graphing tool,
     support multiple datasets,

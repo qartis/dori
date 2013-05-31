@@ -16,8 +16,16 @@
 #include "sparkline.h"
 #include "table.h"
 #include <errno.h>
+#include <unistd.h>
 
 #define MARGIN 20
+
+void Table::scrollToRow(int row, void *data) {
+    Table *t = (Table*)data;
+    t->row_position(row);
+    t->select_all_rows(0);
+    t->select_row(row);
+}
 
 Table::Table(int x, int y, int w, int h, const char *l) : Fl_Table_Row(x,y,w,h,l) {
     _sort_reverse = 1;
@@ -44,6 +52,7 @@ void Table::sort_column(int col, int reverse) {
 // Draw sort arrow
 void Table::draw_sort_arrow(int X,int Y,int W,int H,int sort) {
     (void)sort;
+    (void)H;
     int xlft = X+(W-6)-8;
     int xctr = X+(W-6)-4;
     int xrit = X+(W-6)-0;
@@ -80,7 +89,6 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
         s = rowdata[R].cols[C];
     switch ( context ) {
     case CONTEXT_COL_HEADER:
-        printf("R: %d, C %d, X %d, Y %d\n", R, C, X, Y);
         fl_push_clip(X,Y,W,H); {
             fl_draw_box(FL_THIN_UP_BOX, X,Y,W,20, FL_BACKGROUND_COLOR);
             fl_color(FL_DARK1);
@@ -191,13 +199,22 @@ void Table::done() {
 
     for(int c = 0; c < cols(); c++) {
         Fl_Sparkline *sparkline = new Fl_Sparkline(0, 0, 0, 0);
+        sparkline->scrollFunc = Table::scrollToRow;
+        sparkline->table = this;
         parent()->add(sparkline);
+
+        int numValues = rows();
+
         for(int r = 0; r < rows(); r++) {
             float f = 0;
-            sscanf(rowdata[r].cols[c], "%f", &f);
+            if(sscanf(rowdata[r].cols[c], "%f", &f) == 0) {
+                numValues = 0;
+                break;
+            }
             values[c][r] = f;
         }
-        sparkline->setValues(values[c], rows());
+
+        sparkline->setValues(values[c], numValues);
         sparklines.push_back(sparkline);
     }
 }

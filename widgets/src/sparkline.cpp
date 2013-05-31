@@ -259,7 +259,6 @@ void Fl_Sparkline::setValues(float *_values, float _num_values)
 
 int Fl_Sparkline::handle(int e)
 {
-    printf("%s\n", fl_eventnames[e]);
     switch (e) {
     case FL_MOVE:
         damage(FL_DAMAGE_USER1);

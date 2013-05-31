@@ -7,6 +7,9 @@ public:
 
     void setValues(float *_values, float _num_values);
 
+    void *table;
+    void (*scrollFunc)(int index, void *obj);
+
 private:
     void draw(void);
     void drawCursor(void);
@@ -32,10 +35,6 @@ private:
     float height;
 
     int prev_x;
-
-    void *table;
-    void (*scrollFunc)(int index, void *obj);
-
 
     TipWin *tip;
 };

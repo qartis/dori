@@ -55,6 +55,8 @@ public:
     void sortUI();
     void done();
 
+    static void scrollToRow(int row, void *data);
+
     float ** values;
     std::vector<const char *>* headers;
     std::vector<Fl_Widget*> sparklines;
