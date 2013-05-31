@@ -33,5 +33,9 @@ private:
 
     int prev_x;
 
+    void *table;
+    void (*scrollFunc)(int index, void *obj);
+
+
     TipWin *tip;
 };

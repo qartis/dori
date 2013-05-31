@@ -45,6 +45,8 @@ Fl_Sparkline::Fl_Sparkline(int x, int y, int w, int h, const char *l)
     padding = 5;
     prev_x = -1;
     num_values = 0;
+    table = NULL;
+    scrollFunc = NULL;
 
     Fl_Group *save = Fl_Group::current();
     tip = new TipWin();
@@ -257,6 +259,7 @@ void Fl_Sparkline::setValues(float *_values, float _num_values)
 
 int Fl_Sparkline::handle(int e)
 {
+    printf("%s\n", fl_eventnames[e]);
     switch (e) {
     case FL_MOVE:
         damage(FL_DAMAGE_USER1);
@@ -270,8 +273,21 @@ int Fl_Sparkline::handle(int e)
         tip->hide();
         return 1;
 
-    case FL_ENTER:
     case FL_PUSH:
+    {
+        int x = Fl::event_x() - Fl_Widget::x();
+        int index;
+
+        x -= padding;
+
+        index = num_values * x / width;
+        index = snap(index);
+
+        scrollFunc(index, table);
+    }
+        return 1;
+
+    case FL_ENTER:
     case FL_DRAG:
         return 1;
 
