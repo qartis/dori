@@ -68,7 +68,12 @@ void Fl_Sparkline::drawPoint(int x)
         return;
 
     index = num_values * x / width;
-    value = map(values[index], values[min_index], values[max_index], height, 0);
+
+    if (min_index == max_index) {
+        value = height / 2;
+    } else {
+        value = map(values[index], values[min_index], values[max_index], height, 0);
+    }
 
     fl_point(Fl_Sparkline::x() + padding + x, y() + value + padding);
 }
@@ -180,7 +185,6 @@ void Fl_Sparkline::draw(void)
 
 
     if(num_values == 0) {
-        draw_box();
         return;
     }
 
@@ -215,6 +219,10 @@ void Fl_Sparkline::drawPeaks(void)
 {
     int i;
     int position;
+
+    if (min_index == max_index) {
+        return;
+    }
 
     fl_color(FL_RED);
     for (i = 0; i < num_peaks; i++) {
