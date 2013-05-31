@@ -256,6 +256,10 @@ void Fl_Sparkline::setValues(float *_values, float _num_values)
             max_index = i;
     }
 
+    /* don't look for peaks if it's a flat line */
+    if (min_index == max_index)
+        return;
+
     for (i = 0; i < num_values; i++) {
         if (values[i] == values[max_index])
             peak_indices[num_peaks++] = i;
