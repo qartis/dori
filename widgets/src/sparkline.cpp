@@ -180,7 +180,7 @@ void Fl_Sparkline::draw(void)
 
 
     if(num_values == 0) {
-        damage(1);
+        draw_box();
         return;
     }
 
