@@ -47,8 +47,8 @@ void Table::draw_sort_arrow(int X,int Y,int W,int H,int sort) {
     int xlft = X+(W-6)-8;
     int xctr = X+(W-6)-4;
     int xrit = X+(W-6)-0;
-    int ytop = Y+(H/2)-4;
-    int ybot = Y+(H/2)+4;
+    int ytop = Y+(10)-4;
+    int ybot = Y+(10)+4;
     if ( !_sort_reverse ) {
         // Engraved down arrow
         fl_color(FL_WHITE);
@@ -80,12 +80,16 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
         s = rowdata[R].cols[C];
     switch ( context ) {
     case CONTEXT_COL_HEADER:
+        printf("R: %d, C %d, X %d, Y %d\n", R, C, X, Y);
         fl_push_clip(X,Y,W,H); {
-            fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, FL_BACKGROUND_COLOR);
+            fl_draw_box(FL_THIN_UP_BOX, X,Y,W,20, FL_BACKGROUND_COLOR);
+            fl_color(FL_DARK1);
+            fl_rect(X, Y + 20, W, H - 20);
             if ( C < 9 ) {
                 if(C < (int)(sparklines.size())) {
-                    sparklines[C]->resize(X + 3, Y + 20, W - 6,  H - 25);
-                    sparklines[C]->damage(1);
+                    sparklines[C]->resize(X + 0, Y + 20, W - 1,  H - 21);
+                    sparklines[C]->draw();
+                    //sparklines[C]->damage(1);
                 }
                 fl_font(FL_HELVETICA_BOLD, 16);
                 fl_color(FL_BLACK);
@@ -105,7 +109,9 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
             fl_font(FL_HELVETICA, 16);
             fl_color(FL_BLACK);
             fl_draw(s, X+2,Y,W,H, FL_ALIGN_LEFT);     // +2=pad left
-            fl_color(FL_LIGHT2); fl_rect(X,Y,W,H);
+            fl_color(FL_DARK1); //fl_rect(X,Y,W+0,H+1);
+            fl_line(X + W - 1, Y, X + W - 1, Y + H);
+            fl_line(X, Y + H - 1, X + W - 1, Y + H - 1);
         }
         fl_pop_clip();
         return;
