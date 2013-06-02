@@ -9,7 +9,6 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Choice.H>
 #include <FL/Fl_Color_Chooser.H>
-#include <FL/Fl_File_Chooser.H>
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>
@@ -39,6 +38,10 @@
 #include "widgetwindow.h"
 #include "mainwindow.h"
 #include <time.h>
+
+// modified version of Fl_File_Chooser
+// exposed fileName (text edit)
+#include "Fl_File_Chooser.H"
 
 #define PORT 1337
 #define SERVER "127.0.0.1"
@@ -308,11 +311,11 @@ int MainWindow::handle(int event) {
             return 1;
         }
         else if(key == 's' && Fl::event_ctrl()) {
-            // Fl_File_Chooser(directory, filter, type, title)
             Fl_File_Chooser chooser(".",
                                     "*.csv",
                                     Fl_File_Chooser::CREATE,
                                     "Save dataset as CSV...");
+            chooser.fileName->when(FL_WHEN_CHANGED | FL_WHEN_ENTER_KEY_ALWAYS);
             chooser.show();
 
             while(chooser.shown()) {
@@ -325,7 +328,6 @@ int MainWindow::handle(int event) {
                 std::vector<Row>::iterator it = table->rowdata.begin();
 
                 FILE *fp = fopen(chooser.value(), "w");
-
 
                 if(fp == NULL) {
                     perror("fopen()");

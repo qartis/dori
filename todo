@@ -1,12 +1,14 @@
 Table view
     X kill live support
     X add local db support
-    X export to CSV -> dump current table to selected file,
-    ability to launch graphing tool with current dataset,
-    select from log database,
+    X export to CSV
+        X dump current table to selected file
+        X add Enter key handling for save dialog
     X sparklines (graph previews) under column headers
-    make sparkline jump to row
+    X make sparkline jump to row
+    select from log database,
     make sparklines vertically resizable
+    ability to launch graphing tool with current dataset,
 
 Graphing tool,
     support multiple datasets,
@@ -23,7 +25,8 @@ Site editor
     position (lat/long),
     time (arrival, departure)
 
-tk: sends its rowid for each table (records + logs) to gateway on execution, gateway sends back records with higher row id,
+tk
+    X sends its rowid for each table (records + logs) to gateway on execution, gateway sends back records with higher row id,
     X store database on disk, not memory,
     sync up files (audio, pictures) with tk
 
