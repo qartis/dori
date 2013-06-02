@@ -91,6 +91,9 @@ void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, i
     case CONTEXT_COL_HEADER:
         fl_push_clip(X,Y,W,H); {
             fl_draw_box(FL_THIN_UP_BOX, X,Y,W,20, FL_BACKGROUND_COLOR);
+            fl_color(0xf7f3ebff);
+            fl_rectf(X, Y + 20, W, H - 20);
+
             fl_color(FL_DARK1);
             fl_rect(X, Y + 20, W, H - 20);
             if ( C < 9 ) {
