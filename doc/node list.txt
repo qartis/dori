@@ -29,6 +29,7 @@
 * nunchuk (i2c)
 * compass (i2c)
 * gyro (i2c)
+* GPS (uart)
 
 
 === Rain (environmental) node ===
@@ -71,8 +72,4 @@
 === LIDAR node ===
 * LIDAR (3 io)
 * PIR motion (1 io)
-
-
-=== GPS node ===
-* GPS (uart)
 * IR Thermo (spi)
