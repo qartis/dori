@@ -41,7 +41,7 @@
 
 // modified version of Fl_File_Chooser
 // exposed fileName (text edit)
-#include "Fl_File_Chooser.H"
+#include "file_chooser.h"
 
 #define PORT 1337
 #define SERVER "127.0.0.1"
