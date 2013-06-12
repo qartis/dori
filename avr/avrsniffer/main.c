@@ -11,7 +11,8 @@
 #include "spi.h"
 #include "mcp2515.h"
 
-uint8_t from_hex(char a){
+uint8_t from_hex(char a)
+{
     if (isupper(a)) {
         return a - 'A' + 10;
     } else if (islower(a)) {
@@ -19,6 +20,11 @@ uint8_t from_hex(char a){
     } else {
         return a - '0';
     }
+}
+
+void periodic_callback(void)
+{
+    (void)0;
 }
 
 void mcp2515_irq_callback(void)
@@ -36,17 +42,26 @@ void main(void)
 {
     int buflen = 64;
     char buf[buflen];
-    uint8_t i;
+    uint8_t i = 0;
 
     uart_init(BAUD(38400));
     spi_init();
 
+    _delay_ms(200);
+    printf("sniffer start\n");
+
     while (mcp2515_init()) {
-        printf_P(PSTR("mcp: 1\n"));
+        printf_P(PSTR("mcp: init\n"));
         _delay_ms(500);
     }
 
     sei();
+
+    uint8_t sendbuf[10] = {0};
+    uint8_t type = 0;
+    uint8_t id = 0;
+    uint8_t rc;
+
 
     for (;;) {
         printf_P(PSTR("> "));
@@ -56,9 +71,6 @@ void main(void)
 
         if (strncmp(buf, "send ", strlen("send ")) == 0) {
             char *ptr = buf + strlen("send ");
-            uint8_t sendbuf[10];
-            uint8_t type;
-            uint8_t id;
 
             type = 16 * from_hex(ptr[0]) + from_hex(ptr[1]);
             ptr += strlen("ff ");
@@ -75,8 +87,11 @@ void main(void)
                 ptr += strlen("ff ");
             }
 
-            uint8_t rc = mcp2515_send(type, id, i, sendbuf);
-
+            rc = mcp2515_send(type, id, i, sendbuf);
+            _delay_ms(50);
+            printf_P(PSTR("mcp2515_send: %d\n"), rc);
+        } else if (buf[0] == '.' && buf[1] == '\0') {
+            rc = mcp2515_send(type, id, i, sendbuf);
             printf_P(PSTR("mcp2515_send: %d\n"), rc);
         } else {
             printf_P(PSTR("send type id [02 ff ab ..]\n"));
