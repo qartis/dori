@@ -1,56 +1,66 @@
-#define printf(...) ;
-#define printf_P(...) ;
-#define snprintf(...) ;
-
-enum type {
-    TYPE_VALUE_PERIODIC = 0,
-    TYPE_VALUE_EXPLICIT = 1,
-    TYPE_SET_TIME = 2,
-    TYPE_SET_INTERVAL = 3,
-    TYPE_SOS_REBOOT = 4,
-    TYPE_SOS_RX_OVERRUN = 5,
-    TYPE_SOS_STFU = 6,
-    TYPE_SOS_NOSTFU = 7,
-
-
-    TYPE_FILE_CHDIR = 0x11,
-
-    TYPE_FILE_ERROR = 0x12,
-
-    TYPE_SENSOR_ERROR = 0x13,
-
-
-    TYPE_FILE_CHECKSUM = 0x15,
-
-
-
-    TYPE_XFER_CTS = 0x70,
-    TYPE_XFER_CANCEL = 0x71,
-    TYPE_XFER_DATA = 0x72,
-    TYPE_FULL_LOG_OFFER = 0x73,
-    TYPE_REQUEST_LIST_FILES = 0x74,
-    TYPE_FILE_LISTING = 0x75,
-    TYPE_REQUEST_FILE = 0x76,
-    TYPE_FILE_CONTENTS = 0x77,
-    TYPE_FILE_WRITE = 0x78,
-
+#define TYPE_LIST(X) \
+    X(value_periodic, 0) \
+    X(value_explicit, 1) \
+    X(set_time, 2) \
+    X(set_interval, 3) \
+    X(sos_reboot, 4) \
+    X(sos_rx_overrun, 5) \
+    X(sos_stfu, 6) \
+    X(sos_nostfu, 7) \
+\
+    X(file_chdir, 0x11) \
+\
+    X(file_error, 0x12) \
+\
+    X(sensor_error, 0x13) \
+\
+\
+    X(file_checksum, 0x15) \
+\
+\
+\
+    X(xfer_cts, 0x70) \
+    X(xfer_cancel, 0x71) \
+    X(xfer_data, 0x72) \
+    X(full_log_offer, 0x73) \
+    X(request_list_files, 0x74) \
+    X(file_listing, 0x75) \
+    X(request_file, 0x76) \
+    X(file_contents, 0x77) \
+    X(file_write, 0x78) \
+\
+\
+\
+    X(invalid, 0xff) \
 
 
-    TYPE_INVALID = 0xff,
-};
+#define ID_LIST(X) \
+    X(any  , 0) \
+    X(ping , 1) \
+    X(pong , 2) \
+    X(laser, 3) \
+    X(gps  , 4) \
+    X(temp , 5) \
+    X(time , 6) \
+    X(logger, 7) \
+    X(invalid, 0x1f) \
 
+//this needs to be changed
 #define TYPE_XFER(type) ((type & 0xf0) == 0x70)
 
+enum type {
+#define X(name, value) TYPE_ ## name = value, \
+
+    TYPE_LIST(X)
+#undef X
+};
+
+
 enum id {
-    ID_ANY   = 0,
-    ID_PING  = 1,
-    ID_PONG  = 2,
-    ID_LASER = 3,
-    ID_GPS   = 4,
-    ID_TEMP  = 5,
-    ID_TIME  = 6,
-    ID_LOGGER = 7,
-    ID_INVALID = 0xff
+#define X(name, value) ID_ ## name = value, \
+
+    ID_LIST(X)
+#undef X
 };
 
 struct mcp2515_packet_t {

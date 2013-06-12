@@ -8,7 +8,7 @@
 #include "mcp2515.h"
 #include "spi.h"
 #include "time.h"
-//#include "uart.h"
+#include "uart.h"
 
 #define MCP2515_PORT PORTB
 #define MCP2515_CS PORTB2
@@ -83,12 +83,9 @@ uint8_t mcp2515_init(void)
     TCCR1A = (1 << COM1A0); 
     TCCR1B = (1 << CS10) | (1 << WGM12); 
 
-    /* enable mcp2515's interrupt on avr pin int1 (PD3 for 88p) */
-#ifndef __AVR_ATmega328P__
-#warning this code only works on 328p
-#endif
-    EICRA = (1 << ISC11);
-    EIMSK |= (1 << INT1);
+    /* enable mcp2515's interrupt on avr pin pcint0 (pb0) */
+    PCICR |= (1 << PCIE0);
+    PCMSK0 |= (1 << PCINT0);
 
     MCP2515_DDR |= (1 << MCP2515_CS);
     mcp2515_unselect();
@@ -122,7 +119,7 @@ uint8_t mcp2515_init(void)
 
     mcp2515_busy = 0;
     stfu = 0;
-    expecting_xfer_type = TYPE_INVALID;
+    expecting_xfer_type = TYPE_invalid;
     received_xfer = 0;
     received_cts = 0;
     received_cancel = 0;
@@ -140,10 +137,12 @@ void mcp2515_reset(void)
 
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data)
 {
+    /*
     if (mcp2515_busy) {
         printf_P(PSTR("tx overrun\n"));
         return 1;
     }
+    */
 
     cli();
     load_tx0(type, id, len, (const uint8_t *)data);
@@ -185,11 +184,6 @@ void read_packet(uint8_t regnum)
 {
     uint8_t i;
 
-    if (received_xfer) {
-        printf_P(PSTR("RX OVERRUN\n"));
-        return;
-    }
-
     mcp2515_select();
     spi_write(MCP_COMMAND_READ);
     spi_write(regnum);
@@ -223,32 +217,34 @@ void read_packet(uint8_t regnum)
 
     mcp2515_unselect();
 
-    if (TYPE_XFER(packet.type) && packet.id == MY_ID && MY_ID != ID_ANY) {
+    if (MY_ID == ID_any) {
+        mcp2515_irq_callback();
+    } else if (TYPE_XFER(packet.type) && packet.id == MY_ID) {
         /* signal for xfer handler */
-        if (packet.type == TYPE_XFER_CTS) {
+        if (packet.type == TYPE_xfer_cts) {
             received_cts = 1;
-        } else if (packet.type == TYPE_XFER_CANCEL) {
+        } else if (packet.type == TYPE_xfer_cancel) {
             received_cancel = 1;
-        } else if (expecting_xfer_type == TYPE_INVALID
+        } else if (expecting_xfer_type == TYPE_invalid
                 || expecting_xfer_type == packet.type) {
             received_xfer = 1;
         }
     } else {
         mcp2515_irq_callback();
-        if (packet.type == TYPE_VALUE_PERIODIC && packet.id == ID_TIME) {
+        if (packet.type == TYPE_value_periodic && packet.id == ID_time) {
             uint32_t new_time = (uint32_t)packet.data[0] << 24 |
                                 (uint32_t)packet.data[1] << 16 |
                                 (uint32_t)packet.data[2] << 8  |
                                 (uint32_t)packet.data[3] << 0;
             printf_P(PSTR("mcp2515: time set %lu\n"), new_time);
             time_set(new_time);
-        } else if (packet.type == TYPE_SET_INTERVAL && packet.id == MY_ID) {
+        } else if (packet.type == TYPE_set_interval && packet.id == MY_ID) {
             periodic_prev = now;
             periodic_interval =  (uint16_t)packet.data[0] << 8 |
                                  (uint16_t)packet.data[1] << 0;
 
             printf_P(PSTR("period set %u\n"), periodic_interval);
-        } else if (packet.type == TYPE_SOS_REBOOT && packet.id == MY_ID) {
+        } else if (packet.type == TYPE_sos_reboot && packet.id == MY_ID) {
             cli();
             wdt_enable(WDTO_15MS);
             for (;;) {};
@@ -256,15 +252,11 @@ void read_packet(uint8_t regnum)
     }
 }
 
-ISR(INT1_vect)
+ISR(PCINT0_vect)
 {
     uint8_t canintf;
 
     canintf = read_register(MCP_REGISTER_CANINTF);
-
-    //print("int ");
-    //printx(canintf);
-    //putchar('\n');
 
     canintf &= 0x7f;
 
@@ -289,6 +281,7 @@ ISR(INT1_vect)
     if (canintf & MCP_INTERRUPT_ERRI) {
         printf_P(PSTR("mcp2515 error: %x\n"), read_register(MCP_REGISTER_EFLG));
         modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_ERRI, 0x00);
+        modify_register(MCP_REGISTER_EFLG, 0xff, 0x00);
         canintf &= ~(MCP_INTERRUPT_ERRI);
     }
 
@@ -316,7 +309,7 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, void *data)
     if (retry == 0) {
         printf_P(PSTR("xfer: cts timeout\n"));
         //didn't get a response
-        //expected TYPE_XFER_CTS
+        //expected TYPE_xfer_cts
         return 1;
     } else if (received_cancel) {
         return 2;
@@ -336,7 +329,7 @@ uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
     received_cancel = 0;
 
     printf_P(PSTR("sent CTS\n"));
-    mcp2515_send(TYPE_XFER_CTS, sender_id, 0, NULL);
+    mcp2515_send(TYPE_xfer_cts, sender_id, 0, NULL);
 
     for (;;) {
         retry = 255;
@@ -359,7 +352,7 @@ uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
 
         received_xfer = 0;
 
-        mcp2515_send(TYPE_XFER_CTS, sender_id, 0, NULL);
+        mcp2515_send(TYPE_xfer_cts, sender_id, 0, NULL);
         if (packet.len < 8) {
             printf_P(PSTR("rx_xf_wt: success\n"));
             break;
@@ -383,7 +376,7 @@ uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *p)
 {
     uint16_t retry;
 
-    expecting_xfer_type = TYPE_INVALID;
+    expecting_xfer_type = TYPE_invalid;
 
     printf_P(PSTR("get_packet: looping\n"));
     for (;;) {

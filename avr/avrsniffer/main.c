@@ -11,6 +11,11 @@
 #include "spi.h"
 #include "mcp2515.h"
 
+uint8_t streq_P(const char *a, const char * PROGMEM b)
+{
+    return strcmp_P(a, b) == 0;
+}
+
 uint8_t from_hex(char a)
 {
     if (isupper(a)) {
@@ -22,6 +27,34 @@ uint8_t from_hex(char a)
     }
 }
 
+uint8_t parse_arg(const char *arg)
+{
+    /* first check all the type names*/
+#define X(name, value) if (streq_P(arg, PSTR(#name))) return TYPE_ ##name; \
+
+    TYPE_LIST(X)
+#undef X
+
+    /* then try all the id names*/
+#define X(name, value) if (streq_P(arg, PSTR(#name))) return ID_ ##name; \
+
+    ID_LIST(X)
+#undef X
+
+    /* otherwise maybe it's a 2-digit hex */
+    if (strlen(arg) == 2) {
+        return 16 * from_hex(arg[0]) + from_hex(arg[1]);
+    }
+
+    /* otherwise maybe it's a 1-digit hex */
+    if (strlen(arg) == 1) {
+        return from_hex(arg[0]);
+    }
+
+    printf("WTF! given arg '%s'\n", arg);
+    return 0xff;
+}
+
 void periodic_callback(void)
 {
     (void)0;
@@ -31,11 +64,47 @@ void mcp2515_irq_callback(void)
 {
     uint8_t i;
 
-    printf_P(PSTR("Sniffer received [%x %x] %db: "), packet.type, packet.id, packet.len);
+/*
+#define X(name, value) const char * PROGMEM temp_type_ ## name = "TYPE_" #name;
+TYPE_LIST(X)
+#undef X
+
+#define X(name, value) const char * PROGMEM temp_id_ ## name = "ID_" #name;
+ID_LIST(X)
+#undef X
+
+    PGM_P type_names [] = {
+#define X(name, value) [value] = temp_type_ ##name,
+
+TYPE_LIST(X)
+#undef X
+    };
+
+    const char * PROGMEM id_names []  = {
+#define X(name, value) [value] = temp_id_ ##name,
+
+ID_LIST(X)
+#undef X
+    };
+
+    printf_P(PSTR("Sniffer received %S [%x] %S [%x] %db: "), type_names[packet.type], packet.type, id_names[packet.id], packet.id, packet.len);
+    */
     for (i = 0; i < packet.len; i++) {
         printf_P(PSTR("%x,"), packet.data[i]);
     }
     printf_P(PSTR("\n"));
+
+
+}
+
+void usage(void)
+{
+    printf_P(PSTR("cmds: send, ...\n"));
+}
+
+void send_usage(void)
+{
+    printf_P(PSTR("send type id [02 ff ab ..]\n"));
 }
 
 void main(void)
@@ -61,7 +130,7 @@ void main(void)
     uint8_t type = 0;
     uint8_t id = 0;
     uint8_t rc;
-
+    char *arg;
 
     for (;;) {
         printf_P(PSTR("> "));
@@ -69,32 +138,38 @@ void main(void)
         fgets(buf, sizeof(buf), stdin);
         buf[strlen(buf)-1] = '\0';
 
-        if (strncmp(buf, "send ", strlen("send ")) == 0) {
-            char *ptr = buf + strlen("send ");
+        arg = strtok(buf, " ");
 
-            type = 16 * from_hex(ptr[0]) + from_hex(ptr[1]);
-            ptr += strlen("ff ");
-            id = 16 * from_hex(ptr[0]) + from_hex(ptr[1]);
-            ptr += strlen("ff ");
+        if (strcmp(arg, "send") == 0) {
+            arg = strtok(NULL, " ");
+            if (arg == NULL) {
+                send_usage();
+                continue;
+            }
+            type = parse_arg(arg);
+
+            arg = strtok(NULL, " ");
+            if (arg == NULL) {
+                send_usage();
+                continue;
+            }
+            id = parse_arg(arg);
 
             i = 0;
-            while (*ptr && i < 8) {
-                sendbuf[i] = 16 * from_hex(ptr[0]) + from_hex(ptr[1]);
-                i++;
-                if (ptr[2] == '\0') {
+            for (;;) {
+                arg = strtok(NULL, " ");
+                if (arg == NULL) {
                     break;
                 }
-                ptr += strlen("ff ");
+                sendbuf[i] = parse_arg(arg);
+                i++;
             }
 
             rc = mcp2515_send(type, id, i, sendbuf);
-            _delay_ms(50);
-            printf_P(PSTR("mcp2515_send: %d\n"), rc);
-        } else if (buf[0] == '.' && buf[1] == '\0') {
-            rc = mcp2515_send(type, id, i, sendbuf);
+            _delay_ms(200);
             printf_P(PSTR("mcp2515_send: %d\n"), rc);
         } else {
-            printf_P(PSTR("send type id [02 ff ab ..]\n"));
+            usage();
         }
     }
 }
