@@ -3,6 +3,7 @@
 #include "CanAnalyzer.h"
 #include "CanAnalyzerSettings.h"
 #include <iostream>
+#include <stdio.h>
 #include <sstream>
 
 #pragma warning(disable: 4800) //warning C4800: 'U64' : forcing value to bool 'true' or 'false' (performance warning)
@@ -31,11 +32,11 @@ void CanAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& /*channel
 		{
 			char number_str[128];
 			std::stringstream ss;
-            int type = frame.mData1 >> 21;
-            int id = (frame.mData1 >> 16) & 0x1f;
+            int type;
+            int id;
 
-            const char *type_labels[0xff];
-            const char *id_labels[0xff];
+            const char *type_labels[256];
+            const char *id_labels[256];
 
             int i;
 
@@ -65,7 +66,7 @@ void CanAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& /*channel
             type_labels[0x76] = "REQUEST_FILE";
             type_labels[0x77] = "FILE_CONTENTS";
             type_labels[0x78] = "FILE_WRITE";
-            type_labels[0xff] = "INVALID";
+            type_labels[0xff] = "PLUGIN ERROR";
 
 
             id_labels[0] = "ANY";
@@ -77,13 +78,29 @@ void CanAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& /*channel
             id_labels[6] = "TIME";
             id_labels[7] = "LOGGER";
             id_labels[0xf] = "INVALID";
+            id_labels[0xff] = "PLUGIN ERROR";
 
             AddResultString("Type");
 
             /* extra long form */
+            type = frame.mData1 >> 21;
             AnalyzerHelpers::GetNumberString( type, display_base, 8, number_str, 128 );
+
+            printf("wtf1? type = %d\n", type);
+            if (type > 255) {
+                printf("wtf? type = %d\n", type);
+                type = 0xff;
+            }
+
             ss << "Type: " << type_labels[type] << " [" << number_str << "]";
-            AnalyzerHelpers::GetNumberString( id, display_base, 8, number_str, 128 );
+
+            id = (frame.mData1 >> 16) & 0x1f;
+            AnalyzerHelpers::GetNumberString(id, display_base, 8, number_str, 128 );
+
+            if (id > 255) {
+                id = 0xff;
+            }
+
             ss << " ID: " << id_labels[id] << " [" << number_str << "]";
 
             AddResultString(ss.str().c_str());
