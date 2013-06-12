@@ -20,6 +20,7 @@ volatile struct mcp2515_packet_t packet;
 volatile uint8_t stfu;
 volatile uint8_t expecting_xfer_type;
 
+/* internal */
 static volatile uint8_t received_cts;
 static volatile uint8_t received_cancel;
 static volatile uint8_t received_xfer;
@@ -137,12 +138,10 @@ void mcp2515_reset(void)
 
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data)
 {
-    /*
     if (mcp2515_busy) {
         printf_P(PSTR("tx overrun\n"));
         return 1;
     }
-    */
 
     cli();
     load_tx0(type, id, len, (const uint8_t *)data);
@@ -333,7 +332,9 @@ uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
 
     for (;;) {
         retry = 255;
-        while (!received_xfer && !received_cancel && --retry) { _delay_ms(40); }
+        while (!received_xfer && !received_cancel && --retry) {
+            _delay_ms(40);
+        }
         printf_P(PSTR("done\n"));
         if (retry == 0) {
             printf_P(PSTR("wt_rx_xf: timeout\n"));

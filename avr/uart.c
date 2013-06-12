@@ -33,7 +33,7 @@ static FILE mystdout = FDEV_SETUP_STREAM(
     (int (*)(FILE*))uart_getchar,
     _FDEV_SETUP_RW);
 
-#define BUFFER_SIZE     128
+#define BUFFER_SIZE		64
 static volatile uint8_t uart_ring[BUFFER_SIZE];
 static volatile uint8_t ring_in;
 static volatile uint8_t ring_out;
@@ -51,10 +51,10 @@ static uint8_t bytes_in_ring(void)
 {
     if (ring_in > ring_out)
         return (ring_in - ring_out);
-    else if (ring_out > ring_in)            
+    else if (ring_out > ring_in) 			
         return (BUFFER_SIZE - (ring_out - ring_in));
     else
-        return 0;       
+        return 0;  		
 }
 #endif
 
@@ -227,6 +227,7 @@ void print(const char *s)
     }
 }
 
+#if 0
 void printx(uint16_t num)
 {
     if (!num) {
@@ -242,7 +243,6 @@ void printx(uint16_t num)
         putchar(buf[i]);
 }
 
-#if 0
 void print32(uint32_t num)
 {
     if (!num) {
