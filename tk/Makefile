@@ -23,5 +23,5 @@ $(BUILDDIR)/%.o: %.cpp %.h
 clean:
 	rm $(BUILDDIR)/*.o tk
 
-run:
+run: tk
 	LD_LIBRARY_PATH="../widgets:../multiarcball" ./tk

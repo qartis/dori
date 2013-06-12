@@ -29,12 +29,14 @@ void Table::scrollToRow(int row, void *data) {
 
 Table::Table(int x, int y, int w, int h, const char *l) : Fl_Table_Row(x,y,w,h,l) {
     _sort_reverse = 1;
-    _sort_lastcol = 6; // set these to 5 by default (Timestamp)
+    _sort_lastcol = 6; // set these to 6 by default (Timestamp)
     _sort_curcol = 6;
     readyToDraw = 0;
     headers = NULL;
     spawned_windows = NULL;
     col_header_height(100);
+    row_resize(1);
+    //row_header(1);
     end();
     callback(event_callback, (void*)this);
     values = NULL;
@@ -82,12 +84,17 @@ void Table::draw() {
 
     return Fl_Table_Row::draw();
 }
+
 // Handle drawing all cells in table
 void Table::draw_cell(TableContext context, int R, int C, int X, int Y, int W, int H) {
     const char *s = "";
     if ( R < (int)rowdata.size() && C < (int)rowdata[R].cols.size() )
         s = rowdata[R].cols[C];
     switch ( context ) {
+    case CONTEXT_ROW_HEADER:
+        // TODO: add support for resizable rows
+        return;
+
     case CONTEXT_COL_HEADER:
         fl_push_clip(X,Y,W,H); {
             fl_draw_box(FL_THIN_UP_BOX, X,Y,W,20, FL_BACKGROUND_COLOR);
