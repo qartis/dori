@@ -75,12 +75,11 @@ void print_packet(void)
     uint8_t i;
 
 
-
 #define X(name, value) static char const temp_type_ ## name [] PROGMEM = #name;
 TYPE_LIST(X)
 #undef X
 
-#define X(name, value) static char const temp_id_ ## name [] PROGMEM = "array_" #name;
+#define X(name, value) static char const temp_id_ ## name [] PROGMEM = #name;
 ID_LIST(X)
 #undef X
 
@@ -92,14 +91,11 @@ TYPE_LIST(X)
     };
 
 
-
     static PGM_P const id_names[] PROGMEM = {
 #define X(name, value) [value] = temp_id_ ##name,
 ID_LIST(X)
 #undef X
     };
-
-
 
 
     printf_P(PSTR("Sniffer received %S [%x] %S [%x] %db: "),
@@ -123,16 +119,36 @@ void show_usage(void)
 void show_send_usage(void)
 {
     printf_P(PSTR("send type id [02 ff ab ..]\n"));
+	 printf_P(PSTR("valid types:"));
+
+#define X(name, value)  printf_P(PSTR(" " #name));
+TYPE_LIST(X)
+#undef X
+	
+	printf_P(PSTR("\nvalid ids:"));
+#define X(name, value)  printf_P(PSTR(" " #name));
+ID_LIST(X)
+#undef X
+	printf_P(PSTR("\n"));
 }
 
+void test_pins(void)
+{
+		  DDRC = 0b11111111;        //set all pins of port c as outputs
+		  DDRD = 0b11111111;        //set all pins of port d as outputs
+		  PORTD = 0xff;
+		  PORTC = 0xff;
+}
+		  
 void main(void)
 {
+	 test_pins();
     int buflen = 64;
     char buf[buflen];
     uint8_t i = 0;
 
     uart_init(BAUD(38400));
-    spi_init();
+    //spi_init();
 
     _delay_ms(200);
     printf("sniffer start\n");
@@ -149,7 +165,6 @@ void main(void)
     uint8_t id = 0;
     uint8_t rc;
     char *arg;
-
     for (;;) {
         printf_P(PSTR("> "));
 
