@@ -122,6 +122,34 @@ ignore:
     return c;
 }
 
+int getc_wait(uint8_t *signal)
+{
+   int c;
+
+#ifndef ICRNL
+ignore:
+#endif
+    while (ring_in == ring_out && *signal == 0){ }
+
+    if (*signal)
+        return EOF;
+
+    c = uart_ring[ring_out];
+    ring_out = (ring_out + 1) % BUFFER_SIZE;
+
+    if (c == '\r'){
+#ifdef ICRNL
+        c = '\n';
+#else
+        goto ignore;
+#endif
+    }
+#ifdef ECHO
+    uart_putchar(c);
+#endif
+    return c;
+}
+
 uint8_t uart_haschar(void)
 {
     return (ring_in != ring_out);
@@ -143,6 +171,53 @@ again:
     return data;
 }
 
+char *getline(char *s, int bufsize, FILE *f, uint8_t *signal)
+{
+    char *p;
+    int c;
+    uint8_t dummy_signal = 0;
+
+    if (signal == NULL)
+        signal = &dummy_signal;
+
+    for (p = s; p < s + bufsize - 1; ) {
+        c = getc_wait(signal);
+        if (c == EOF)
+            return NULL;
+
+        if (c == 0x1b)
+            break;
+
+        switch (c) {
+        case EOF:
+            break;
+
+        case '\b': /* backspace */
+        case 127:  /* delete */
+            if (p > s){
+                *p-- = '\0';
+                putchar('\b');
+                putchar(' ');
+                putchar('\b');
+            }
+            break;
+        
+        case '\r':
+        case '\n':
+            goto done;
+
+        default:
+            *p++ = c;
+            break;
+        }
+    }
+
+done:
+    *p = '\0';
+
+    return s;
+}
+
 #ifdef COOKED_STDIO
 char *fgets(char *s, int bufsize, FILE *f)
 {
@@ -154,11 +229,9 @@ char *fgets(char *s, int bufsize, FILE *f)
     for (p = s; p < s + bufsize-1;){
         c = getchar();
         if (c == 0x1b){
-            return s;
+            break;
         }
-        if (c == '\r'){
-            c = '\n';
-        }
+
         switch (c){
         case EOF:
             break;
@@ -172,10 +245,16 @@ char *fgets(char *s, int bufsize, FILE *f)
                 putchar('\b');
             }
             break;
+
+        case '\r':
+            c = '\n';
+            /* fall through */
+
         default:
             *p++ = c;
             break;
         }
+
         if (c == '\n'){
             break;
         }
