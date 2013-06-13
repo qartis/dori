@@ -64,31 +64,31 @@ void mcp2515_irq_callback(void)
 {
     uint8_t i;
 
-/*
-#define X(name, value) const char * PROGMEM temp_type_ ## name = "TYPE_" #name;
+
+#define X(name, value) static const char  temp_type_ ## name[] PROGMEM =  "TYPE_" #name;
 TYPE_LIST(X)
 #undef X
 
-#define X(name, value) const char * PROGMEM temp_id_ ## name = "ID_" #name;
+#define X(name, value) static const char  temp_id_ ## name[] PROGMEM = "ID_" #name;
 ID_LIST(X)
 #undef X
 
-    PGM_P type_names [] = {
-#define X(name, value) [value] = temp_type_ ##name,
+    static const char * type_names []	 = {
+#define X(name, value) temp_type_ ##name,
 
 TYPE_LIST(X)
 #undef X
     };
 
-    const char * PROGMEM id_names []  = {
+   static const char *  id_names []  = {
 #define X(name, value) [value] = temp_id_ ##name,
 
 ID_LIST(X)
 #undef X
     };
 
-    printf_P(PSTR("Sniffer received %S [%x] %S [%x] %db: "), type_names[packet.type], packet.type, id_names[packet.id], packet.id, packet.len);
-    */
+    printf_P(PSTR("Sniffer received %S [%x] %S [%x] %db: "),type_names[packet.type] , packet.type, id_names[packet.id], packet.id, packet.len);
+    //printf_P(PSTR("Sniffer received [%x] [%x] %db: "),  packet.type, packet.id, packet.len);
     for (i = 0; i < packet.len; i++) {
         printf_P(PSTR("%x,"), packet.data[i]);
     }
@@ -105,16 +105,36 @@ void usage(void)
 void send_usage(void)
 {
     printf_P(PSTR("send type id [02 ff ab ..]\n"));
+	 printf_P(PSTR("valid types:"));
+
+#define X(name, value)  printf_P(PSTR(" " #name));
+TYPE_LIST(X)
+#undef X
+	
+	printf_P(PSTR("\nvalid ids:"));
+#define X(name, value)  printf_P(PSTR(" " #name));
+ID_LIST(X)
+#undef X
+	printf_P(PSTR("\n"));
 }
 
+void test_pins(void)
+{
+		  DDRC = 0b11111111;        //set all pins of port c as outputs
+		  DDRD = 0b11111111;        //set all pins of port d as outputs
+		  PORTD = 0xff;
+		  PORTC = 0xff;
+}
+		  
 void main(void)
 {
+	 test_pins();
     int buflen = 64;
     char buf[buflen];
     uint8_t i = 0;
 
     uart_init(BAUD(38400));
-    spi_init();
+    //spi_init();
 
     _delay_ms(200);
     printf("sniffer start\n");
@@ -131,7 +151,6 @@ void main(void)
     uint8_t id = 0;
     uint8_t rc;
     char *arg;
-
     for (;;) {
         printf_P(PSTR("> "));
 
