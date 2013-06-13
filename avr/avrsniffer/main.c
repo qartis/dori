@@ -11,6 +11,10 @@
 #include "spi.h"
 #include "mcp2515.h"
 
+struct mcp2515_packet_t p;
+volatile uint8_t int_signal;
+
+
 uint8_t streq_P(const char *a, const char * PROGMEM b)
 {
     return strcmp_P(a, b) == 0;
@@ -62,47 +66,61 @@ void periodic_callback(void)
 
 void mcp2515_irq_callback(void)
 {
+    int_signal = 1;
+    p = packet;
+}
+
+void print_packet(void)
+{
     uint8_t i;
 
-/*
-#define X(name, value) const char * PROGMEM temp_type_ ## name = "TYPE_" #name;
+
+
+#define X(name, value) static char const temp_type_ ## name [] PROGMEM = #name;
 TYPE_LIST(X)
 #undef X
 
-#define X(name, value) const char * PROGMEM temp_id_ ## name = "ID_" #name;
+#define X(name, value) static char const temp_id_ ## name [] PROGMEM = "array_" #name;
 ID_LIST(X)
 #undef X
 
-    PGM_P type_names [] = {
+
+    static PGM_P const type_names[] PROGMEM = {
 #define X(name, value) [value] = temp_type_ ##name,
-
 TYPE_LIST(X)
 #undef X
     };
 
-    const char * PROGMEM id_names []  = {
-#define X(name, value) [value] = temp_id_ ##name,
 
+
+    static PGM_P const id_names[] PROGMEM = {
+#define X(name, value) [value] = temp_id_ ##name,
 ID_LIST(X)
 #undef X
     };
 
-    printf_P(PSTR("Sniffer received %S [%x] %S [%x] %db: "), type_names[packet.type], packet.type, id_names[packet.id], packet.id, packet.len);
-    */
+
+
+
+    printf_P(PSTR("Sniffer received %S [%x] %S [%x] %db: "),
+        (PGM_P)pgm_read_word(&(type_names[packet.type])),
+        packet.type,
+        (PGM_P)pgm_read_word(&(id_names[packet.id])),
+        packet.id,
+        packet.len);
+
     for (i = 0; i < packet.len; i++) {
         printf_P(PSTR("%x,"), packet.data[i]);
     }
     printf_P(PSTR("\n"));
-
-
 }
 
-void usage(void)
+void show_usage(void)
 {
     printf_P(PSTR("cmds: send, ...\n"));
 }
 
-void send_usage(void)
+void show_send_usage(void)
 {
     printf_P(PSTR("send type id [02 ff ab ..]\n"));
 }
@@ -135,22 +153,26 @@ void main(void)
     for (;;) {
         printf_P(PSTR("> "));
 
-        fgets(buf, sizeof(buf), stdin);
-        buf[strlen(buf)-1] = '\0';
+        arg = getline(buf, sizeof(buf), stdin, &int_signal);
+        if (arg == NULL) {
+            /* interrupt was signalled */
+            print_packet();
+            continue;
+        }
 
         arg = strtok(buf, " ");
 
         if (strcmp(arg, "send") == 0) {
             arg = strtok(NULL, " ");
             if (arg == NULL) {
-                send_usage();
+                show_send_usage();
                 continue;
             }
             type = parse_arg(arg);
 
             arg = strtok(NULL, " ");
             if (arg == NULL) {
-                send_usage();
+                show_send_usage();
                 continue;
             }
             id = parse_arg(arg);
@@ -169,7 +191,7 @@ void main(void)
             _delay_ms(200);
             printf_P(PSTR("mcp2515_send: %d\n"), rc);
         } else {
-            usage();
+            show_usage();
         }
     }
 }
