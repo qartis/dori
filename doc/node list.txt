@@ -13,6 +13,7 @@
 === Arm node ===
 * Arm control (2 relays)
 * Linear actuator feedback (analog)
+* Microswitch to detect lower limit
 
 
 === Sensor plate node ===
