@@ -122,7 +122,7 @@ ignore:
     return c;
 }
 
-int getc_wait(uint8_t *signal)
+int getc_wait(volatile uint8_t *signal)
 {
    int c;
 
@@ -171,7 +171,7 @@ again:
     return data;
 }
 
-char *getline(char *s, int bufsize, FILE *f, uint8_t *signal)
+char *getline(char *s, int bufsize, FILE *f, volatile uint8_t *signal)
 {
     char *p;
     int c;
