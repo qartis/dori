@@ -29,8 +29,6 @@
     X(file_contents, 0x77) \
     X(file_write, 0x78) \
 \
-\
-\
     X(invalid, 0xff) \
 
 
@@ -45,7 +43,7 @@
     X(logger, 7) \
     X(invalid, 0x1f) \
 
-//this needs to be changed
+
 #define TYPE_XFER(type) ((type & 0xf0) == 0x70)
 
 enum type {

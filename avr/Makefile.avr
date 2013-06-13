@@ -4,7 +4,7 @@ GCC_PART ?= atmega88
 DUDE_PART ?= m88
 CC = avr-gcc
 STD ?= -ansi -std=c99
-WARNINGS ?= -fmessage-length=0 -fwrapv -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Werror -Wall -Wextra -Wshadow -Wwrite-strings -Wstrict-overflow=5 -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wstrict-prototypes -Wno-error=unused-variable -Wformat-security -Wpointer-to-int-cast -Wint-to-pointer-cast -Wno-error=unused-label -Wno-error=strict-aliasing -Wno-error=unused-but-set-variable -W -Wno-error=unused-function -mcall-prologues
+WARNINGS ?= -fmessage-length=0 -fwrapv -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Werror -Wall -Wextra -Wshadow -Wwrite-strings -Wstrict-overflow=5 -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wstrict-prototypes -Wno-error=unused-variable -Wformat-security -Wpointer-to-int-cast -Wint-to-pointer-cast -Wno-error=unused-label -Wno-error=strict-aliasing -Wno-error=unused-but-set-variable -W -Wno-error=unused-function -mcall-prologues -Wno-error=strict-overflow
 CFLAGS += $(WARNINGS) -Os -mmcu=$(GCC_PART) -I/usr/avr/include $(STD) -DF_CPU=$(F_CPU) -fdata-sections -ffunction-sections -ffreestanding -g -DCPU=$(GCC_PART) -flto
 LDFLAGS += -L. -Wl,-relax -Wl,-gc-sections -fwhole-program 
 #LDFLAGS += -Wl,-Map,main.map,--cref
