@@ -66,6 +66,10 @@ void periodic_callback(void)
 
 void mcp2515_irq_callback(void)
 {
+    if (int_signal) {
+        //overrun!
+        puts_P(PSTR("overrun"));
+    }
     int_signal = 1;
     p = packet;
 }
@@ -121,6 +125,7 @@ void show_send_usage(void)
     printf_P(PSTR("send type id [02 ff ab ..]\n"));
 	 printf_P(PSTR("valid types:"));
 
+#if 0
 #define X(name, value)  printf_P(PSTR(" " #name));
 TYPE_LIST(X)
 #undef X
@@ -129,6 +134,7 @@ TYPE_LIST(X)
 #define X(name, value)  printf_P(PSTR(" " #name));
 ID_LIST(X)
 #undef X
+#endif
 	printf_P(PSTR("\n"));
 }
 
@@ -148,7 +154,7 @@ void main(void)
     uint8_t i = 0;
 
     uart_init(BAUD(38400));
-    //spi_init();
+    spi_init();
 
     _delay_ms(200);
     printf("sniffer start\n");
@@ -171,6 +177,7 @@ void main(void)
         arg = getline(buf, sizeof(buf), stdin, &int_signal);
         if (arg == NULL) {
             /* interrupt was signalled */
+            int_signal = 0;
             print_packet();
             continue;
         }
