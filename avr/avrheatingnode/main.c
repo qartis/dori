@@ -15,6 +15,7 @@
 #include "onewire.h"
 #include "spi.h"
 
+#define XSTR(X) STR(X)
 #define STR(X) #X
 
 volatile uint8_t int_signal;
@@ -42,11 +43,12 @@ uint8_t read_temp(uint8_t channel, int16_t *temp)
     _delay_ms(DS18B20_TCONV_12BIT);
 
     if (ds18b20_read_decicelsius(&sensor_ids[channel][0], temp)) {
-        puts_P(PSTR("CRC Error"));
+        puts_P(PSTR("CRC Error? lost sensor?"));
+        num_sensors = 0;
         return 1;
     }
 
-    printf_P("chan %d: %d\n", channel, *temp);
+    printf_P(PSTR("chan %d: %d\n"), channel, *temp);
 
     return 0;
 }
@@ -86,6 +88,10 @@ void mcp2515_irq_callback(void)
 void bottom_half(void)
 {
     uint8_t device_num;
+
+    if (p.id != MY_ID) {
+        return;
+    }
 
     switch (p.type) {
     case TYPE_set_output:
@@ -128,7 +134,8 @@ void main(void)
     spi_init();
 
     _delay_ms(200);
-    puts_P(PSTR("\n\n" STR(MY_ID) " node start"));
+    puts_P(PSTR("\n\n" XSTR(MY_ID) " node start: " XSTR(VERSION)));
+
 
     while (mcp2515_init()) {
         puts_P(PSTR("mcp: init"));
