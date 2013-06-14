@@ -47,3 +47,5 @@ load: main.hex
 rdfuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -v -q
 
 boot:; avrdude -P $(PROG_DEVICE) -n -c $(PROG_TYPE) -p $(DUDE_PART)
+
+nodefuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -U lfuse:w:0xfd:m
