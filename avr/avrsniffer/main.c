@@ -14,6 +14,9 @@
 struct mcp2515_packet_t p;
 volatile uint8_t int_signal;
 
+#define XSTR(X) STR(X)
+#define STR(X) #X
+
 
 uint8_t streq_P(const char *a, const char * PROGMEM b)
 {
@@ -88,7 +91,10 @@ ID_LIST(X)
 #undef X
 
 
+    static char const unknown_string [] PROGMEM = "???";
+
     static PGM_P const type_names[] PROGMEM = {
+        [0 ... 128] = unknown_string,
 #define X(name, value) [value] = temp_type_ ##name,
 TYPE_LIST(X)
 #undef X
@@ -96,6 +102,7 @@ TYPE_LIST(X)
 
 
     static PGM_P const id_names[] PROGMEM = {
+        [0 ... 128] = unknown_string,
 #define X(name, value) [value] = temp_id_ ##name,
 ID_LIST(X)
 #undef X
@@ -157,7 +164,7 @@ void main(void)
     spi_init();
 
     _delay_ms(200);
-    printf("sniffer start\n");
+    puts_P(PSTR("\n\n" XSTR(MY_ID) " node start, " XSTR(VERSION)));
 
     while (mcp2515_init()) {
         printf_P(PSTR("mcp: init\n"));
