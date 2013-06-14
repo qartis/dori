@@ -7,10 +7,10 @@ extern uint8_t sensor_ids[MAXSENSORS][OW_ROMCODE_SIZE];
 uint8_t search_sensors(void);
 
 
-#define OW_PIN  PD7
-#define OW_IN   PIND
-#define OW_OUT  PORTD
-#define OW_DDR  DDRD
+#define OW_PIN  PC3
+#define OW_IN   PINC
+#define OW_OUT  PORTC
+#define OW_DDR  DDRC
 #define OW_CONF_DELAYOFFSET 0
 
 // Recovery time (T_Rec) minimum 1usec - increase for long lines 
