@@ -18,6 +18,14 @@
     X(file_checksum, 0x15) \
 \
 \
+    X(get_arm, 0x20) \
+    X(set_arm, 0x21) \
+\
+    X(get_output, 0x22) \
+    X(set_output, 0x23) \
+\
+    X(get_value, 0x24) \
+    X(set_value, 0x25) \
 \
     X(xfer_cts, 0x70) \
     X(xfer_cancel, 0x71) \
@@ -40,7 +48,9 @@
     X(gps  , 4) \
     X(temp , 5) \
     X(time , 6) \
-    X(logger, 7) \
+    X(logger,7) \
+    X(arm,   8) \
+    X(heater,9) \
     X(invalid, 0x1f) \
 
 
