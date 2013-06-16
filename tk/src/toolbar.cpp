@@ -3,6 +3,7 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Pixmap.H>
 #include <FL/Fl_Color_Chooser.H>
+#include "colorchooser.h"
 #include "siteobject.h"
 #include "toolbar.h"
 
@@ -107,6 +108,10 @@ static void button_cb(Fl_Widget *widget, void *data) {
     else if(widget == toolbar->circleButton) {
         toolbar->curSelectedObjType = CIRCLE;
     }
+
+    if(toolbar->user_data() && toolbar->clickedObjTypeCallback) {
+        toolbar->clickedObjTypeCallback(toolbar->user_data());
+    }
 }
 
 Toolbar::Toolbar(int x, int y, int w, int h, const char *label) :
@@ -122,13 +127,16 @@ Toolbar::Toolbar(int x, int y, int w, int h, const char *label) :
     rectButton->callback(button_cb, this);
 
     circleButton = new Fl_Button(0, rectButton->y() + rectButton->h(), lineButton->w(), lineButton->h());
+    /*
     circleButton->image(circle_pixmap);
     circleButton->type(FL_RADIO_BUTTON);
     circleButton->callback(button_cb, this);
+    */
 
-    colorChooser = new Fl_Color_Chooser(lineButton->w(), 0, w - lineButton->w(), h);
+    colorChooser = new ColorChooser(lineButton->w(), 0, w - lineButton->w(), h);
     colorChooser->mode(0);
 
+    user_data(NULL);
     end();
 }
 

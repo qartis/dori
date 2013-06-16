@@ -14,7 +14,8 @@
 #include "siteobject.h"
 #include "lineobject.h"
 #include "rectobject.h"
-#include "circleobject.h"
+//#include "circleobject.h"
+#include "colorchooser.h"
 #include "toolbar.h"
 #include "3dcontrols.h"
 #include "basic_ball.h"
@@ -39,10 +40,11 @@ int Viewport::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     std::vector<SiteObject*>* objs = (std::vector<SiteObject*>*)arg;
 
     int rowid = atoi(cols[0]);
-    objType type = (objType)(atoi(cols[1]));
+    SiteObjectType type = (SiteObjectType)(atoi(cols[1]));
 
     SiteObject *obj;
 
+    /*
     switch(type) {
     case LINE:
         obj = new LineObject;
@@ -61,6 +63,7 @@ int Viewport::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     obj->id = rowid;
 
     objs->push_back(obj);
+    */
 
     return 0;
 }
@@ -114,6 +117,7 @@ FlGlArcballWindow(x, y, w,h,l) {
         minX = minY = minElevation = INT_MAX;
         maxX = maxY = maxElevation = 0;
 
+        /*
         while(fgets(buf, sizeof(buf), f)) {
             if(buf[0] == '#') {
                 continue;
@@ -175,6 +179,7 @@ FlGlArcballWindow(x, y, w,h,l) {
         }
 
         redraw();
+        */
     }
 }
 

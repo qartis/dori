@@ -5,18 +5,17 @@
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
 
-void RectObject::scaleWorldCoords(float midX, float minY, float midY, float maxY) {
-    worldLeft -= midX;
-    worldTop = maxY - worldTop + minY - midY;
+RectObject::RectObject() : worldOffsetX(0.0), worldOffsetY(0.0), worldWidth(0.0), worldLength(0.0) {
+    type = RECT;
 }
 
+RectObject::~RectObject() { };
+
 void RectObject::drawWorld() {
+    /*
     glPushMatrix();
     glColor3f(r / 255.0, g / 255.0, b / 255.0);
 
-    //fprintf(stderr, "world coords: (%f, %f), (%f, %f), %f\n", worldLeft, worldTop, worldLeft + worldWidth, worldTop + worldLength, worldHeight);
-
-    //fprintf(stderr, "drawing rect: %f %f %f %f\n", worldLeft, worldTop, worldLeft + worldWidth, worldTop + worldLength);
     //bottom
     glTranslatef(worldLeft, elevation - 0.15, worldTop);
 
@@ -60,7 +59,6 @@ void RectObject::drawWorld() {
 
     glPopMatrix();
 
-    /*
     //front
     glBegin(GL_POLYGON);
     glVertex3f(worldLeft, 0.0, worldTop + worldLength);
@@ -79,47 +77,68 @@ void RectObject::drawWorld() {
     */
 }
 
-void RectObject::drawScreen(bool drawCenterPoint, float windowWidth, float windowMaxWidth, float windowHeight, float windowMaxHeight) {
-    float scaledScreenLeft, scaledScreenTop, scaledScreenWidth, scaledScreenHeight;
+void RectObject::drawScreen(bool drawCenterPoint, int windowWidth, int windowLength, float siteMeterExtents) {
+    // (pixels / meter extents for a site) * offset from DORI
+    // (windowWidth / 100 meters) * offset from DORI in meters
+    // eventually do 100 meters * zoomLevel
+    int screenOffsetX = (float)(windowWidth / siteMeterExtents) * worldOffsetX;
+    int screenOffsetY = (float)(windowLength / siteMeterExtents) * worldOffsetY;
 
-    scaledScreenLeft = screenLeft * (windowWidth / windowMaxWidth);
-    scaledScreenTop = screenTop * (windowHeight / windowMaxHeight);
+    int doriScreenX = windowWidth / 2.0;
+    int doriScreenY = windowLength / 2.0;
 
-    scaledScreenWidth = screenWidth * (windowWidth / windowMaxWidth);
-    scaledScreenHeight = screenHeight * (windowHeight / windowMaxHeight);
+    int rectOriginX = doriScreenX + screenOffsetX;
+    int rectOriginY = doriScreenY - screenOffsetY;
 
+    int rectWidth   = SiteObject::worldToScreen(worldWidth, siteMeterExtents, windowWidth);
+    int rectLength  = SiteObject::worldToScreen(worldLength, siteMeterExtents, windowLength);
+
+    // if the object is selected, draw the outline first
+    if(selected) {
+        int outline = 4;
+        fl_line_style(FL_SOLID, 5 + outline);
+        fl_color(255, 0, 0);
+        fl_begin_loop();
+        fl_vertex(rectOriginX, rectOriginY);
+        fl_vertex(rectOriginX + rectWidth, rectOriginY);
+        fl_vertex(rectOriginX + rectWidth, rectOriginY - rectLength);
+        fl_vertex(rectOriginX, rectOriginY - rectLength);
+        fl_vertex(rectOriginX, rectOriginY);
+        fl_end_loop();
+    }
+
+    fl_line_style(FL_SOLID, 5);
     fl_color(r, g, b);
     fl_begin_loop();
-    fl_vertex(scaledScreenLeft, scaledScreenTop);
-    fl_vertex(scaledScreenLeft + scaledScreenWidth, scaledScreenTop);
-    fl_vertex(scaledScreenLeft + scaledScreenWidth, scaledScreenTop + scaledScreenHeight);
-    fl_vertex(scaledScreenLeft, scaledScreenTop + scaledScreenHeight);
-    fl_vertex(scaledScreenLeft, scaledScreenTop);
+    fl_vertex(rectOriginX, rectOriginY);
+    fl_vertex(rectOriginX + rectWidth, rectOriginY);
+    fl_vertex(rectOriginX + rectWidth, rectOriginY - rectLength);
+    fl_vertex(rectOriginX, rectOriginY - rectLength);
+    fl_vertex(rectOriginX, rectOriginY);
     fl_end_loop();
 
     if(drawCenterPoint) {
         fl_color(255, 0, 0);
-        fl_circle(scaledScreenCenterX(windowWidth, windowMaxWidth),
-                  scaledScreenCenterY(windowHeight, windowMaxHeight),
-                  1);
+        int centX = doriScreenX + SiteObject::worldToScreen(getWorldOffsetCenterX(), siteMeterExtents, windowWidth);
+        int centY = doriScreenY - SiteObject::worldToScreen(getWorldOffsetCenterY(), siteMeterExtents, windowLength);
+        fl_circle(centX, centY, 1);
     }
 }
 
-void RectObject::moveCenter(int newCenterX, int newCenterY) {
-    screenLeft = newCenterX - (screenWidth / 2);
-    screenTop =  newCenterY - (screenHeight / 2);
-    screenCenterX = newCenterX;
-    screenCenterY = newCenterY;
+void RectObject::setWorldOffsetCenterX(float offsetCenterX) {
+    worldOffsetX = offsetCenterX - (worldWidth / 2.0);
 }
 
-void RectObject::calcWorldCoords(float scaleX, float scaleY, float minX, float minY) {
-    worldLeft = 0.0;//((screenLeft / scaleX) + minX) / 100.0;
-    worldTop =  0.0;//((screenTop / scaleY) + minY) / 100.0;
-    worldHeight = 1;
+void RectObject::setWorldOffsetCenterY(float offsetCenterY) {
+    worldOffsetY = offsetCenterY - (worldLength / 2.0);
+}
 
-    worldWidth = 10.0;//(screenWidth / scaleX) / 100.0;
-    worldLength =  10.0;//(screenHeight / scaleY) / 100.0;
-    printf("%f %f\n", worldLeft, worldTop);
+float RectObject::getWorldOffsetCenterX() {
+    return worldOffsetX + (worldWidth / 2.0);
+}
+
+float RectObject::getWorldOffsetCenterY() {
+    return worldOffsetY + (worldLength / 2.0);
 }
 
 void RectObject::toString(char* output) {
@@ -127,44 +146,28 @@ void RectObject::toString(char* output) {
         fprintf(stderr, "output is NULL in serialize()\n");
         return;
     }
-
-    printf("%d %d %d %d "
-            "%d %d "
-            "%f %f %f %f "
-            "%f %f "
-            "%u %u %u "
-            "%d ",
-            screenLeft, screenTop, screenWidth, screenHeight,
-            screenCenterX, screenCenterY,
-            worldLeft, worldTop, worldWidth, worldLength,
-            elevation, worldHeight,
-            r, g, b,
-            (int)type);
-
-    sprintf(output, "%d %d %d %d "
-           "%d %d "
-           "%f %f %f %f "
+    sprintf(output,
+           "%f %f "
+           "%f %f "
            "%f %f "
            "%u %u %u "
            "%d ",
-           screenLeft, screenTop, screenWidth, screenHeight,
-           screenCenterX, screenCenterY,
-           worldLeft, worldTop, worldWidth, worldLength,
+           worldOffsetX, worldOffsetY,
+           worldWidth, worldLength,
            elevation, worldHeight,
            r, g, b,
            (int)type);
 }
 
 void RectObject::fromString(char* input) {
-    sscanf(input, "%d %d %d %d "
-           "%d %d "
-           "%f %f %f %f "
+    sscanf(input,
+           "%f %f "
+           "%f %f "
            "%f %f "
            "%u %u %u "
            "%d ",
-           &screenLeft, &screenTop, &screenWidth, &screenHeight,
-           &screenCenterX, &screenCenterY,
-           &worldLeft, &worldTop, &worldWidth, &worldLength,
+           &worldOffsetX, &worldOffsetY,
+           &worldWidth, &worldLength,
            &elevation, &worldHeight,
            &r, &g, &b,
            (int*)&type);

@@ -1,34 +1,23 @@
 class LineObject : public SiteObject {
 public:
-    LineObject() :
-        screenLeft(0), screenTop(0),
-        screenLengthX(0), screenLengthY(0),
-        worldLeft(0.0), worldTop(0.0),
-        worldLengthX(0.0), worldLengthY(0.0)
-    {
-        type = LINE;
-    }
+    LineObject();
 
-    inline virtual ~LineObject() { };
+    virtual ~LineObject();
 
-    void scaleWorldCoords(float midX, float minY, float midY, float maxY);
     void drawWorld();
-    void drawScreen(bool drawCenterPoint, float windowWidth, float windowMaxWidth, float windowHeight, float windowMaxHeight);
-    void calcWorldCoords(float scaleX, float scaleY, float minX, float minY);
-    void moveCenter(int newCenterX, int newCenterY);
+    void drawScreen(bool drawCenterPoint, int windowWidth, int windowLength, float siteMeterExtents);
+    float getWorldOffsetCenterX();
+    float getWorldOffsetCenterY();
 
-    void toString(char *input);
-    void fromString(char*output);
+    void setWorldOffsetCenterX(float offsetCenterX);
+    void setWorldOffsetCenterY(float offsetCenterY);
 
-    int screenLeft;
-    int screenTop;
+    void toString(char* input);
+    void fromString(char* output);
 
-    int screenLengthX;
-    int screenLengthY;
+    float worldOffsetX;
+    float worldOffsetY;
 
-    float worldLeft;
-    float worldTop;
-
-    float worldLengthX;
-    float worldLengthY;
+    float worldWidth;
+    float worldLength;
 };

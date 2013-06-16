@@ -1,35 +1,40 @@
-enum objType {
+enum SiteObjectType {
     UNDEFINED,
     LINE,
     RECT,
     CIRCLE,
 };
 
+#define MAX_METER_EXTENTS 100.0
+
 class SiteObject {
 public:
 
-    float scaledScreenCenterX(int curScreenWidth, int maxScreenWidth) {
-        return ((float)screenCenterX / (float)maxScreenWidth) * (float)curScreenWidth;
-    }
-    float scaledScreenCenterY(int curScreenHeight, int maxScreenHeight) {
-        return ((float)screenCenterY / (float)maxScreenHeight) * (float)curScreenHeight;
-    }
+    static float screenToWorld(int screenVal, float meterExtents, int pixelExtents);
+    static int worldToScreen(int worldVal, float meterExtents, int pixelExtents);
 
     virtual void drawWorld() = 0;
-    virtual void drawScreen(bool drawCenterPoint, float screenWidth, float screenMaxWidth, float screenHeight, float screenMaxHeight) = 0;
-    virtual void calcWorldCoords(float scaleX, float scaleY, float minX, float minY) = 0;
-    virtual void scaleWorldCoords(float midX, float minY, float midY, float maxY) = 0;
-    virtual void moveCenter(int newCenterX, int newCenterY) = 0;
+    virtual void drawScreen(bool drawCenterPoint, int screenWidth, int screenHeight, float siteMeterExtents) = 0;
+
+    virtual float getWorldOffsetCenterX() = 0;
+    virtual float getWorldOffsetCenterY() = 0;
+
+    virtual void setWorldOffsetCenterX(float offsetCenterX) = 0;
+    virtual void setWorldOffsetCenterY(float offsetCenterY) = 0;
 
     virtual void toString(char*) = 0;
     virtual void fromString(char*) = 0;
 
+    void setRGB(unsigned red, unsigned green, unsigned blue);
+
+    void select();
+
+    void unselect();
+
+    SiteObject();
     virtual ~SiteObject() { }
 
     int id;
-
-    int screenCenterX;
-    int screenCenterY;
 
     float elevation;
     float worldHeight;
@@ -38,7 +43,13 @@ public:
     unsigned g;
     unsigned b;
 
+    unsigned backupR;
+    unsigned backupG;
+    unsigned backupB;
+
     char special[128];
 
-    objType type;
+    bool selected;
+
+    SiteObjectType type;
 };

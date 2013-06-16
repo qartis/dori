@@ -5,10 +5,13 @@ public:
 
     virtual int handle(int event);
 
+    void (*setColorCallback)(void *data, unsigned r, unsigned g, unsigned b);
+    void (*clickedObjTypeCallback)(void *data);
+
     Fl_Button *lineButton;
     Fl_Button *rectButton;
     Fl_Button *circleButton;
-    Fl_Color_Chooser *colorChooser;
+    ColorChooser *colorChooser;
 
-    objType curSelectedObjType;
+    SiteObjectType curSelectedObjType;
 };

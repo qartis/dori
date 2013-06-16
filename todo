@@ -16,14 +16,29 @@ Graphing tool,
     tries to guess X axis on dataset load,
 
 Site editor
-    Panning + Zooming,
-    Grid to show scale (to the nearest half a meter),
-    Hierarchy by type of object,
-    Text objects,
-    Laser data,
-    Photo info data (fov),
-    position (lat/long),
-    time (arrival, departure)
+    Iteration 1:
+      X * from DORI's position, draw everything in terms of meters
+      * write mouse cursor's current distance away from dori
+      * grid to show scale (to the nearest half a meter),
+      X * each site object will store site id and distance away from site origin in meters
+      X * box drag selection
+      X * change colours after placement
+      X * move multiple selections
+
+    Iteration 2:
+    * add zoom support
+    * panning + Zooming,
+    * add window resizing support
+
+    Iteration 3:
+    * conversion to / from lat-long
+
+    Iteration 4:
+    * hierarchy by type of object,
+    * text objects,
+    * laser data,
+    * photo info data (fov),
+    * time (arrival, departure)
 
 tk
     X sends its rowid for each table (records + logs) to gateway on execution, gateway sends back records with higher row id,

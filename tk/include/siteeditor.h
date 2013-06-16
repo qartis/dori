@@ -12,20 +12,51 @@ public:
     virtual int handle(int event);
     virtual void draw();
 
-    std::vector<SiteObject*> points;
     std::vector<SiteObject*> siteObjects;
+    std::vector<SiteObject*> selectedObjects;
 
     Toolbar *toolbar;
+
+    void beginDatabaseTransaction();
+    void endDatabaseTransaction();
+
+    sqlite3 *db;
+
+    void selectAllObjects();
+
+    void clearSelectedObjects();
 
 private:
 
     float scaledSelectionDistance();
     static int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
 
-    void processData(const char *filename, const char *db_name);
-    SiteObject* closestGeom(int screenX, int screenY, std::vector<SiteObject*> &dataset, int *distance = NULL, bool clearColours = false);
+    void loadSiteObjects(const char *db_name);
 
-    CircleObject* curSelectedPoint;
+    SiteObject* findClosestObject(int mouseX, int mouseY, int distance, std::vector<SiteObject*> &dataset);
+
+    void findObjectsInBoundingBox(float worldStartMouseX, float worldStartMouseY, float worldCurMouseX, float worldCurMouseY, std::vector<SiteObject*> &inputData, std::vector<SiteObject*> &outputData);
+
+    void drawGrid();
+
+    void createNewObject(SiteObjectType type, int mouseX, int mouseY);
+
+    void sizeObject(SiteObjectType type, int mouseX, int mouseY);
+
+    void commitSelectedObjectsToDatabase();
+
+    int doriScreenX();
+    int doriScreenY();
+
+    bool isObjectSelected(SiteObject *obj);
+
+    int selectionStartMouseX;
+    int selectionStartMouseY;
+
+    int curMouseX;
+    int curMouseY;
+
+    //CircleObject* curSelectedPoint;
 
     float minX;
     float minY;
@@ -43,15 +74,15 @@ private:
         WAITING,
         DRAWING,
         SELECTED,
+        SELECTING,
     } state;
 
     state curState;
 
-    SiteObject *curSelectedObject;
     SiteObject *newSiteObject;
-
-    sqlite3 *db;
 
     float maxScreenWidth;
     float maxScreenHeight;
+
+    float siteMeterExtents;
 };
