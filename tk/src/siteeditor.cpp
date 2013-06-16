@@ -493,8 +493,13 @@ int SiteEditor::handle(int event) {
         }
         else if(key == 'a' && Fl::event_ctrl()) {
             selectAllObjects();
-            redraw();
             curState = SELECTED;
+            toolbar->curSelectedObjType = UNDEFINED;
+            toolbar->curSelectedObjType = UNDEFINED;
+            toolbar->lineButton->value(0);
+            toolbar->rectButton->value(0);
+            toolbar->circleButton->value(0);
+            redraw();
             return 1;
         }
     }
