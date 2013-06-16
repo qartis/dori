@@ -3,8 +3,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <avr/pgmspace.h>
 
 #include "uart.h"
+#include "mcp2515.h"
 
 #define ICRNL
 #define ONLCR
@@ -33,28 +35,45 @@ static FILE mystdout = FDEV_SETUP_STREAM(
     (int (*)(FILE*))uart_getchar,
     _FDEV_SETUP_RW);
 
+/* must be 2^n */
 #define BUFFER_SIZE		64
 static volatile uint8_t uart_ring[BUFFER_SIZE];
 static volatile uint8_t ring_in;
 static volatile uint8_t ring_out;
 
+void uart_getbuf(char *dest)
+{
+    uint8_t i;
+
+    i = ring_in;
+
+    while (i != ring_out) {
+        *dest++ = uart_ring[i];
+        i++;
+        i &= BUFFER_SIZE - 1;
+    }
+    *dest = '\0';
+}
+
 #ifndef UART_CUSTOM_INTERRUPT
 ISR(USART_RXC_vect)
 {
     uart_ring[ring_in] = UDR;
-    ring_in = (ring_in + 1) % BUFFER_SIZE;
-}
-#endif
 
-#if 0
-static uint8_t bytes_in_ring(void)
-{
-    if (ring_in > ring_out)
-        return (ring_in - ring_out);
-    else if (ring_out > ring_in) 			
-        return (BUFFER_SIZE - (ring_out - ring_in));
-    else
-        return 0;  		
+    /* if the buffer contains a full line */
+    if (uart_ring[ring_in] == '\n') {
+        if (irq_signal & IRQ_UART) {
+            puts_P(PSTR("UART OVERRUN"));
+        }
+        irq_signal |= IRQ_UART;
+    }
+
+    /* is this wait needed? hopefully not */
+    while (!(UCSRA & (1<<UDRE))){ }
+    /* echo the char */
+    UDR = data;
+
+    ring_in = (ring_in + 1) % BUFFER_SIZE;
 }
 #endif
 
@@ -64,16 +83,12 @@ void uart_init(uint16_t ubrr)
     UBRRL = ubrr;  
 
     UCSRB = (1 << RXEN) | (1 << TXEN) | (1 << RXCIE);
-#ifdef __AVR_ATmega32__
-    UCSRC = (1 << URSEL) | (1 << USBS) | (3 << UCSZ0);
-#endif
 
     stdout = &mystdout;
     stdin = &mystdout;
 
     sei();
 }
-
 
 #if 0
 extern volatile uint8_t timeout_counter;
@@ -180,7 +195,9 @@ char *getline(char *s, int bufsize, FILE *f, volatile uint8_t *signal)
     if (signal == NULL)
         signal = &dummy_signal;
 
-    for (p = s; p < s + bufsize - 1; ) {
+    p = s;
+
+    while ((p - s) < bufsize - 1) {
         c = getc_wait(signal);
         if (c == EOF)
             return NULL;
