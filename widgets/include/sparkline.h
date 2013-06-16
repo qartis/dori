@@ -5,7 +5,7 @@ public:
 
     Fl_Sparkline(int x, int y, int w, int h, const char *l = 0);
 
-    void setValues(float *_values, float _num_values);
+    void setValues(float *_values, int _num_values);
 
     void *table;
     void (*scrollFunc)(int index, void *obj);
@@ -20,7 +20,7 @@ private:
     int handle(int);
 
     float *values;
-    float num_values;
+    int num_values;
 
     int max_index;
     int min_index;
@@ -31,8 +31,8 @@ private:
     int num_troughs;
 
     int padding;
-    float width;
-    float height;
+    int width;
+    int height;
 
     int prev_x;
 
