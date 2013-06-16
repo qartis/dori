@@ -75,7 +75,7 @@ void Fl_Sparkline::drawPoint(int x)
         value = map(values[index], values[min_index], values[max_index], height, 0);
     }
 
-    fl_point(Fl_Sparkline::x() + padding + x, y() + value + padding);
+    fl_point(Fl_Sparkline::x() + padding + x - 1, y() + value + padding);
 }
 
 void Fl_Sparkline::hideCursor(void)
@@ -91,9 +91,9 @@ void Fl_Sparkline::hideCursor(void)
 
     fl_color(FL_BLACK);
 
-    drawPoint(prev_x - 1);
     drawPoint(prev_x);
     drawPoint(prev_x + 1);
+    drawPoint(prev_x + 2);
 
     drawPeaks();
 
@@ -119,19 +119,20 @@ void Fl_Sparkline::drawCursor(void)
         height, 0);
         
     fl_color(FL_BLUE);
-    fl_rectf(Fl_Widget::x() + padding + x - 1, y() + value + padding - 1,
-        3, 3);
+    fl_rectf(Fl_Widget::x() + padding + x - 1, y() + value + padding - 1, 3, 3);
+
 
     fl_color(FL_RED);
     fl_line_style(FL_SOLID, 1);
     fl_line(Fl_Widget::x() + padding + x, y() + padding,
-        Fl_Widget::x() + padding + x, y() + h() - padding);
+            Fl_Widget::x() + padding + x, y() + h() - padding);
 
     prev_x = x;
 }
 
 int Fl_Sparkline::snap(int index)
 {
+
     int i;
     int dist;
 
@@ -140,7 +141,7 @@ int Fl_Sparkline::snap(int index)
     int trough_dist = INT_MAX;
     int trough_index = -1;
 
-    float snap_dist = num_values / 10.0;
+    float snap_dist = num_values / 20.0;
 
     for (i = 0; i < num_peaks; i++) {
         dist = abs(index - peak_indices[i]);
@@ -206,11 +207,12 @@ void Fl_Sparkline::draw(void)
 
     fl_color(FL_BLACK);
 
+    drawPeaks();
+    fl_color(FL_BLACK);
+
     for (i = 0; i < width; i++) {
         drawPoint(i);
     }
-
-    drawPeaks();
 
     draw_label();
 }
@@ -227,16 +229,16 @@ void Fl_Sparkline::drawPeaks(void)
     fl_color(FL_RED);
     for (i = 0; i < num_peaks; i++) {
         position = width * peak_indices[i] / num_values;
-        fl_rectf(x() + padding + position, y() + padding, 3, 3);
+        fl_rectf(x() + padding + position - 1, y() + padding - 1, 3, 3);
     }
 
     for (i = 0; i < num_troughs; i++) {
         position = width * trough_indices[i] / num_values;
-        fl_rectf(x() + padding + position, y() + padding + height - 3, 3, 3);
+        fl_rectf(x() + padding + position - 1, y() + padding + height - 1, 3, 3);
     }
 }
 
-void Fl_Sparkline::setValues(float *_values, float _num_values)
+void Fl_Sparkline::setValues(float *_values, int _num_values)
 {
     int i;
 
@@ -285,17 +287,17 @@ int Fl_Sparkline::handle(int e)
         return 1;
 
     case FL_PUSH:
-    {
-        int x = Fl::event_x() - Fl_Widget::x();
-        int index;
+        if (scrollFunc) {
+            int x = Fl::event_x() - Fl_Widget::x();
+            int index;
 
-        x -= padding;
+            x -= padding;
 
-        index = num_values * x / width;
-        index = snap(index);
+            index = num_values * x / width;
+            index = snap(index);
 
-        scrollFunc(index, table);
-    }
+            scrollFunc(index, table);
+        }
         return 1;
 
     case FL_ENTER:

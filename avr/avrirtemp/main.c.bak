@@ -1,0 +1,79 @@
+#include <avr/io.h>
+#include <util/delay.h>
+#include <stdio.h>
+
+#include "uart.h"
+
+#define IR_GND_DDR DDRC
+#define IR_GND_PIN PINC
+#define IR_GND1 PORTC5
+#define IR_GND2 PORTC4
+#define IR_GND3 PORTC3
+#define IR_GND4 PORTC2
+
+#define IR_DATA5 PORTC0
+#define IR_DATA7 PORTC1
+
+void main(void)
+{
+    uint8_t state[4];
+    uint8_t state_inv[4];
+    uint8_t state2[4];
+
+#define DELAY _delay_us(600);
+
+    uart_init(4);
+
+    for (;;) {
+        while ((IR_GND_PIN >> 2) != 0b0111) {};
+        DELAY;
+        state[0] = PINC;
+        state2[0] = PIND;
+        while ((IR_GND_PIN >> 2) != 0b1111) {};
+        state_inv[0] = PINC;
+
+
+        while ((IR_GND_PIN >> 2) != 0b1011) {};
+        DELAY;
+        state[1] = PINC;
+        state2[1] = PIND;
+        while ((IR_GND_PIN >> 2) != 0b1111) {};
+        state_inv[1] = PINC;
+
+        while ((IR_GND_PIN >> 2) != 0b1101) {};
+        DELAY;
+        state[2] = PINC;
+        state2[2] = PIND;
+        while ((IR_GND_PIN >> 2) != 0b1111) {};
+        state_inv[2] = PINC;
+
+        while ((IR_GND_PIN >> 2) != 0b1110) {};
+        DELAY;
+        state[3] = PINC;
+        state2[3] = PIND;
+        while ((IR_GND_PIN >> 2) != 0b1111) {};
+        state_inv[3] = PINC;
+
+        printf(" 8_4:  %c \n", state2[3] & (1 << PORTD3) ? '_' : ' ');
+        printf("      %c",     state2[3] & (1 << PORTD2) ? '|' : ' ');
+        printf("%c",           state2[2] & (1 << PORTD2) ? '_' : ' ');
+        printf("%c\n",         state2[2] & (1 << PORTD3) ? '|' : ' ');
+        printf("      %c",     state2[1] & (1 << PORTD2) ? '|' : ' ');
+        printf("%c",           state2[0] & (1 << PORTD3) ? '_' : ' ');
+        printf("%c\n",         state2[1] & (1 << PORTD3) ? '|' : ' ');
+
+        printf(" 8_5:  %c \n", state[3] & (1 << IR_DATA7) ? '_' : ' ');
+        printf("      %c",     state[3] & (1 << IR_DATA5) ? '|' : ' ');
+        printf("%c",           state[2] & (1 << IR_DATA5) ? '_' : ' ');
+        printf("%c\n",         state[2] & (1 << IR_DATA7) ? '|' : ' ');
+        printf("      %c",     state[1] & (1 << IR_DATA5) ? '|' : ' ');
+        printf("%c",           state[0] & (1 << IR_DATA7) ? '_' : ' ');
+        printf("%c\n\n",     state[1] & (1 << IR_DATA7) ? '|' : ' ');
+
+        putchar('0' + (state[3] & 3));
+        putchar('0' + (state_inv[3] & 3));
+        putchar('\n');
+
+        _delay_ms(500);
+    }
+}

@@ -12,6 +12,8 @@ void uart_init(uint16_t);
 int uart_getchar(void);
 int uart_putchar(char data);
 int getc_timeout(uint8_t sec);
+int getc_wait(volatile uint8_t *signal);
+char *getline(char *s, int bufsize, FILE *f, volatile uint8_t *signal);
 void prints(int16_t);
 void printu(uint16_t);
 void print(const char *);

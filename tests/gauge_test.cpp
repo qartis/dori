@@ -22,9 +22,9 @@ int main()
     Fl_Double_Window win(200,200,"Draw X");
     Fl_Gauge gauge(0, 0, win.w(), win.h());
     gauge.value(50.0);
-    gauge.angles(30, 360-30);
+    gauge.angles(200, 360-20);
     gauge.range(0.0, 100.0);
-    gauge.setScale(20, 2);
+    gauge.setScale(25, 5);
     win.resizable(gauge);
     Fl::add_fd(0, handle_fd, &gauge);
     win.show();

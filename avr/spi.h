@@ -5,7 +5,7 @@ uint8_t spi_write(uint8_t);
 uint8_t spi_write_timeout(uint8_t);
 uint8_t spi_recv(void);
 
-#if defined(__AVR_ATmega88__) || defined(__AVR_ATmega328P__)
+#if defined(__AVR_ATmega88__) || defined(__AVR_ATmega88P__) || defined(__AVR_ATmega328P__)
 #define SPI_CS   PORTB2
 #define SPI_MOSI PORTB3
 #define SPI_MISO PORTB4

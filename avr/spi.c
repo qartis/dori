@@ -7,6 +7,7 @@
 void spi_init(void)
 {
     DDRB |= (1 << SPI_MOSI) | (1 << SPI_SCK) | (1 << SPI_CS);
+    PORTB |= (1 << SPI_MOSI) | (1 << SPI_SCK) | (1 << SPI_CS);
     DDRB &= ~(1 << SPI_MISO);
 
     SPCR = (0 << SPIE) | /* SPI Interrupt Enable */

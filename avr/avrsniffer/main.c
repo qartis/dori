@@ -11,7 +11,20 @@
 #include "spi.h"
 #include "mcp2515.h"
 
-uint8_t from_hex(char a){
+struct mcp2515_packet_t p;
+volatile uint8_t int_signal;
+
+#define XSTR(X) STR(X)
+#define STR(X) #X
+
+
+uint8_t streq_P(const char *a, const char * PROGMEM b)
+{
+    return strcmp_P(a, b) == 0;
+}
+
+uint8_t from_hex(char a)
+{
     if (isupper(a)) {
         return a - 'A' + 10;
     } else if (islower(a)) {
@@ -21,65 +34,193 @@ uint8_t from_hex(char a){
     }
 }
 
+uint8_t parse_arg(const char *arg)
+{
+    /* first check all the type names*/
+#define X(name, value) if (streq_P(arg, PSTR(#name))) return TYPE_ ##name; \
+
+    TYPE_LIST(X)
+#undef X
+
+    /* then try all the id names*/
+#define X(name, value) if (streq_P(arg, PSTR(#name))) return ID_ ##name; \
+
+    ID_LIST(X)
+#undef X
+
+    /* otherwise maybe it's a 2-digit hex */
+    if (strlen(arg) == 2) {
+        return 16 * from_hex(arg[0]) + from_hex(arg[1]);
+    }
+
+    /* otherwise maybe it's a 1-digit hex */
+    if (strlen(arg) == 1) {
+        return from_hex(arg[0]);
+    }
+
+    printf("WTF! given arg '%s'\n", arg);
+    return 0xff;
+}
+
+void periodic_callback(void)
+{
+    (void)0;
+}
+
 void mcp2515_irq_callback(void)
+{
+    if (int_signal) {
+        //overrun!
+        puts_P(PSTR("overrun"));
+    }
+    int_signal = 1;
+    p = packet;
+}
+
+void print_packet(void)
 {
     uint8_t i;
 
-    printf_P(PSTR("Sniffer received [%x %x] %db: "), packet.type, packet.id, packet.len);
+
+#define X(name, value) static char const temp_type_ ## name [] PROGMEM = #name;
+TYPE_LIST(X)
+#undef X
+
+#define X(name, value) static char const temp_id_ ## name [] PROGMEM = #name;
+ID_LIST(X)
+#undef X
+
+
+    static char const unknown_string [] PROGMEM = "???";
+
+    static PGM_P const type_names[] PROGMEM = {
+        [0 ... 128] = unknown_string,
+#define X(name, value) [value] = temp_type_ ##name,
+TYPE_LIST(X)
+#undef X
+    };
+
+
+    static PGM_P const id_names[] PROGMEM = {
+        [0 ... 128] = unknown_string,
+#define X(name, value) [value] = temp_id_ ##name,
+ID_LIST(X)
+#undef X
+    };
+
+
+    printf_P(PSTR("Sniffer received %S [%x] %S [%x] %db: "),
+        (PGM_P)pgm_read_word(&(type_names[packet.type])),
+        packet.type,
+        (PGM_P)pgm_read_word(&(id_names[packet.id])),
+        packet.id,
+        packet.len);
+
     for (i = 0; i < packet.len; i++) {
         printf_P(PSTR("%x,"), packet.data[i]);
     }
     printf_P(PSTR("\n"));
 }
 
+void show_usage(void)
+{
+    printf_P(PSTR("cmds: send, ...\n"));
+}
+
+void show_send_usage(void)
+{
+    printf_P(PSTR("send type id [02 ff ab ..]\n"));
+	 printf_P(PSTR("valid types:"));
+
+#if 0
+#define X(name, value)  printf_P(PSTR(" " #name));
+TYPE_LIST(X)
+#undef X
+	
+	printf_P(PSTR("\nvalid ids:"));
+#define X(name, value)  printf_P(PSTR(" " #name));
+ID_LIST(X)
+#undef X
+#endif
+	printf_P(PSTR("\n"));
+}
+
+void test_pins(void)
+{
+		  DDRC = 0b11111111;        //set all pins of port c as outputs
+		  DDRD = 0b11111111;        //set all pins of port d as outputs
+		  PORTD = 0xff;
+		  PORTC = 0xff;
+}
+		  
 void main(void)
 {
+	 test_pins();
     int buflen = 64;
     char buf[buflen];
-    uint8_t i;
+    uint8_t i = 0;
 
     uart_init(BAUD(38400));
     spi_init();
 
+    _delay_ms(200);
+    puts_P(PSTR("\n\n" XSTR(MY_ID) " node start, " XSTR(VERSION)));
+
     while (mcp2515_init()) {
-        printf_P(PSTR("mcp: 1\n"));
+        printf_P(PSTR("mcp: init\n"));
         _delay_ms(500);
     }
 
     sei();
 
+    uint8_t sendbuf[10] = {0};
+    uint8_t type = 0;
+    uint8_t id = 0;
+    uint8_t rc;
+    char *arg;
     for (;;) {
         printf_P(PSTR("> "));
 
-        fgets(buf, sizeof(buf), stdin);
-        buf[strlen(buf)-1] = '\0';
+        arg = getline(buf, sizeof(buf), stdin, &int_signal);
+        if (arg == NULL) {
+            /* interrupt was signalled */
+            int_signal = 0;
+            print_packet();
+            continue;
+        }
 
-        if (strncmp(buf, "send ", strlen("send ")) == 0) {
-            char *ptr = buf + strlen("send ");
-            uint8_t sendbuf[10];
-            uint8_t type;
-            uint8_t id;
+        arg = strtok(buf, " ");
 
-            type = 16 * from_hex(ptr[0]) + from_hex(ptr[1]);
-            ptr += strlen("ff ");
-            id = 16 * from_hex(ptr[0]) + from_hex(ptr[1]);
-            ptr += strlen("ff ");
+        if (strcmp(arg, "send") == 0) {
+            arg = strtok(NULL, " ");
+            if (arg == NULL) {
+                show_send_usage();
+                continue;
+            }
+            type = parse_arg(arg);
+
+            arg = strtok(NULL, " ");
+            if (arg == NULL) {
+                show_send_usage();
+                continue;
+            }
+            id = parse_arg(arg);
 
             i = 0;
-            while (*ptr && i < 8) {
-                sendbuf[i] = 16 * from_hex(ptr[0]) + from_hex(ptr[1]);
-                i++;
-                if (ptr[2] == '\0') {
+            for (;;) {
+                arg = strtok(NULL, " ");
+                if (arg == NULL) {
                     break;
                 }
-                ptr += strlen("ff ");
+                sendbuf[i] = parse_arg(arg);
+                i++;
             }
 
-            uint8_t rc = mcp2515_send(type, id, i, sendbuf);
-
+            rc = mcp2515_send(type, id, i, sendbuf);
+            _delay_ms(200);
             printf_P(PSTR("mcp2515_send: %d\n"), rc);
         } else {
-            printf_P(PSTR("send type id [02 ff ab ..]\n"));
+            show_usage();
         }
     }
 }
