@@ -183,7 +183,7 @@ void parse_nmea(char *buf)
         tm.tm_mon = parsedec2(buf) - 1; /* we want 0-11 instead of 1-12 */
         buf += strlen("mm,");
         tm.tm_year = parsedecn(buf, 4) - 1900;
-        const char *months[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+        //const char *months[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
         //printf("%s %d %d:%02d:%02d.%d UTC %d\n", months[tm.tm_mon], tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_year);
         cur_time = mktime(&tm);
         //printf("time: %lu\n", cur_time);
