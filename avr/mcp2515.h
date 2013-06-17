@@ -77,10 +77,18 @@ struct mcp2515_packet_t {
     uint8_t more;
     uint8_t len;
     uint8_t data[9];
+    uint8_t unread;
 };
 
-extern volatile struct mcp2515_packet_t packet;
+enum {
+    IRQ_CAN   = (1 << 0),
+    IRQ_TIMER = (1 << 1),
+    IRQ_UART  = (1 << 2),
+};
+
 extern volatile uint8_t mcp2515_busy;
+extern volatile uint8_t irq_signal;
+extern volatile struct mcp2515_packet_t packet;
 void mcp2515_irq_callback(void);
 typedef uint8_t (*mcp2515_xfer_callback_t)(void);
 

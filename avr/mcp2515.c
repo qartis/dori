@@ -19,11 +19,33 @@ volatile uint8_t mcp2515_busy;
 volatile struct mcp2515_packet_t packet;
 volatile uint8_t stfu;
 volatile uint8_t expecting_xfer_type;
+volatile uint8_t irq_signal;
 
 /* internal */
 static volatile uint8_t received_cts;
 static volatile uint8_t received_cancel;
 static volatile uint8_t received_xfer;
+
+
+
+void periodic_callback(void)
+{
+    if (irq_signal & IRQ_TIMER) {
+        puts_P(PSTR("FUCK OFF!"));
+    }
+
+    irq_signal |= IRQ_TIMER;
+}
+
+void mcp2515_irq_callback(void)
+{
+    if (irq_signal & IRQ_CAN) {
+        puts_P(PSTR("PISS OFF!"));
+    }
+
+    irq_signal |= IRQ_CAN;
+    packet.unread = 1;
+}
 
 inline void mcp2515_select(void)
 {
@@ -183,6 +205,11 @@ void read_packet(uint8_t regnum)
 {
     uint8_t i;
 
+    if (packet.unread) {
+        puts_P(PSTR("RX OVERRUN"));
+        return;
+    }
+
     mcp2515_select();
     spi_write(MCP_COMMAND_READ);
     spi_write(regnum);
@@ -217,6 +244,7 @@ void read_packet(uint8_t regnum)
     mcp2515_unselect();
 
     if (MY_ID == ID_any) {
+        packet.unread = 1;
         mcp2515_irq_callback();
     } else if (TYPE_XFER(packet.type) && packet.id == MY_ID) {
         /* signal for xfer handler */
@@ -229,6 +257,7 @@ void read_packet(uint8_t regnum)
             received_xfer = 1;
         }
     } else {
+        packet.unread = 1;
         mcp2515_irq_callback();
         if (packet.type == TYPE_value_periodic && packet.id == ID_time) {
             uint32_t new_time = (uint32_t)packet.data[0] << 24 |
@@ -373,7 +402,7 @@ uint8_t mcp2515_check_alive(void)
     return (rc == 0b00100111);
 }
 
-uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *p)
+uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *new_packet)
 {
     uint16_t retry;
 
@@ -388,7 +417,7 @@ uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *p)
         retry = 65535;
         while (--retry > 0) {
             if (received_xfer) {
-                *p = packet;
+                *new_packet = packet;
                 received_xfer = 0;
                 return 0;
             }
