@@ -1,13 +1,14 @@
-*.txt
 *.o
 *.obj
 *.blend*
-*.pdf
 *.dwg
 *.dxf
+*.map
+*.pdf
 *.zip
 *.tar
 *.tar.gz
 *.gz
 tags
 db*
+eagle
