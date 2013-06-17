@@ -4,6 +4,6 @@ F_CPU = 8000000L
 
 OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o
 
-CFLAGS = -DMY_ID=ID_arm
+CFLAGS = -DMY_ID=ID_9dof
 
 include ../Makefile.avr
