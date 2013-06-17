@@ -72,7 +72,7 @@ void main(void)
     adc_init();
 
     for (;;) {
-        printf_P(PSTR(">| "));
+        printf_P(PSTR(XSTR(MY_ID) "> "));
 
         while (irq_signal == 0) {};
 

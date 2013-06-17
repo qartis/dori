@@ -125,7 +125,7 @@ void main(void)
     NODE_INIT();
 
     for (;;) {
-        printf_P(PSTR(">| "));
+        printf_P(PSTR(XSTR(MY_ID) "> "));
 
         while (irq_signal == 0) {};
 
