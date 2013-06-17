@@ -41,16 +41,17 @@
 
 
 #define ID_LIST(X) \
-    X(any  , 0) \
-    X(ping , 1) \
-    X(pong , 2) \
-    X(laser, 3) \
-    X(gps  , 4) \
-    X(temp , 5) \
-    X(time , 6) \
-    X(logger,7) \
-    X(arm,   8) \
-    X(heater,9) \
+    X(any,     0x00) \
+    X(ping,    0x01) \
+    X(pong,    0x02) \
+    X(laser,   0x03) \
+    X(gps,     0x04) \
+    X(temp,    0x05) \
+    X(time,    0x06) \
+    X(logger,  0x07) \
+    X(arm,     0x08) \
+    X(heater,  0x09) \
+    X(lidar,   0x0a) \
     X(invalid, 0x1f) \
 
 
