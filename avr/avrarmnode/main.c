@@ -12,11 +12,13 @@
 #include "mcp2515.h"
 #include "time.h"
 #include "arm.h"
+#include "node.h"
 
-volatile uint8_t int_signal;
-volatile struct mcp2515_packet_t p;
+void uart_irq(void)
+{
+}
 
-void periodic_callback(void)
+void periodic_irq(void)
 {
     /* this also gets called when we move the arm */
     uint8_t rc;
@@ -24,36 +26,39 @@ void periodic_callback(void)
     
     angle = get_arm_angle();
 
-    rc = mcp2515_send(TYPE_value_periodic, ID_arm, 2, (void *)&angle);
+    uint8_t buf[3];
+    static uint8_t counter = 0;
+
+    buf[0] = angle >> 8;
+    buf[1] = angle & 0xff;
+    buf[2] = counter;
+
+    counter++;
+
+    rc = mcp2515_send(TYPE_value_periodic, ID_arm, 3, buf);
     if (rc != 0) {
         //how to handle error here?
     }
 }
 
-void mcp2515_irq_callback(void)
-{
-    int_signal = 1;
-    p = packet;
-}
-
-void bottom_half(void)
+void can_irq(void)
 {
     uint8_t pos;
 
-    switch (p.type) {
+    switch (packet.type) {
     case TYPE_set_arm:
-        if (p.len != 1) {
+        if (packet.len != 1) {
             puts_P(PSTR("err: TYPE_set_arm data len"));
             break;
         }
-        pos = p.data[0];
+        pos = packet.data[0];
         set_arm_angle(pos);
         /* send arm angle again */
-        periodic_callback();
+        periodic_irq();
         break;
 
     case TYPE_get_arm:
-        periodic_callback();
+        periodic_irq();
         break;
 
     default:
@@ -63,27 +68,27 @@ void bottom_half(void)
 
 void main(void)
 {
+    NODE_INIT();
     adc_init();
-    uart_init(BAUD(38400));
-    spi_init();
-    time_init();
-
-    _delay_ms(200);
-    puts_P(PSTR("\n\narm node start"));
-
-    while (mcp2515_init()) {
-        puts_P(PSTR("mcp: init"));
-        _delay_ms(500);
-    }
-
-    sei();
 
     for (;;) {
         printf_P(PSTR(">| "));
 
-        while (int_signal == 0) {};
+        while (irq_signal == 0) {};
 
-        int_signal = 0;
-        bottom_half();
+        if (irq_signal & IRQ_CAN) {
+            can_irq();
+            irq_signal &= ~IRQ_CAN;
+        }
+
+        if (irq_signal & IRQ_TIMER) {
+            periodic_irq();
+            irq_signal &= ~IRQ_TIMER;
+        }
+
+        if (irq_signal & IRQ_UART) {
+            uart_irq();
+            irq_signal &= ~IRQ_UART;
+        }
     }
 }

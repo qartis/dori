@@ -7,16 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "time.h"
 #include "uart.h"
 #include "spi.h"
 #include "mcp2515.h"
-
-struct mcp2515_packet_t p;
-volatile uint8_t int_signal;
-
-#define XSTR(X) STR(X)
-#define STR(X) #X
-
+#include "node.h"
 
 uint8_t streq_P(const char *a, const char * PROGMEM b)
 {
@@ -33,6 +28,30 @@ uint8_t from_hex(char a)
         return a - '0';
     }
 }
+
+void show_usage(void)
+{
+    printf_P(PSTR("cmds: send, ...\n"));
+}
+
+void show_send_usage(void)
+{
+    printf_P(PSTR("send type id [02 ff ab ..]\n"));
+	 printf_P(PSTR("valid types:"));
+
+#if 0
+#define X(name, value)  printf_P(PSTR(" " #name));
+TYPE_LIST(X)
+#undef X
+	
+	printf_P(PSTR("\nvalid ids:"));
+#define X(name, value)  printf_P(PSTR(" " #name));
+ID_LIST(X)
+#undef X
+#endif
+	printf_P(PSTR("\n"));
+}
+
 
 uint8_t parse_arg(const char *arg)
 {
@@ -62,22 +81,59 @@ uint8_t parse_arg(const char *arg)
     return 0xff;
 }
 
-void periodic_callback(void)
+void uart_irq(void)
+{
+    char buf[64];
+    char *arg;
+
+    uint8_t i = 0;
+    uint8_t sendbuf[10] = {0};
+    uint8_t type = 0;
+    uint8_t id = 0;
+    uint8_t rc;
+
+    uart_getbuf(buf);
+    arg = strtok(buf, " ");
+
+    if (strcmp(arg, "send") == 0) {
+        arg = strtok(NULL, " ");
+        if (arg == NULL) {
+            show_send_usage();
+            return;
+        }
+        type = parse_arg(arg);
+
+        arg = strtok(NULL, " ");
+        if (arg == NULL) {
+            show_send_usage();
+            return;
+        }
+        id = parse_arg(arg);
+
+        i = 0;
+        for (;;) {
+            arg = strtok(NULL, " ");
+            if (arg == NULL) {
+                break;
+            }
+            sendbuf[i] = parse_arg(arg);
+            i++;
+        }
+
+        rc = mcp2515_send(type, id, i, sendbuf);
+        _delay_ms(200);
+        printf_P(PSTR("mcp2515_send: %d\n"), rc);
+    } else {
+        show_usage();
+    }
+}
+
+void periodic_irq(void)
 {
     (void)0;
 }
 
-void mcp2515_irq_callback(void)
-{
-    if (int_signal) {
-        //overrun!
-        puts_P(PSTR("overrun"));
-    }
-    int_signal = 1;
-    p = packet;
-}
-
-void print_packet(void)
+void can_irq(void)
 {
     uint8_t i;
 
@@ -122,29 +178,6 @@ ID_LIST(X)
     printf_P(PSTR("\n"));
 }
 
-void show_usage(void)
-{
-    printf_P(PSTR("cmds: send, ...\n"));
-}
-
-void show_send_usage(void)
-{
-    printf_P(PSTR("send type id [02 ff ab ..]\n"));
-	 printf_P(PSTR("valid types:"));
-
-#if 0
-#define X(name, value)  printf_P(PSTR(" " #name));
-TYPE_LIST(X)
-#undef X
-	
-	printf_P(PSTR("\nvalid ids:"));
-#define X(name, value)  printf_P(PSTR(" " #name));
-ID_LIST(X)
-#undef X
-#endif
-	printf_P(PSTR("\n"));
-}
-
 void test_pins(void)
 {
 		  DDRC = 0b11111111;        //set all pins of port c as outputs
@@ -155,72 +188,27 @@ void test_pins(void)
 		  
 void main(void)
 {
-	 test_pins();
-    int buflen = 64;
-    char buf[buflen];
-    uint8_t i = 0;
+    NODE_INIT();
 
-    uart_init(BAUD(38400));
-    spi_init();
-
-    _delay_ms(200);
-    puts_P(PSTR("\n\n" XSTR(MY_ID) " node start, " XSTR(VERSION)));
-
-    while (mcp2515_init()) {
-        printf_P(PSTR("mcp: init\n"));
-        _delay_ms(500);
-    }
-
-    sei();
-
-    uint8_t sendbuf[10] = {0};
-    uint8_t type = 0;
-    uint8_t id = 0;
-    uint8_t rc;
-    char *arg;
     for (;;) {
-        printf_P(PSTR("> "));
+        printf_P(PSTR(XSTR(MY_ID) "> "));
 
-        arg = getline(buf, sizeof(buf), stdin, &int_signal);
-        if (arg == NULL) {
-            /* interrupt was signalled */
-            int_signal = 0;
-            print_packet();
-            continue;
+        while (irq_signal == 0) {};
+
+        if (irq_signal & IRQ_CAN) {
+            can_irq();
+            irq_signal &= ~IRQ_CAN;
         }
 
-        arg = strtok(buf, " ");
-
-        if (strcmp(arg, "send") == 0) {
-            arg = strtok(NULL, " ");
-            if (arg == NULL) {
-                show_send_usage();
-                continue;
-            }
-            type = parse_arg(arg);
-
-            arg = strtok(NULL, " ");
-            if (arg == NULL) {
-                show_send_usage();
-                continue;
-            }
-            id = parse_arg(arg);
-
-            i = 0;
-            for (;;) {
-                arg = strtok(NULL, " ");
-                if (arg == NULL) {
-                    break;
-                }
-                sendbuf[i] = parse_arg(arg);
-                i++;
-            }
-
-            rc = mcp2515_send(type, id, i, sendbuf);
-            _delay_ms(200);
-            printf_P(PSTR("mcp2515_send: %d\n"), rc);
-        } else {
-            show_usage();
+        if (irq_signal & IRQ_TIMER) {
+            periodic_irq();
+            irq_signal &= ~IRQ_TIMER;
         }
+
+        if (irq_signal & IRQ_UART) {
+            uart_irq();
+            irq_signal &= ~IRQ_UART;
+        }
+
     }
 }

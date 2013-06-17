@@ -28,16 +28,8 @@ static volatile uint8_t received_xfer;
 
 
 
-void periodic_callback(void)
-{
-    if (irq_signal & IRQ_TIMER) {
-        puts_P(PSTR("FUCK OFF!"));
-    }
 
-    irq_signal |= IRQ_TIMER;
-}
-
-void mcp2515_irq_callback(void)
+void mcp2515_tophalf(void)
 {
     if (irq_signal & IRQ_CAN) {
         puts_P(PSTR("PISS OFF!"));
@@ -245,7 +237,7 @@ void read_packet(uint8_t regnum)
 
     if (MY_ID == ID_any) {
         packet.unread = 1;
-        mcp2515_irq_callback();
+        mcp2515_tophalf();
     } else if (TYPE_XFER(packet.type) && packet.id == MY_ID) {
         /* signal for xfer handler */
         if (packet.type == TYPE_xfer_cts) {
@@ -258,7 +250,7 @@ void read_packet(uint8_t regnum)
         }
     } else {
         packet.unread = 1;
-        mcp2515_irq_callback();
+        mcp2515_tophalf();
         if (packet.type == TYPE_value_periodic && packet.id == ID_time) {
             uint32_t new_time = (uint32_t)packet.data[0] << 24 |
                                 (uint32_t)packet.data[1] << 16 |

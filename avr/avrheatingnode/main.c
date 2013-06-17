@@ -1,4 +1,3 @@
-#include <ctype.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
@@ -7,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "node.h"
 #include "uart.h"
 #include "mcp2515.h"
 #include "time.h"
@@ -14,12 +14,6 @@
 #include "ds18b20.h"
 #include "onewire.h"
 #include "spi.h"
-
-#define XSTR(X) STR(X)
-#define STR(X) #X
-
-volatile uint8_t int_signal;
-volatile struct mcp2515_packet_t p;
 
 uint8_t num_sensors;
 
@@ -53,9 +47,17 @@ uint8_t read_temp(uint8_t channel, int16_t *temp)
     return 0;
 }
 
-void periodic_callback(void)
+void uart_irq(void)
 {
-    /* this also gets called when we move the arm */
+    char buf[64];
+
+    uart_getbuf(buf);
+
+    printf("got: '%s'\n", buf);
+}
+
+void timer_irq(void)
+{
     uint8_t rc;
     int16_t temp;
 
@@ -79,47 +81,38 @@ void periodic_callback(void)
     }
 }
 
-void mcp2515_irq_callback(void)
+void can_irq(void)
 {
-    int_signal = 1;
-    p = packet;
-}
+    packet.unread = 0;
+    return;
 
-void bottom_half(void)
-{
-    uint8_t device_num;
-
-    if (p.id != MY_ID) {
-        return;
-    }
-
-    switch (p.type) {
+    switch (packet.type) {
     case TYPE_set_output:
-        if (p.len != 1) {
+        if (packet.len != 1) {
             puts_P(PSTR("err: TYPE_output_enable data len"));
             break;
         }
-        device_num = p.data[0];
-       // output_on(device_num);
-      //  send_device_status(device_num);
+        //device_num = packet.data[0];
+        //output_on(device_num);
+        //send_device_status(device_num);
         break;
 
     case TYPE_get_output:
-        if (p.len != 1) {
+        if (packet.len != 1) {
             puts_P(PSTR("err: TYPE_get_output data len"));
             break;
         }
-        device_num = p.data[0];
-     //   send_device_status(device_num);
+        //device_num = packet.data[0];
+        //send_device_status(device_num);
         break;
 
     case TYPE_get_value:
-        if (p.len != 1) {
+        if (packet.len != 1) {
             puts_P(PSTR("err: TYPE_get_value data len"));
             break;
         }
-        device_num = p.data[0];
-//        send_device_status(device_num);
+        //device_num = packet.data[0];
+        //send_device_status(device_num);
         break;
 
     default:
@@ -129,27 +122,26 @@ void bottom_half(void)
 
 void main(void)
 {
-    uart_init(BAUD(38400));
-    time_init();
-    spi_init();
-
-    _delay_ms(200);
-    puts_P(PSTR("\n\n" XSTR(MY_ID) " node start: " XSTR(VERSION)));
-
-
-    while (mcp2515_init()) {
-        puts_P(PSTR("mcp: init"));
-        _delay_ms(500);
-    }
-
-    sei();
+    NODE_INIT();
 
     for (;;) {
         printf_P(PSTR(">| "));
 
-        while (int_signal == 0) {};
+        while (irq_signal == 0) {};
 
-        int_signal = 0;
-        bottom_half();
+        if (irq_signal & IRQ_CAN) {
+            can_irq();
+            irq_signal &= ~IRQ_CAN;
+        }
+
+        if (irq_signal & IRQ_TIMER) {
+            timer_irq();
+            irq_signal &= ~IRQ_TIMER;
+        }
+
+        if (irq_signal & IRQ_UART) {
+            uart_irq();
+            irq_signal &= ~IRQ_UART;
+        }
     }
 }

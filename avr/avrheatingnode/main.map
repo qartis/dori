@@ -1,19 +1,21 @@
 Archive member included because of file (symbol)
 
 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_divmodhi4.o)
-                              ds18b20.o (symbol from plugin) (__divmodhi4)
+                              ../ds18b20.o (symbol from plugin) (__divmodhi4)
 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_exit.o)
                               /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o (exit)
 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_udivmodhi4.o)
                               /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_divmodhi4.o) (__udivmodhi4)
 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
-                              uart.o (symbol from plugin) (__iob)
+                              ../uart.o (symbol from plugin) (__iob)
+/usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
+                              main.o (symbol from plugin) (printf)
 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
-                              main.o (symbol from plugin) (printf_P)
+                              ../mcp2515.o (symbol from plugin) (printf_P)
 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
-                              main.o (symbol from plugin) (puts_P)
+                              ../uart.o (symbol from plugin) (puts_P)
 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
-                              /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o) (vfprintf)
+                              /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o) (vfprintf)
 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen_P.o)
                               /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o) (strnlen_P)
 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen.o)
@@ -23,37 +25,36 @@ Archive member included because of file (symbol)
 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(ultoa_invert.o)
                               /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o) (__ultoa_invert)
 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_prologue.o)
-                              /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o) (__prologue_saves__)
+                              /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o) (__prologue_saves__)
 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_epilogue.o)
-                              /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o) (__epilogue_restores__)
+                              /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o) (__epilogue_restores__)
 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_clear_bss.o)
                               /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o) (__do_clear_bss)
 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
-                              /tmp/cccIQ4P8.ltrans0.ltrans.o (__do_copy_data)
+                              /tmp/ccdTWKXN.ltrans0.ltrans.o (__do_copy_data)
 
 Allocating common symbols
 Common symbol       size              file
 
-p                   0xd               main.o (symbol from plugin)
-now                 0x4               time.o (symbol from plugin)
-packet              0xd               mcp2515.o (symbol from plugin)
-sensor_ids          0x50              onewire.o (symbol from plugin)
+now                 0x4               ../time.o (symbol from plugin)
+packet              0xe               ../mcp2515.o (symbol from plugin)
+sensor_ids          0x50              ../onewire.o (symbol from plugin)
 expecting_xfer_type
-                    0x1               mcp2515.o (symbol from plugin)
-periodic_prev       0x4               time.o (symbol from plugin)
+                    0x1               ../mcp2515.o (symbol from plugin)
+periodic_prev       0x4               ../time.o (symbol from plugin)
 num_sensors         0x1               main.o (symbol from plugin)
 __iob               0x6               /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
-int_signal          0x1               main.o (symbol from plugin)
-mcp2515_busy        0x1               mcp2515.o (symbol from plugin)
-periodic_interval   0x2               time.o (symbol from plugin)
-stfu                0x1               mcp2515.o (symbol from plugin)
+irq_signal          0x1               ../mcp2515.o (symbol from plugin)
+mcp2515_busy        0x1               ../mcp2515.o (symbol from plugin)
+periodic_interval   0x2               ../time.o (symbol from plugin)
+stfu                0x1               ../mcp2515.o (symbol from plugin)
 
 Discarded input sections
 
  .bss           0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
- .text          0x0000000000000000        0x0 onewire.o (symbol from plugin)
- .text          0x0000000000000000        0x0 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss           0x0000000000000000        0x0 /tmp/cccIQ4P8.ltrans0.ltrans.o
+ .text          0x0000000000000000        0x0 ../spi.o (symbol from plugin)
+ .text          0x0000000000000000        0x0 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss           0x0000000000000000        0x0 /tmp/ccdTWKXN.ltrans0.ltrans.o
  .text          0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
  .bss           0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
  .text.libgcc.mul
@@ -69,13 +70,13 @@ Discarded input sections
                 0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
  .text.libgcc.fixed
                 0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
- .text          0x0000000000000000        0x0 ds18b20.o (symbol from plugin)
- .text          0x0000000000000000        0x0 crc8.o (symbol from plugin)
- .text          0x0000000000000000        0x0 time.o (symbol from plugin)
- .text          0x0000000000000000        0x0 uart.o (symbol from plugin)
- .text          0x0000000000000000        0x0 spi.o (symbol from plugin)
+ .text          0x0000000000000000        0x0 ../uart.o (symbol from plugin)
+ .text          0x0000000000000000        0x0 ../mcp2515.o (symbol from plugin)
+ .text          0x0000000000000000        0x0 ../ds18b20.o (symbol from plugin)
+ .text          0x0000000000000000        0x0 ../onewire.o (symbol from plugin)
+ .text          0x0000000000000000        0x0 ../crc8.o (symbol from plugin)
+ .text          0x0000000000000000        0x0 ../time.o (symbol from plugin)
  .text          0x0000000000000000        0x0 main.o (symbol from plugin)
- .text          0x0000000000000000        0x0 mcp2515.o (symbol from plugin)
  .text          0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_divmodhi4.o)
  .bss           0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_divmodhi4.o)
  .text.libgcc.mul
@@ -123,6 +124,8 @@ Discarded input sections
                 0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_udivmodhi4.o)
  .text          0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
  .bss           0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
+ .text          0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
+ .bss           0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
  .text          0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
  .bss           0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
  .text          0x0000000000000000        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
@@ -194,18 +197,18 @@ Linker script and memory map
 
 Address of section .data set to 0x800100
 LOAD /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
-LOAD onewire.o
-LOAD /tmp/cccIQ4P8.ltrans0.ltrans.o
+LOAD ../spi.o
+LOAD /tmp/ccdTWKXN.ltrans0.ltrans.o
 LOAD /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a
 LOAD /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libm.a
 LOAD /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a
-LOAD ds18b20.o
-LOAD crc8.o
-LOAD time.o
-LOAD uart.o
-LOAD spi.o
+LOAD ../uart.o
+LOAD ../mcp2515.o
+LOAD ../ds18b20.o
+LOAD ../onewire.o
+LOAD ../crc8.o
+LOAD ../time.o
 LOAD main.o
-LOAD mcp2515.o
 START GROUP
 LOAD /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a
 LOAD /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libm.a
@@ -302,7 +305,7 @@ END GROUP
 .rela.plt
  *(.rela.plt)
 
-.text           0x0000000000000000     0x129a
+.text           0x0000000000000000     0x139e
  *(.vectors)
  .vectors       0x0000000000000000       0x34 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
                 0x0000000000000000                __vectors
@@ -310,72 +313,77 @@ END GROUP
  *(.vectors)
  *(.progmem.gcc*)
  *(.progmem*)
- .progmem.data.__c.1949.1672.1644
-                0x0000000000000034        0xf /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1951.1674.1643
-                0x0000000000000043        0xa /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1947.1675.1641
-                0x000000000000004d       0x12 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1662.1778.1640
-                0x000000000000005f        0xc /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1686.1779.1639
-                0x000000000000006b        0xf /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1684.1780.1638
-                0x000000000000007a       0x17 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1678.1781.1637
-                0x0000000000000091       0x10 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1651.1777.1613
-                0x00000000000000a1       0x19 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1972.1673.1612
-                0x00000000000000ba       0x1e /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1975.1676.1611
-                0x00000000000000d8       0x1d /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1968.1677.1610
-                0x00000000000000f5       0x21 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1988.1678.1601
-                0x0000000000000116        0x4 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1983.1679.1600
-                0x000000000000011a        0xa /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1981.1680.1599
-                0x0000000000000124       0x13 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1697.1782.1598
-                0x0000000000000137       0x12 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .progmem.data.__c.1695.1783.1597
-                0x0000000000000149       0x13 /tmp/cccIQ4P8.ltrans0.ltrans.o
-                0x000000000000015c                . = ALIGN (0x2)
-                0x000000000000015c                __trampolines_start = .
+ .progmem.data.__c.1470.1759.1655
+                0x0000000000000034        0xa /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1636.1572.1654
+                0x000000000000003e        0xa /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1702.1575.1653
+                0x0000000000000048        0xf /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1700.1576.1652
+                0x0000000000000057       0x17 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1694.1577.1651
+                0x000000000000006e       0x10 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1692.1578.1650
+                0x000000000000007e        0xb /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1625.1483.1649
+                0x0000000000000089        0xd /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1713.1579.1648
+                0x0000000000000096       0x12 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1711.1580.1647
+                0x00000000000000a8       0x13 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1665.1573.1626
+                0x00000000000000bb       0x19 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1927.1801.1625
+                0x00000000000000d4        0xd /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1925.1800.1624
+                0x00000000000000e1       0x18 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1923.1802.1622
+                0x00000000000000f9        0xf /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1921.1803.1621
+                0x0000000000000108       0x12 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1676.1574.1620
+                0x000000000000011a        0xc /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1964.1804.1606
+                0x0000000000000126        0x4 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1959.1805.1605
+                0x000000000000012a        0xa /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .progmem.data.__c.1957.1806.1604
+                0x0000000000000134       0x39 /tmp/ccdTWKXN.ltrans0.ltrans.o
+                0x000000000000016e                . = ALIGN (0x2)
+ *fill*         0x000000000000016d        0x1 
+                0x000000000000016e                __trampolines_start = .
  *(.trampolines)
- .trampolines   0x000000000000015c        0x0 linker stubs
+ .trampolines   0x000000000000016e        0x0 linker stubs
  *(.trampolines*)
-                0x000000000000015c                __trampolines_end = .
+                0x000000000000016e                __trampolines_end = .
  *(.jumptables)
  *(.jumptables*)
  *(.lowtext)
  *(.lowtext*)
-                0x000000000000015c                __ctors_start = .
+                0x000000000000016e                __ctors_start = .
  *(.ctors)
-                0x000000000000015c                __ctors_end = .
-                0x000000000000015c                __dtors_start = .
+                0x000000000000016e                __ctors_end = .
+                0x000000000000016e                __dtors_start = .
  *(.dtors)
-                0x000000000000015c                __dtors_end = .
+                0x000000000000016e                __dtors_end = .
  SORT(*)(.ctors)
  SORT(*)(.dtors)
  *(.init0)
- .init0         0x000000000000015c        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
-                0x000000000000015c                __init
+ .init0         0x000000000000016e        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
+                0x000000000000016e                __init
  *(.init0)
  *(.init1)
  *(.init1)
  *(.init2)
- .init2         0x000000000000015c        0xc /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
+ .init2         0x000000000000016e        0xc /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
  *(.init2)
  *(.init3)
  *(.init3)
  *(.init4)
- .init4         0x0000000000000168       0x16 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
-                0x0000000000000168                __do_copy_data
- .init4         0x000000000000017e       0x10 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_clear_bss.o)
-                0x000000000000017e                __do_clear_bss
+ .init4         0x000000000000017a       0x16 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
+                0x000000000000017a                __do_copy_data
+ .init4         0x0000000000000190       0x10 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_clear_bss.o)
+                0x0000000000000190                __do_clear_bss
  *(.init4)
  *(.init5)
  *(.init5)
@@ -386,107 +394,110 @@ END GROUP
  *(.init8)
  *(.init8)
  *(.init9)
- .init9         0x000000000000018e        0x4 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
+ .init9         0x00000000000001a0        0x4 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
  *(.init9)
  *(.text)
- .text          0x0000000000000192        0x2 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
-                0x0000000000000192                __vector_22
-                0x0000000000000192                __vector_1
-                0x0000000000000192                __vector_24
-                0x0000000000000192                __vector_12
-                0x0000000000000192                __bad_interrupt
-                0x0000000000000192                __vector_6
-                0x0000000000000192                __vector_23
-                0x0000000000000192                __vector_25
-                0x0000000000000192                __vector_11
-                0x0000000000000192                __vector_13
-                0x0000000000000192                __vector_17
-                0x0000000000000192                __vector_19
-                0x0000000000000192                __vector_7
-                0x0000000000000192                __vector_5
-                0x0000000000000192                __vector_4
-                0x0000000000000192                __vector_9
-                0x0000000000000192                __vector_2
-                0x0000000000000192                __vector_21
-                0x0000000000000192                __vector_15
-                0x0000000000000192                __vector_8
-                0x0000000000000192                __vector_10
-                0x0000000000000192                __vector_16
-                0x0000000000000192                __vector_20
-                0x0000000000000194                . = ALIGN (0x2)
+ .text          0x00000000000001a4        0x2 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
+                0x00000000000001a4                __vector_22
+                0x00000000000001a4                __vector_1
+                0x00000000000001a4                __vector_24
+                0x00000000000001a4                __vector_12
+                0x00000000000001a4                __bad_interrupt
+                0x00000000000001a4                __vector_6
+                0x00000000000001a4                __vector_23
+                0x00000000000001a4                __vector_25
+                0x00000000000001a4                __vector_11
+                0x00000000000001a4                __vector_13
+                0x00000000000001a4                __vector_17
+                0x00000000000001a4                __vector_19
+                0x00000000000001a4                __vector_7
+                0x00000000000001a4                __vector_5
+                0x00000000000001a4                __vector_4
+                0x00000000000001a4                __vector_9
+                0x00000000000001a4                __vector_2
+                0x00000000000001a4                __vector_21
+                0x00000000000001a4                __vector_15
+                0x00000000000001a4                __vector_8
+                0x00000000000001a4                __vector_10
+                0x00000000000001a4                __vector_16
+                0x00000000000001a4                __vector_20
+                0x00000000000001a6                . = ALIGN (0x2)
  *(.text.*)
- .text.spi_write.1572
-                0x0000000000000194        0xc /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.modify_register.1558
-                0x00000000000001a0       0x2e /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.mcp2515_send.part.1.1731.constprop.3.1550
-                0x00000000000001ce       0x6c /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.write_register.1563
-                0x000000000000023a       0x26 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.spi_recv.1570
-                0x0000000000000260        0x4 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.read_register.1567
-                0x0000000000000264       0x16 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.uart_putchar.1577
-                0x000000000000027a       0x18 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.uart_getchar.1575
-                0x0000000000000292       0x46 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.ow_reset.1584
-                0x00000000000002d8       0x30 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.ow_bit_io_intern.1419.1586
-                0x0000000000000308       0x3a /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.ow_byte_wr.1541
-                0x0000000000000342       0x22 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.ow_byte_wr_with_parasite_enable.1581
-                0x0000000000000364       0x2a /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.periodic_callback.1458
-                0x000000000000038e      0x2d8 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.read_packet.1449
-                0x0000000000000666      0x26a /tmp/cccIQ4P8.ltrans0.ltrans.o
- .text.__vector_3
-                0x00000000000008d0       0xda /tmp/cccIQ4P8.ltrans0.ltrans.o
-                0x00000000000008d0                __vector_3
+ .text.ow_reset.1569
+                0x00000000000001a6       0x30 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.ow_bit_io_intern.1676.1571
+                0x00000000000001d6       0x34 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.ow_byte_wr.1537
+                0x000000000000020a       0x22 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.ow_byte_wr_with_parasite_enable.1566
+                0x000000000000022c       0x2a /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.uart_putchar.1591
+                0x0000000000000256       0x18 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.uart_getchar.1589
+                0x000000000000026e       0x46 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.spi_write.1596
+                0x00000000000002b4        0xc /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.modify_register.1577
+                0x00000000000002c0       0x2e /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.mcp2515_send.part.1.1525.constprop.8.1546
+                0x00000000000002ee       0x6c /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.write_register.1582
+                0x000000000000035a       0x26 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.spi_recv.1594
+                0x0000000000000380        0x4 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.read_register.1586
+                0x0000000000000384       0x16 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.periodic_tophalf.1564
+                0x000000000000039a       0x1a /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .text.read_packet.1555
+                0x00000000000003b4      0x286 /tmp/ccdTWKXN.ltrans0.ltrans.o
  .text.startup.main
-                0x00000000000009aa      0x1f2 /tmp/cccIQ4P8.ltrans0.ltrans.o
-                0x00000000000009aa                main
- .text.__vector_18
-                0x0000000000000b9c       0x44 /tmp/cccIQ4P8.ltrans0.ltrans.o
-                0x0000000000000b9c                __vector_18
+                0x000000000000063a      0x512 /tmp/ccdTWKXN.ltrans0.ltrans.o
+                0x000000000000063a                main
  .text.__vector_14
-                0x0000000000000be0       0xda /tmp/cccIQ4P8.ltrans0.ltrans.o
-                0x0000000000000be0                __vector_14
+                0x0000000000000b4c       0xda /tmp/ccdTWKXN.ltrans0.ltrans.o
+                0x0000000000000b4c                __vector_14
+ .text.__vector_3
+                0x0000000000000c26       0xda /tmp/ccdTWKXN.ltrans0.ltrans.o
+                0x0000000000000c26                __vector_3
+ .text.__vector_18
+                0x0000000000000d00       0x9c /tmp/ccdTWKXN.ltrans0.ltrans.o
+                0x0000000000000d00                __vector_18
  .text.avr-libc
-                0x0000000000000cba       0x3e /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
-                0x0000000000000cba                printf_P
+                0x0000000000000d9c       0x22 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
+                0x0000000000000d9c                printf
  .text.avr-libc
-                0x0000000000000cf8       0x5e /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
-                0x0000000000000cf8                puts_P
+                0x0000000000000dbe       0x3e /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
+                0x0000000000000dbe                printf_P
  .text.avr-libc
-                0x0000000000000d56      0x386 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
-                0x0000000000000d56                vfprintf
+                0x0000000000000dfc       0x5e /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
+                0x0000000000000dfc                puts_P
  .text.avr-libc
-                0x00000000000010dc       0x16 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen_P.o)
-                0x00000000000010dc                strnlen_P
+                0x0000000000000e5a      0x386 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
+                0x0000000000000e5a                vfprintf
  .text.avr-libc
-                0x00000000000010f2       0x16 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen.o)
-                0x00000000000010f2                strnlen
+                0x00000000000011e0       0x16 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen_P.o)
+                0x00000000000011e0                strnlen_P
  .text.avr-libc
-                0x0000000000001108       0x64 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(fputc.o)
-                0x0000000000001108                fputc
+                0x00000000000011f6       0x16 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen.o)
+                0x00000000000011f6                strnlen
  .text.avr-libc
-                0x000000000000116c       0xbc /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(ultoa_invert.o)
-                0x000000000000116c                __ultoa_invert
+                0x000000000000120c       0x64 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(fputc.o)
+                0x000000000000120c                fputc
+ .text.avr-libc
+                0x0000000000001270       0xbc /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(ultoa_invert.o)
+                0x0000000000001270                __ultoa_invert
  .text.libgcc.prologue
-                0x0000000000001228       0x38 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_prologue.o)
-                0x0000000000001228                __prologue_saves__
+                0x000000000000132c       0x38 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_prologue.o)
+                0x000000000000132c                __prologue_saves__
  .text.libgcc.prologue
-                0x0000000000001260       0x36 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_epilogue.o)
-                0x0000000000001260                __epilogue_restores__
-                0x0000000000001296                . = ALIGN (0x2)
+                0x0000000000001364       0x36 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_epilogue.o)
+                0x0000000000001364                __epilogue_restores__
+                0x000000000000139a                . = ALIGN (0x2)
  *(.fini9)
- .fini9         0x0000000000001296        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_exit.o)
-                0x0000000000001296                exit
-                0x0000000000001296                _exit
+ .fini9         0x000000000000139a        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_exit.o)
+                0x000000000000139a                exit
+                0x000000000000139a                _exit
  *(.fini9)
  *(.fini8)
  *(.fini8)
@@ -505,20 +516,21 @@ END GROUP
  *(.fini1)
  *(.fini1)
  *(.fini0)
- .fini0         0x0000000000001296        0x4 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_exit.o)
+ .fini0         0x000000000000139a        0x4 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_exit.o)
  *(.fini0)
-                0x000000000000129a                _etext = .
+                0x000000000000139e                _etext = .
 
-.data           0x0000000000800100       0x1c load address 0x000000000000129a
+.data           0x0000000000800100       0x1a load address 0x000000000000139e
                 0x0000000000800100                PROVIDE (__data_start, .)
  *(.data)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
- .data          0x0000000000800100        0x0 /tmp/cccIQ4P8.ltrans0.ltrans.o
+ .data          0x0000000000800100        0x0 /tmp/ccdTWKXN.ltrans0.ltrans.o
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_divmodhi4.o)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_exit.o)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_udivmodhi4.o)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
+ .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
@@ -530,69 +542,68 @@ END GROUP
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_epilogue.o)
  .data          0x0000000000800100        0x0 /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_clear_bss.o)
  *(.data*)
- .data.mystdout.1618.1633
-                0x0000000000800100        0xe /tmp/cccIQ4P8.ltrans0.ltrans.o
+ .data.mystdout.1489.1646
+                0x0000000000800100        0xe /tmp/ccdTWKXN.ltrans0.ltrans.o
  *(.rodata)
  *(.rodata*)
  .rodata.str1.1
-                0x000000000080010e        0xd /tmp/cccIQ4P8.ltrans0.ltrans.o
+                0x000000000080010e        0xb /tmp/ccdTWKXN.ltrans0.ltrans.o
  *(.gnu.linkonce.d*)
-                0x000000000080011c                . = ALIGN (0x2)
- *fill*         0x000000000080011b        0x1 
-                0x000000000080011c                _edata = .
-                0x000000000080011c                PROVIDE (__data_end, .)
+                0x000000000080011a                . = ALIGN (0x2)
+ *fill*         0x0000000000800119        0x1 
+                0x000000000080011a                _edata = .
+                0x000000000080011a                PROVIDE (__data_end, .)
 
-.bss            0x000000000080011c       0xc5
-                0x000000000080011c                PROVIDE (__bss_start, .)
+.bss            0x000000000080011a       0xb9
+                0x000000000080011a                PROVIDE (__bss_start, .)
  *(.bss)
  *(.bss*)
- .bss.ring_out.1615.1645
-                0x000000000080011c        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.sensor_ids.1642
-                0x000000000080011d       0x50 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.num_sensors.1595
-                0x000000000080016d        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.packet.1636
-                0x000000000080016e        0xd /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.overflows.1379.1558.1594
-                0x000000000080017b        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.uart_ring.1616.1635
-                0x000000000080017c       0x40 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.ring_in.1614.1634
-                0x00000000008001bc        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.now.1622  0x00000000008001bd        0x4 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.periodic_prev.1621
-                0x00000000008001c1        0x4 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.periodic_interval.1619
-                0x00000000008001c5        0x2 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.received_cancel.1796.1618
-                0x00000000008001c7        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.received_cts.1795.1617
-                0x00000000008001c8        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.received_xfer.1794.1616
-                0x00000000008001c9        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.expecting_xfer_type.1615
-                0x00000000008001ca        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.stfu.1614
-                0x00000000008001cb        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.p.1603    0x00000000008001cc        0xd /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.int_signal.1602
-                0x00000000008001d9        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
- .bss.mcp2515_busy.1596
-                0x00000000008001da        0x1 /tmp/cccIQ4P8.ltrans0.ltrans.o
+ .bss.overflows.1477.1762.1602
+                0x000000000080011a        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.now.1635  0x000000000080011b        0x4 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.periodic_prev.1634
+                0x000000000080011f        0x4 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.periodic_interval.1632
+                0x0000000000800123        0x2 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.received_cancel.1595.1631
+                0x0000000000800125        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.received_cts.1594.1630
+                0x0000000000800126        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.received_xfer.1593.1629
+                0x0000000000800127        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.expecting_xfer_type.1628
+                0x0000000000800128        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.stfu.1627
+                0x0000000000800129        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.sensor_ids.1623
+                0x000000000080012a       0x50 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.num_sensors.1603
+                0x000000000080017a        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.mcp2515_busy.1619
+                0x000000000080017b        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.ring_out.1485.1618
+                0x000000000080017c        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.uart_ring.1486.1617
+                0x000000000080017d       0x40 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.ring_in.1484.1616
+                0x00000000008001bd        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.packet.1608
+                0x00000000008001be        0xe /tmp/ccdTWKXN.ltrans0.ltrans.o
+ .bss.irq_signal.1607
+                0x00000000008001cc        0x1 /tmp/ccdTWKXN.ltrans0.ltrans.o
  *(COMMON)
- COMMON         0x00000000008001db        0x6 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
-                0x00000000008001db                __iob
-                0x00000000008001e1                PROVIDE (__bss_end, .)
-                0x000000000000129a                __data_load_start = LOADADDR (.data)
-                0x00000000000012b6                __data_load_end = (__data_load_start + SIZEOF (.data))
+ COMMON         0x00000000008001cd        0x6 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
+                0x00000000008001cd                __iob
+                0x00000000008001d3                PROVIDE (__bss_end, .)
+                0x000000000000139e                __data_load_start = LOADADDR (.data)
+                0x00000000000013b8                __data_load_end = (__data_load_start + SIZEOF (.data))
 
-.noinit         0x00000000008001e1        0x0
-                0x00000000008001e1                PROVIDE (__noinit_start, .)
+.noinit         0x00000000008001d3        0x0
+                0x00000000008001d3                PROVIDE (__noinit_start, .)
  *(.noinit*)
-                0x00000000008001e1                PROVIDE (__noinit_end, .)
-                0x00000000008001e1                _end = .
-                0x00000000008001e1                PROVIDE (__heap_start, .)
+                0x00000000008001d3                PROVIDE (__noinit_end, .)
+                0x00000000008001d3                _end = .
+                0x00000000008001d3                PROVIDE (__heap_start, .)
 
 .eeprom         0x0000000000810000        0x0
  *(.eeprom*)
@@ -610,31 +621,33 @@ END GROUP
 .signature
  *(.signature*)
 
-.stab           0x0000000000000000     0x474c
+.stab           0x0000000000000000     0x4dac
  *(.stab)
  .stab          0x0000000000000000      0x6cc /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
- .stab          0x00000000000006cc     0x20d0 /tmp/cccIQ4P8.ltrans0.ltrans.o
-                                       0x20dc (size before relaxing)
- .stab          0x000000000000279c      0x480 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
+ .stab          0x00000000000006cc     0x2424 /tmp/ccdTWKXN.ltrans0.ltrans.o
+                                       0x2430 (size before relaxing)
+ .stab          0x0000000000002af0      0x480 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
                                         0x48c (size before relaxing)
- .stab          0x0000000000002c1c      0x324 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
+ .stab          0x0000000000002f70      0x30c /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
+                                        0x4ec (size before relaxing)
+ .stab          0x000000000000327c      0x324 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
                                         0x504 (size before relaxing)
- .stab          0x0000000000002f40      0x360 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
+ .stab          0x00000000000035a0      0x360 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
                                         0x540 (size before relaxing)
- .stab          0x00000000000032a0      0xba0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
+ .stab          0x0000000000003900      0xba0 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
                                         0xd80 (size before relaxing)
- .stab          0x0000000000003e40       0x9c /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen_P.o)
+ .stab          0x00000000000044a0       0x9c /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen_P.o)
                                          0xa8 (size before relaxing)
- .stab          0x0000000000003edc       0x9c /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen.o)
+ .stab          0x000000000000453c       0x9c /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen.o)
                                          0xa8 (size before relaxing)
- .stab          0x0000000000003f78      0x354 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(fputc.o)
+ .stab          0x00000000000045d8      0x354 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(fputc.o)
                                         0x534 (size before relaxing)
- .stab          0x00000000000042cc      0x480 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(ultoa_invert.o)
+ .stab          0x000000000000492c      0x480 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(ultoa_invert.o)
                                         0x48c (size before relaxing)
 
-.stabstr        0x0000000000000000     0x1aa5
+.stabstr        0x0000000000000000     0x1b48
  *(.stabstr)
- .stabstr       0x0000000000000000     0x1aa5 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
+ .stabstr       0x0000000000000000     0x1b48 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 
 .stab.excl
  *(.stab.excl)
@@ -650,9 +663,10 @@ END GROUP
 
 .comment        0x0000000000000000       0x11
  *(.comment)
- .comment       0x0000000000000000       0x12 /tmp/cccIQ4P8.ltrans0.ltrans.o
+ .comment       0x0000000000000000       0x12 /tmp/ccdTWKXN.ltrans0.ltrans.o
  .comment       0x0000000000000000       0x11 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
                                          0x12 (size before relaxing)
+ .comment       0x0000000000000000       0x12 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
  .comment       0x0000000000000000       0x12 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
  .comment       0x0000000000000000       0x12 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
  .comment       0x0000000000000000       0x12 /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
@@ -720,24 +734,27 @@ __data_load_start                                 /usr/lib/gcc/avr/4.8.0/avr4/li
 __data_start                                      /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
 __divmodhi4                                       /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_divmodhi4.o)
 __do_clear_bss                                    /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_clear_bss.o)
-                                                  /tmp/cccIQ4P8.ltrans0.ltrans.o
+                                                  /tmp/ccdTWKXN.ltrans0.ltrans.o
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
 __do_copy_data                                    /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_copy_data.o)
-                                                  /tmp/cccIQ4P8.ltrans0.ltrans.o
+                                                  /tmp/ccdTWKXN.ltrans0.ltrans.o
 __epilogue_restores__                             /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_epilogue.o)
-                                                  /tmp/cccIQ4P8.ltrans0.ltrans.o
+                                                  /tmp/ccdTWKXN.ltrans0.ltrans.o
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
+                                                  /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
 __heap_end                                        /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __init                                            /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
-__iob                                             /tmp/cccIQ4P8.ltrans0.ltrans.o
+__iob                                             /tmp/ccdTWKXN.ltrans0.ltrans.o
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
+                                                  /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(iob.o)
 __prologue_saves__                                /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_prologue.o)
-                                                  /tmp/cccIQ4P8.ltrans0.ltrans.o
+                                                  /tmp/ccdTWKXN.ltrans0.ltrans.o
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
+                                                  /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
 __stack                                           /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __udivmodhi4                                      /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_udivmodhi4.o)
                                                   /usr/lib/gcc/avr/4.8.0/avr4/libgcc.a(_divmodhi4.o)
@@ -748,12 +765,12 @@ __vector_10                                       /usr/lib/gcc/avr/4.8.0/../../.
 __vector_11                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_12                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_13                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
-__vector_14                                       /tmp/cccIQ4P8.ltrans0.ltrans.o
+__vector_14                                       /tmp/ccdTWKXN.ltrans0.ltrans.o
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_15                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_16                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_17                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
-__vector_18                                       /tmp/cccIQ4P8.ltrans0.ltrans.o
+__vector_18                                       /tmp/ccdTWKXN.ltrans0.ltrans.o
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_19                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_2                                        /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
@@ -763,7 +780,7 @@ __vector_22                                       /usr/lib/gcc/avr/4.8.0/../../.
 __vector_23                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_24                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_25                                       /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
-__vector_3                                        /tmp/cccIQ4P8.ltrans0.ltrans.o
+__vector_3                                        /tmp/ccdTWKXN.ltrans0.ltrans.o
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_4                                        /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 __vector_5                                        /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
@@ -779,15 +796,18 @@ exit                                              /usr/lib/gcc/avr/4.8.0/avr4/li
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
 fputc                                             /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(fputc.o)
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
-main                                              /tmp/cccIQ4P8.ltrans0.ltrans.o
+main                                              /tmp/ccdTWKXN.ltrans0.ltrans.o
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/crtm88p.o
+printf                                            /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)
+                                                  /tmp/ccdTWKXN.ltrans0.ltrans.o
 printf_P                                          /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
-                                                  /tmp/cccIQ4P8.ltrans0.ltrans.o
+                                                  /tmp/ccdTWKXN.ltrans0.ltrans.o
 puts_P                                            /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(puts_p.o)
-                                                  /tmp/cccIQ4P8.ltrans0.ltrans.o
+                                                  /tmp/ccdTWKXN.ltrans0.ltrans.o
 strnlen                                           /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen.o)
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
 strnlen_P                                         /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(strnlen_P.o)
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
 vfprintf                                          /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(vfprintf_std.o)
                                                   /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf_p.o)
+                                                  /usr/lib/gcc/avr/4.8.0/../../../../avr/lib/avr4/libc.a(printf.o)

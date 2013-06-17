@@ -89,7 +89,7 @@ enum {
 extern volatile uint8_t mcp2515_busy;
 extern volatile uint8_t irq_signal;
 extern volatile struct mcp2515_packet_t packet;
-void mcp2515_irq_callback(void);
+void mcp2515_irq(void);
 typedef uint8_t (*mcp2515_xfer_callback_t)(void);
 
 #define BRP0        0
