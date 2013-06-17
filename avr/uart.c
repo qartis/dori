@@ -58,7 +58,9 @@ void uart_getbuf(char *dest)
 #ifndef UART_CUSTOM_INTERRUPT
 ISR(USART_RXC_vect)
 {
-    uart_ring[ring_in] = UDR;
+    uint8_t data = UDR;
+
+    uart_ring[ring_in] = data;
 
     /* if the buffer contains a full line */
     if (uart_ring[ring_in] == '\n') {
