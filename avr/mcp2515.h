@@ -48,10 +48,11 @@
     X(gps,     0x04) \
     X(temp,    0x05) \
     X(time,    0x06) \
-    X(logger,  0x07) \
+    X(sd,      0x07) \
     X(arm,     0x08) \
     X(heater,  0x09) \
     X(lidar,   0x0a) \
+    X(powershot, 0x0b) \
     X(invalid, 0x1f) \
 
 
