@@ -92,9 +92,9 @@ void uart_irq(void)
     uint8_t id = 0;
     uint8_t rc;
 
-    uart_getbuf(buf);
-    arg = strtok(buf, " ");
-
+    //uart_getbuf(buf);
+    fgets(buf, sizeof(buf), stdin);
+	 arg = strtok(buf, " ");
     if (strcmp(arg, "send") == 0) {
         arg = strtok(NULL, " ");
         if (arg == NULL) {
@@ -136,7 +136,7 @@ void periodic_irq(void)
 void can_irq(void)
 {
     uint8_t i;
-
+	 packet.unread = 0;
 
 #define X(name, value) static char const temp_type_ ## name [] PROGMEM = #name;
 TYPE_LIST(X)
@@ -191,7 +191,7 @@ void main(void)
     NODE_INIT();
 
     for (;;) {
-        printf_P(PSTR(XSTR(MY_ID) "> "));
+        puts_P(PSTR("\n" XSTR(MY_ID) "> "));
 
         while (irq_signal == 0) {};
 
