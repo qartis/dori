@@ -61,8 +61,11 @@ ISR(USART_RXC_vect)
 
     uart_ring[ring_in] = data;
 
+    if (data == '\r')
+        data = '\n';
+
     /* if the buffer contains a full line */
-    if (uart_ring[ring_in] == '\n') {
+    if (data == '\n') {
         if (irq_signal & IRQ_UART) {
             puts_P(PSTR("UART OVERRUN"));
         }
