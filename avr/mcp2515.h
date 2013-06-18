@@ -55,7 +55,8 @@
     X(powershot, 0x0b) \
     X(9dof,    0x0c) \
     X(compass, 0x0d) \
-	X(fbus,    0x0e) \
+	 X(modema,  0x0e) \
+  	 X(modemb,  0x0f) \
     X(invalid, 0x1f) \
 
 
@@ -256,6 +257,7 @@ uint8_t read_register(uint8_t address);
 void write_register(uint8_t address, uint8_t value);
 void modify_register(uint8_t address, uint8_t mask, const uint8_t value);
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data);
+uint8_t mcp2515_send2(struct mcp2515_packet_t *p);
 void load_tx0(uint8_t type, uint8_t id, uint8_t len, const uint8_t *data);
 
 uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, void *data);
