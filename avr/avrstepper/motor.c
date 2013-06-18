@@ -3,14 +3,16 @@
 
 #include "motor.h"
 
-uint8_t steps[] = {(MOTOR_BIT(3) | MOTOR_BIT(1)),
-                   (               MOTOR_BIT(1)),
-                   (MOTOR_BIT(2) | MOTOR_BIT(1)),
-                   (MOTOR_BIT(2)               ),
-                   (MOTOR_BIT(2) | MOTOR_BIT(0)),
-                   (               MOTOR_BIT(0)),
-                   (MOTOR_BIT(3) | MOTOR_BIT(0)),
-                   (MOTOR_BIT(3)               )};
+uint8_t steps[] = {
+    (MOTOR_BIT(3) | MOTOR_BIT(1)),
+    (               MOTOR_BIT(1)),
+    (MOTOR_BIT(2) | MOTOR_BIT(1)),
+    (MOTOR_BIT(2)               ),
+    (MOTOR_BIT(2) | MOTOR_BIT(0)),
+    (               MOTOR_BIT(0)),
+    (MOTOR_BIT(3) | MOTOR_BIT(0)),
+    (MOTOR_BIT(3)               )
+};
 
 #define NUM_STEPS (sizeof(steps)/sizeof(*steps))
 #define DELAY 5
@@ -22,11 +24,11 @@ void motor_init(void)
     MOTOR_DDR |= (MOTOR_BIT(0) | MOTOR_BIT(1) | MOTOR_BIT(2) | MOTOR_BIT(3));
     step = 0;
     MOTOR_PORT = steps[step];
-    _delay_ms(DELAY);
     motor_stop();
 }
 
-void motor_ccw(){
+void motor_ccw(void)
+{
     step++;
     step %= NUM_STEPS;
     MOTOR_PORT = steps[step];
@@ -60,6 +62,7 @@ void motor_cw(void)
     */
 }
 
-void motor_stop(){
+void motor_stop(void)
+{
     MOTOR_PORT &= ~(MOTOR_BIT(0) | MOTOR_BIT(1) | MOTOR_BIT(2) | MOTOR_BIT(3));
 }
