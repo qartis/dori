@@ -40,7 +40,7 @@ void hmc_set_continuous(void)
     i2c_write(HMC_MODE_CONTINUOUS);
 }
 
-uint8_t hmc_read(struct hmc5883 *h)
+uint8_t hmc_read(struct hmc5883_t *h)
 {
     int16_t x, y, z;
     uint8_t rc;

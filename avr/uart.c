@@ -36,8 +36,7 @@ static FILE mystdout = FDEV_SETUP_STREAM(
     _FDEV_SETUP_RW);
 
 /* must be 2^n */
-#define BUFFER_SIZE		64
-static volatile uint8_t uart_ring[BUFFER_SIZE];
+static volatile uint8_t uart_ring[UART_BUF_SIZE];
 static volatile uint8_t ring_in;
 static volatile uint8_t ring_out;
 
@@ -50,7 +49,7 @@ void uart_getbuf(char *dest)
     while (i != ring_out) {
         *dest++ = uart_ring[i];
         i++;
-        i &= BUFFER_SIZE - 1;
+        i &= UART_BUF_SIZE - 1;
     }
     *dest = '\0';
 }
@@ -62,8 +61,11 @@ ISR(USART_RXC_vect)
 
     uart_ring[ring_in] = data;
 
+    if (data == '\r')
+        data = '\n';
+
     /* if the buffer contains a full line */
-    if (uart_ring[ring_in] == '\n') {
+    if (data == '\n') {
         if (irq_signal & IRQ_UART) {
             puts_P(PSTR("UART OVERRUN"));
         }
@@ -75,7 +77,7 @@ ISR(USART_RXC_vect)
     /* echo the char */
     UDR = data;
 
-    ring_in = (ring_in + 1) % BUFFER_SIZE;
+    ring_in = (ring_in + 1) % UART_BUF_SIZE;
 }
 #endif
 
@@ -104,7 +106,7 @@ int getc_timeout(uint8_t sec) {
     }
 
     c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % BUFFER_SIZE;
+    ring_out = (ring_out + 1) % UART_BUF_SIZE;
 
 #ifdef ECHO
     putchar(c);
@@ -124,7 +126,7 @@ ignore:
     while (ring_in == ring_out){ }
 
     c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % BUFFER_SIZE;
+    ring_out = (ring_out + 1) % UART_BUF_SIZE;
 
     if (c == '\r'){
 #ifdef ICRNL
@@ -152,7 +154,7 @@ ignore:
         return EOF;
 
     c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % BUFFER_SIZE;
+    ring_out = (ring_out + 1) % UART_BUF_SIZE;
 
     if (c == '\r'){
 #ifdef ICRNL

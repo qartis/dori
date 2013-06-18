@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <avr/pgmspace.h>
 
 struct tm {
     uint8_t tm_sec;     /* seconds (0 - 60) */
@@ -60,6 +61,7 @@ uint8_t parsedec2(const char *buf)
 uint32_t parsedecn(const char *buf, uint8_t i)
 {
     uint32_t val = 0;
+
     while (i--) {
         val *= 10;
         val += *buf - '0';
@@ -135,7 +137,7 @@ void parse_nmea(char *buf)
 
     if (strstart(buf,"$GPRMC")){
         if (!checksum(buf)){
-            printf("invalid packet: %s\n",buf);
+            puts_P(PSTR("nmea err"));
             return;
         }
         for (i = 0; i < 2; i++) {
@@ -151,7 +153,7 @@ void parse_nmea(char *buf)
     } else if (strstart(buf,"$GPGSV")){
         //$GPGSV,3,1,10,21,46,218,,27,50,041,,26,01,069,,22,31,316,*79
         if (!checksum(buf)){
-            printf("invalid packet: %s\n",buf);
+            puts_P(PSTR("nmea xor"));
             return;
         }
         for(i=0;i<3;i++){
@@ -163,7 +165,7 @@ void parse_nmea(char *buf)
     } else if (strstart(buf, "$GPZDA")){
         /*$GPZDA,hhmmss.ss,dd,mm,yyyy,xx,yy*CC */
         if (!checksum(buf)){
-            printf("invalid packet: %s\n",buf);
+            puts_P(PSTR("nmea xor"));
             return;
         }
         buf += strlen("$GPZDA") + 1;

@@ -9,7 +9,7 @@
 
 #include "sd.h"
 #include "fat.h"
-//#include "uart.h"
+#include "uart.h"
 #include "spi.h"
 #include "mcp2515.h"
 #include "time.h"
@@ -59,7 +59,7 @@ uint8_t find_free_log_after(uint8_t start)
 
     for (i = (start + 1) % NUM_LOGS; i != start; i = (i + 1) % NUM_LOGS) {
         printf_P(PSTR("Trying %d\n"), i);
-        //snprintf(buf, sizeof(buf), "%d.LEN", i);
+        snprintf(buf, sizeof(buf), "%d.LEN", i);
         rc = pf_open(buf);
         if (rc) { /* WTF */
             printf_P(PSTR("open lg er %s\n"), buf);
@@ -134,7 +134,7 @@ void mcp2515_irq_callback(void)
     uint8_t rc;
 
     switch (packet.type) {
-    case TYPE_FILE_CHDIR:
+    case TYPE_file_chdir:
         rc = cd();
         printf_P(PSTR("cd: %d\n"), rc);
         break;
@@ -320,9 +320,9 @@ uint8_t write_file(uint8_t sender_id, uint32_t offset)
 
     tmp_write_pos = offset;
 
-    rc = mcp2515_receive_xfer_wait(TYPE_FILE_CONTENTS, sender_id, write_file_cb);
+    rc = mcp2515_receive_xfer_wait(TYPE_file_contents, sender_id, write_file_cb);
     if (rc) {
-        mcp2515_send(TYPE_FILE_ERROR, MY_ID, sizeof(rc), &rc);
+        mcp2515_send(TYPE_file_error, MY_ID, sizeof(rc), &rc);
         printf_P(PSTR("rx_xf_wt er\n"));
         return rc;
     }
@@ -356,7 +356,7 @@ uint8_t cat(uint8_t dest, const char *filename)
 
         printf_P(PSTR("pf_read: %db\n"), buflen);
 
-        rc = mcp2515_xfer(TYPE_FILE_CONTENTS, dest, (uint8_t)buflen, buf);
+        rc = mcp2515_xfer(TYPE_file_contents, dest, (uint8_t)buflen, buf);
         if (rc) {
             printf_P(PSTR("xf: er (%d)\n"), rc);
             return 3;
@@ -420,7 +420,7 @@ uint8_t ls(uint8_t dest)
 
         unsigned char *ptr = buf;
         while (buflen >= 8) {
-            rc = mcp2515_xfer(TYPE_FILE_LISTING, dest, 8, ptr);
+            rc = mcp2515_xfer(TYPE_file_listing, dest, 8, ptr);
             if (rc) {
                 printf_P(PSTR("xfer: failed (%d)\n"), rc);
                 return 3;
@@ -435,7 +435,7 @@ uint8_t ls(uint8_t dest)
     }
 
     printf_P(PSTR("sending last chunk\n"));
-    rc = mcp2515_xfer(TYPE_FILE_LISTING, dest, buflen, buf);
+    rc = mcp2515_xfer(TYPE_file_listing, dest, buflen, buf);
     if (rc) {
         printf_P(PSTR("xfer: failed\n"));
         return 4;
@@ -454,7 +454,7 @@ void main(void)
 
     wdt_disable();
 
-    //uart_init(BAUD(38400));
+    uart_init(BAUD(38400));
     spi_init();
     time_init();
 
@@ -473,7 +473,7 @@ reinit:
     rc = fat_init();
     if (rc) {
         printf_P(PSTR("fat: error\n"));
-        mcp2515_send(TYPE_FILE_ERROR, ID_LOGGER, sizeof(rc), &rc);
+        mcp2515_send(TYPE_file_error, ID_sd, sizeof(rc), &rc);
         _delay_ms(1000);
         goto reinit;
     }
@@ -483,7 +483,7 @@ reinit:
     if (cur_log == LOG_INVALID) {
         /* the heck */
         printf_P(PSTR("log file error\n"));
-        mcp2515_send(TYPE_FILE_ERROR, ID_LOGGER, sizeof(rc), &rc);
+        mcp2515_send(TYPE_file_error, ID_sd, sizeof(rc), &rc);
         _delay_ms(1000);
         goto reinit;
     }
@@ -500,21 +500,21 @@ reinit:
         printf_P(PSTR("sd_xf_wt: ok\n"));
 
         switch (p.type) {
-        case TYPE_REQUEST_LIST_FILES:
+        case TYPE_request_list_files:
             rc = ls(p.data[0]);
             printf_P(PSTR("ls: %d\n"), rc);
             if (rc) {
-                mcp2515_send(TYPE_FILE_ERROR, p.data[0], sizeof(rc), &rc);
+                mcp2515_send(TYPE_file_error, p.data[0], sizeof(rc), &rc);
             }
             break;
-        case TYPE_REQUEST_FILE:
+        case TYPE_request_file:
             rc = cat(p.data[0], (const char *)p.data + 1);
             printf_P(PSTR("cat: %d\n"), rc);
             if (rc) {
-                mcp2515_send(TYPE_FILE_ERROR, p.data[0], sizeof(rc), &rc);
+                mcp2515_send(TYPE_file_error, p.data[0], sizeof(rc), &rc);
             }
             break;
-        case TYPE_FILE_WRITE:
+        case TYPE_file_write:
             printf_P(PSTR("write_file()\n"));
             sender = p.data[0];
             offset = (uint32_t)p.data[1] << 24 |
@@ -524,7 +524,7 @@ reinit:
             rc = write_file(sender, offset);
             printf_P(PSTR("write: %d\n"), rc);
             if (rc) {
-                mcp2515_send(TYPE_FILE_ERROR, p.data[0], sizeof(rc), &rc);
+                mcp2515_send(TYPE_file_error, p.data[0], sizeof(rc), &rc);
             }
             break;
         default:

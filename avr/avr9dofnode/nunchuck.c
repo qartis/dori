@@ -21,7 +21,7 @@ uint8_t nunchuck_init(void)
     return 0;
 }
 
-uint8_t nunchuck_read(struct nunchuck *n)
+uint8_t nunchuck_read(struct nunchuck_t *n)
 {
     uint8_t buf[6];
     uint8_t res;

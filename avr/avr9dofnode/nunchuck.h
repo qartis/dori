@@ -1,4 +1,4 @@
-struct nunchuck {
+struct nunchuck_t {
     uint8_t accel_x;
     uint8_t accel_y;
     uint8_t accel_z;
@@ -9,4 +9,4 @@ struct nunchuck {
 };
  
 uint8_t nunchuck_init(void);
-uint8_t nunchuck_read(struct nunchuck *);
+uint8_t nunchuck_read(struct nunchuck_t *);

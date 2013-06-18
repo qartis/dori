@@ -1,6 +1,15 @@
+struct mpu6050_t {
+    int16_t x;
+    int16_t y;
+    int16_t z;
+};
+
 uint8_t mpu_reg_read(uint8_t reg);
 uint16_t mpu_reg_read16(uint8_t reg);
 void mpu_reg_write(uint8_t reg, uint8_t val);
+
+uint8_t mpu_init(void);
+uint8_t mpu_read(struct mpu6050_t *mpu);
 
 
 #define MPU6050_RA_XG_OFFS_TC       0x00 //[7] PWR_MODE, [6:1] XG_OFFS_TC, [0] OTP_BNK_VLD

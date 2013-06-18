@@ -1,10 +1,12 @@
-GCC_PART = atmega328p
-DUDE_PART = m328p
-F_CPU = 8000000
+GCC_PART = atmega88p
+DUDE_PART = m88p
+F_CPU = 8000000L
 
 #LDFLAGS = -Wl,-section-start=.bootloader=0x3800 
 
-CFLAGS = -DMY_ID=ID_LOGGER
+OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o
+
+CFLAGS = -DMY_ID=ID_sd
 
 include ../Makefile.avr
 
