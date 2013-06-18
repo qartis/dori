@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 
 #include "i2c.h"
 #include "mpu6050.h"
@@ -12,6 +13,8 @@ uint8_t mpu_init(void)
 
     mpu_reg_write(MPU6050_RA_PWR_MGMT_1, 0x01);
     mpu_reg_write(MPU6050_RA_SMPLRT_DIV, 0x07);
+
+	 printf("reg %d\n", mpu_reg_read(MPU6050_RA_PWR_MGMT_1));
 
     return 0;
 }
