@@ -52,7 +52,8 @@
     X(arm,     0x08) \
     X(heater,  0x09) \
     X(lidar,   0x0a) \
-    X(invalid, 0x1f) \
+    X(fbus,		0x0b) \
+	 X(invalid, 0x1f) \
 
 
 #define TYPE_XFER(type) ((type & 0xf0) == 0x70)
