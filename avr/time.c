@@ -4,10 +4,20 @@
 #include <stdio.h>
 
 #include "time.h"
+#include "mcp2515.h"
 
 volatile uint32_t now;
 volatile uint32_t periodic_prev;
 volatile uint16_t periodic_interval;
+
+void periodic_tophalf(void)
+{
+    if (irq_signal & IRQ_TIMER) {
+        puts_P(PSTR("FUCK OFF!"));
+    }
+
+    irq_signal |= IRQ_TIMER;
+}
 
 ISR(TIMER0_COMPA_vect)
 {
@@ -21,7 +31,7 @@ ISR(TIMER0_COMPA_vect)
         //printf_P(PSTR("time %lu\n"), now);
 
         if (now >= periodic_prev + periodic_interval) {
-            periodic_callback();
+            periodic_tophalf();
             periodic_prev = now;
         }
     }
@@ -48,7 +58,7 @@ void time_set(uint32_t new_time)
 {
     if (new_time > now
       && (new_time - now) > (periodic_prev + periodic_interval)) {
-        periodic_callback();
+        periodic_tophalf();
     }
 
     now = new_time;

@@ -36,44 +36,34 @@ static FILE mystdout = FDEV_SETUP_STREAM(
     _FDEV_SETUP_RW);
 
 /* must be 2^n */
-#define BUFFER_SIZE		64
-static volatile uint8_t uart_ring[BUFFER_SIZE];
+static volatile uint8_t uart_ring[UART_BUF_SIZE];
 static volatile uint8_t ring_in;
 static volatile uint8_t ring_out;
-
-void uart_getbuf(char *dest)
-{
-    uint8_t i;
-
-    i = ring_in;
-
-    while (i != ring_out) {
-        *dest++ = uart_ring[i];
-        i++;
-        i &= BUFFER_SIZE - 1;
-    }
-    *dest = '\0';
-}
 
 #ifndef UART_CUSTOM_INTERRUPT
 ISR(USART_RXC_vect)
 {
-    uart_ring[ring_in] = UDR;
+    uint8_t data = UDR;
+
+    uart_ring[ring_in] = data;
+
+    if (data == '\r')
+        data = '\n';
+
 
     /* if the buffer contains a full line */
-    if (uart_ring[ring_in] == '\n') {
+    if (data == '\n') {
         if (irq_signal & IRQ_UART) {
             puts_P(PSTR("UART OVERRUN"));
         }
         irq_signal |= IRQ_UART;
     }
-
     /* is this wait needed? hopefully not */
     while (!(UCSRA & (1<<UDRE))){ }
     /* echo the char */
     UDR = data;
 
-    ring_in = (ring_in + 1) % BUFFER_SIZE;
+    ring_in = (ring_in + 1) % UART_BUF_SIZE;
 }
 #endif
 
@@ -90,7 +80,7 @@ void uart_init(uint16_t ubrr)
     sei();
 }
 
-#if 0
+
 extern volatile uint8_t timeout_counter;
 int getc_timeout(uint8_t sec) {
     uint8_t c;
@@ -102,7 +92,7 @@ int getc_timeout(uint8_t sec) {
     }
 
     c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % BUFFER_SIZE;
+    ring_out = (ring_out + 1) % UART_BUF_SIZE;
 
 #ifdef ECHO
     putchar(c);
@@ -110,7 +100,6 @@ int getc_timeout(uint8_t sec) {
 
     return (int)c;
 }
-#endif
 
 int uart_getchar(void)
 {
@@ -122,7 +111,7 @@ ignore:
     while (ring_in == ring_out){ }
 
     c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % BUFFER_SIZE;
+    ring_out = (ring_out + 1) % UART_BUF_SIZE;
 
     if (c == '\r'){
 #ifdef ICRNL
@@ -150,7 +139,7 @@ ignore:
         return EOF;
 
     c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % BUFFER_SIZE;
+    ring_out = (ring_out + 1) % UART_BUF_SIZE;
 
     if (c == '\r'){
 #ifdef ICRNL

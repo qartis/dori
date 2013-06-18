@@ -41,16 +41,22 @@
 
 
 #define ID_LIST(X) \
-    X(any  , 0) \
-    X(ping , 1) \
-    X(pong , 2) \
-    X(laser, 3) \
-    X(gps  , 4) \
-    X(temp , 5) \
-    X(time , 6) \
-    X(logger,7) \
-    X(arm,   8) \
-    X(heater,9) \
+    X(any,     0x00) \
+    X(ping,    0x01) \
+    X(pong,    0x02) \
+    X(laser,   0x03) \
+    X(gps,     0x04) \
+    X(temp,    0x05) \
+    X(time,    0x06) \
+    X(sd,      0x07) \
+    X(arm,     0x08) \
+    X(heater,  0x09) \
+    X(lidar,   0x0a) \
+    X(powershot, 0x0b) \
+    X(9dof,    0x0c) \
+    X(compass, 0x0d) \
+	 X(modema,  0x0e) \
+  	 X(modemb,  0x0f) \
     X(invalid, 0x1f) \
 
 
@@ -77,11 +83,19 @@ struct mcp2515_packet_t {
     uint8_t more;
     uint8_t len;
     uint8_t data[9];
+    uint8_t unread;
 };
 
-extern volatile struct mcp2515_packet_t packet;
+enum {
+    IRQ_CAN   = (1 << 0),
+    IRQ_TIMER = (1 << 1),
+    IRQ_UART  = (1 << 2),
+};
+
 extern volatile uint8_t mcp2515_busy;
-void mcp2515_irq_callback(void);
+extern volatile uint8_t irq_signal;
+extern volatile struct mcp2515_packet_t packet;
+void mcp2515_irq(void);
 typedef uint8_t (*mcp2515_xfer_callback_t)(void);
 
 #define BRP0        0
@@ -243,6 +257,7 @@ uint8_t read_register(uint8_t address);
 void write_register(uint8_t address, uint8_t value);
 void modify_register(uint8_t address, uint8_t mask, const uint8_t value);
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data);
+uint8_t mcp2515_send2(struct mcp2515_packet_t *p);
 void load_tx0(uint8_t type, uint8_t id, uint8_t len, const uint8_t *data);
 
 uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, void *data);

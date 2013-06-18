@@ -1,6 +1,0 @@
-1 +3v yellow
-2 CLK blue
-3 ??? green
-4 N/C
-5 Data white
-6 Gnd red

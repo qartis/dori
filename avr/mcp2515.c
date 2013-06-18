@@ -19,11 +19,25 @@ volatile uint8_t mcp2515_busy;
 volatile struct mcp2515_packet_t packet;
 volatile uint8_t stfu;
 volatile uint8_t expecting_xfer_type;
+volatile uint8_t irq_signal;
 
 /* internal */
 static volatile uint8_t received_cts;
 static volatile uint8_t received_cancel;
 static volatile uint8_t received_xfer;
+
+
+
+
+void mcp2515_tophalf(void)
+{
+    if (irq_signal & IRQ_CAN) {
+        puts_P(PSTR("PISS OFF!"));
+    }
+
+    irq_signal |= IRQ_CAN;
+    packet.unread = 1;
+}
 
 inline void mcp2515_select(void)
 {
@@ -136,6 +150,12 @@ void mcp2515_reset(void)
     _delay_ms(10);
 }
 
+uint8_t mcp2515_send2(struct mcp2515_packet_t *p)
+{
+    return mcp2515_send(p->type, p->id,
+        p->len, p->data);
+}
+
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data)
 {
     if (mcp2515_busy) {
@@ -183,6 +203,11 @@ void read_packet(uint8_t regnum)
 {
     uint8_t i;
 
+    if (packet.unread) {
+        puts_P(PSTR("RX OVERRUN"));
+        return;
+    }
+
     mcp2515_select();
     spi_write(MCP_COMMAND_READ);
     spi_write(regnum);
@@ -217,7 +242,8 @@ void read_packet(uint8_t regnum)
     mcp2515_unselect();
 
     if (MY_ID == ID_any) {
-        mcp2515_irq_callback();
+        packet.unread = 1;
+        mcp2515_tophalf();
     } else if (TYPE_XFER(packet.type) && packet.id == MY_ID) {
         /* signal for xfer handler */
         if (packet.type == TYPE_xfer_cts) {
@@ -229,7 +255,8 @@ void read_packet(uint8_t regnum)
             received_xfer = 1;
         }
     } else {
-        mcp2515_irq_callback();
+        packet.unread = 1;
+        mcp2515_tophalf();
         if (packet.type == TYPE_value_periodic && packet.id == ID_time) {
             uint32_t new_time = (uint32_t)packet.data[0] << 24 |
                                 (uint32_t)packet.data[1] << 16 |
@@ -373,7 +400,7 @@ uint8_t mcp2515_check_alive(void)
     return (rc == 0b00100111);
 }
 
-uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *p)
+uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *new_packet)
 {
     uint16_t retry;
 
@@ -388,7 +415,7 @@ uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *p)
         retry = 65535;
         while (--retry > 0) {
             if (received_xfer) {
-                *p = packet;
+                *new_packet = packet;
                 received_xfer = 0;
                 return 0;
             }

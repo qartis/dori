@@ -1,5 +1,7 @@
 #define BAUD(rate) (F_CPU / (rate * 16L) - 1)
 
+#define UART_BUF_SIZE		128
+
 /* avr-libc's putchar/getchar takes a FILE* argument
    which makes every call slightly bigger */
 #undef putchar
@@ -13,6 +15,7 @@ int uart_getchar(void);
 int uart_putchar(char data);
 int getc_timeout(uint8_t sec);
 int getc_wait(volatile uint8_t *signal);
+void uart_getbuf(char *dest);
 char *getline(char *s, int bufsize, FILE *f, volatile uint8_t *signal);
 void prints(int16_t);
 void printu(uint16_t);
