@@ -1,7 +1,7 @@
-class RectObject : public SiteObject {
+class CircleObject : public SiteObject {
 public:
-    RectObject();
-    ~RectObject();
+    CircleObject();
+    ~CircleObject();
 
     void drawWorld();
     void drawScreen(bool drawCenterPoint, int windowWidth, int windowLength, float siteMeterExtents);
@@ -14,6 +14,5 @@ public:
     void toString(char* input);
     void fromString(char* output);
 
-    float worldWidth;
-    float worldLength;
+    float worldRadius;
 };

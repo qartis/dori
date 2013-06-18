@@ -15,9 +15,6 @@ public:
     void toString(char* input);
     void fromString(char* output);
 
-    float worldOffsetX;
-    float worldOffsetY;
-
     float worldWidth;
     float worldLength;
 };

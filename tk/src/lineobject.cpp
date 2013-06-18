@@ -5,7 +5,7 @@
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
 
-LineObject::LineObject() : worldOffsetX(0.0), worldOffsetY(0.0), worldWidth(0.0), worldLength(0.0) {
+LineObject::LineObject() : worldWidth(0.0), worldLength(0.0) {
     type = LINE;
 }
 
@@ -81,17 +81,17 @@ void LineObject::drawScreen(bool drawCenterPoint, int windowWidth, int windowLen
     // (pixels / meter extents for a site) * offset from DORI
     // (windowWidth / 100 meters) * offset from DORI in meters
     // eventually do 100 meters * zoomLevel
-    int screenOffsetX = (float)(windowWidth / MAX_METER_EXTENTS) * worldOffsetX;
-    int screenOffsetY = (float)(windowLength / MAX_METER_EXTENTS) * worldOffsetY;
+    float screenOffsetX = ((float)windowWidth / siteMeterExtents) * (float)worldOffsetX;
+    float screenOffsetY = ((float)windowLength / siteMeterExtents) * (float)worldOffsetY;
 
-    int doriScreenX = windowWidth / 2.0;
-    int doriScreenY = windowLength / 2.0;
+    float doriScreenX = windowWidth / 2.0;
+    float doriScreenY = windowLength / 2.0;
 
-    int lineOriginX = doriScreenX + screenOffsetX;
-    int lineOriginY = doriScreenY - screenOffsetY;
+    float lineOriginX = doriScreenX + screenOffsetX;
+    float lineOriginY = doriScreenY - screenOffsetY;
 
-    int lineWidth = SiteObject::worldToScreen(worldWidth, siteMeterExtents, windowWidth);
-    int lineLength = SiteObject::worldToScreen(worldLength, siteMeterExtents, windowLength);
+    float lineWidth = SiteObject::worldToScreen(worldWidth, siteMeterExtents, windowWidth);
+    float lineLength = SiteObject::worldToScreen(worldLength, siteMeterExtents, windowLength);
 
     // if the object is selected, draw the outline first
     if(selected) {

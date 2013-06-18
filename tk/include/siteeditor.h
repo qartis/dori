@@ -37,11 +37,13 @@ private:
 
     void findObjectsInBoundingBox(float worldStartMouseX, float worldStartMouseY, float worldCurMouseX, float worldCurMouseY, std::vector<SiteObject*> &inputData, std::vector<SiteObject*> &outputData);
 
-    void drawGrid();
+    void drawGrid(int numCells);
+
+    void drawDori();
 
     void createNewObject(SiteObjectType type, int mouseX, int mouseY);
 
-    void sizeObject(SiteObjectType type, int mouseX, int mouseY);
+    void sizeObject(SiteObjectType type, SiteObject *object, int mouseX, int mouseY);
 
     void commitSelectedObjectsToDatabase();
 
@@ -55,8 +57,6 @@ private:
 
     int curMouseX;
     int curMouseY;
-
-    //CircleObject* curSelectedPoint;
 
     float minX;
     float minY;
@@ -85,4 +85,5 @@ private:
     float maxScreenHeight;
 
     float siteMeterExtents;
+    int numGridCells;
 };

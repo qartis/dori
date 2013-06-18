@@ -5,7 +5,7 @@
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
 
-RectObject::RectObject() : worldOffsetX(0.0), worldOffsetY(0.0), worldWidth(0.0), worldLength(0.0) {
+RectObject::RectObject() : worldWidth(0.0), worldLength(0.0) {
     type = RECT;
 }
 
@@ -79,19 +79,18 @@ void RectObject::drawWorld() {
 
 void RectObject::drawScreen(bool drawCenterPoint, int windowWidth, int windowLength, float siteMeterExtents) {
     // (pixels / meter extents for a site) * offset from DORI
-    // (windowWidth / 100 meters) * offset from DORI in meters
-    // eventually do 100 meters * zoomLevel
-    int screenOffsetX = (float)(windowWidth / siteMeterExtents) * worldOffsetX;
-    int screenOffsetY = (float)(windowLength / siteMeterExtents) * worldOffsetY;
+    // (windowWidth / siteMeterExtents) * offset from DORI in meters
+    float screenOffsetX = ((float)windowWidth / siteMeterExtents) * (float)worldOffsetX;
+    float screenOffsetY = ((float)windowLength / siteMeterExtents) * (float)worldOffsetY;
 
-    int doriScreenX = windowWidth / 2.0;
-    int doriScreenY = windowLength / 2.0;
+    float doriScreenX = windowWidth / 2.0;
+    float doriScreenY = windowLength / 2.0;
 
-    int rectOriginX = doriScreenX + screenOffsetX;
-    int rectOriginY = doriScreenY - screenOffsetY;
+    float rectOriginX = doriScreenX + screenOffsetX;
+    float rectOriginY = doriScreenY - screenOffsetY;
 
-    int rectWidth   = SiteObject::worldToScreen(worldWidth, siteMeterExtents, windowWidth);
-    int rectLength  = SiteObject::worldToScreen(worldLength, siteMeterExtents, windowLength);
+    float rectWidth   = SiteObject::worldToScreen(worldWidth, siteMeterExtents, windowWidth);
+    float rectLength  = SiteObject::worldToScreen(worldLength, siteMeterExtents, windowLength);
 
     // if the object is selected, draw the outline first
     if(selected) {
