@@ -1,8 +1,9 @@
-#include <avr/io.h>
 #include <stdio.h>
-#include <util/delay.h>
+#include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
+#include <util/delay.h>
 
 #include "uart.h"
 #include "i2c.h"
