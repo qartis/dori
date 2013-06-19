@@ -1,11 +1,12 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+#include <avr/wdt.h>
 #include <util/delay.h>
 #include <util/atomic.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "time.h"
 #include "uart.h"
@@ -178,37 +179,9 @@ ID_LIST(X)
     printf_P(PSTR("\n"));
 }
 
-void test_pins(void)
-{
-		  DDRC = 0b11111111;        //set all pins of port c as outputs
-		  DDRD = 0b11111111;        //set all pins of port d as outputs
-		  PORTD = 0xff;
-		  PORTC = 0xff;
-}
-		  
 void main(void)
 {
     NODE_INIT();
 
-    for (;;) {
-        puts_P(PSTR("\n" XSTR(MY_ID) "> "));
-
-        while (irq_signal == 0) {};
-
-        if (irq_signal & IRQ_CAN) {
-            can_irq();
-            irq_signal &= ~IRQ_CAN;
-        }
-
-        if (irq_signal & IRQ_TIMER) {
-            periodic_irq();
-            irq_signal &= ~IRQ_TIMER;
-        }
-
-        if (irq_signal & IRQ_UART) {
-            uart_irq();
-            irq_signal &= ~IRQ_UART;
-        }
-
-    }
+    NODE_MAIN();
 }

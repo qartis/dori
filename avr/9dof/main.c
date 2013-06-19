@@ -58,8 +58,9 @@ void periodic_irq(void)
 
 	 if (rc) {
         /* sensor error, reinit */
-	 }
-	 p.type = TYPE_value_periodic;
+    }
+
+    p.type = TYPE_value_periodic;
     p.id = ID_compass;
     p.data[0] = (uint8_t)(mpu.x >> 8);
     p.data[1] = (uint8_t)mpu.x;
@@ -113,7 +114,6 @@ void main(void)
     uint8_t rc;
 
     NODE_INIT();
-
     rc = hmc_init();
     if (rc) {
         puts_P(PSTR("hmc init"));

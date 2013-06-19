@@ -4,9 +4,9 @@ F_CPU = 8000000L
 
 #LDFLAGS = -Wl,-section-start=.bootloader=0x3800 
 
-OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o
+OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o ../fat.o ../sd.o
 
-CFLAGS = -DMY_ID=ID_sd
+CFLAGS = -DMY_ID=ID_sd -D"printf_P(...)"=";" -D"puts_P(...)"=";"
 
 include ../Makefile.avr
 
