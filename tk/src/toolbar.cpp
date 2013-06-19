@@ -127,11 +127,9 @@ Toolbar::Toolbar(int x, int y, int w, int h, const char *label) :
     rectButton->callback(button_cb, this);
 
     circleButton = new Fl_Button(0, rectButton->y() + rectButton->h(), lineButton->w(), lineButton->h());
-    /*
     circleButton->image(circle_pixmap);
     circleButton->type(FL_RADIO_BUTTON);
     circleButton->callback(button_cb, this);
-    */
 
     colorChooser = new ColorChooser(lineButton->w(), 0, w - lineButton->w(), h);
     colorChooser->mode(0);

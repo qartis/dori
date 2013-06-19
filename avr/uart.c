@@ -40,20 +40,6 @@ static volatile uint8_t uart_ring[UART_BUF_SIZE];
 static volatile uint8_t ring_in;
 static volatile uint8_t ring_out;
 
-void uart_getbuf(char *dest)
-{
-    uint8_t i;
-
-    i = ring_in;
-
-    while (i != ring_out) {
-        *dest++ = uart_ring[i];
-        i++;
-        i &= UART_BUF_SIZE - 1;
-    }
-    *dest = '\0';
-}
-
 #ifndef UART_CUSTOM_INTERRUPT
 ISR(USART_RXC_vect)
 {
@@ -64,6 +50,7 @@ ISR(USART_RXC_vect)
     if (data == '\r')
         data = '\n';
 
+
     /* if the buffer contains a full line */
     if (data == '\n') {
         if (irq_signal & IRQ_UART) {
@@ -71,7 +58,6 @@ ISR(USART_RXC_vect)
         }
         irq_signal |= IRQ_UART;
     }
-
     /* is this wait needed? hopefully not */
     while (!(UCSRA & (1<<UDRE))){ }
     /* echo the char */
@@ -94,7 +80,7 @@ void uart_init(uint16_t ubrr)
     sei();
 }
 
-#if 0
+
 extern volatile uint8_t timeout_counter;
 int getc_timeout(uint8_t sec) {
     uint8_t c;
@@ -114,7 +100,6 @@ int getc_timeout(uint8_t sec) {
 
     return (int)c;
 }
-#endif
 
 int uart_getchar(void)
 {

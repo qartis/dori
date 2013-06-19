@@ -9,10 +9,10 @@ SiteObject::SiteObject() {
 }
 
 float SiteObject::screenToWorld(int screenVal, float meterExtents, int pixelExtents) {
-    return (meterExtents / pixelExtents)  * screenVal;
+    return ((float)meterExtents / (float)pixelExtents)  * (float)screenVal;
 }
 
-int SiteObject::worldToScreen(int worldVal, float meterExtents, int pixelExtents) {
+int SiteObject::worldToScreen(float worldVal, float meterExtents, int pixelExtents) {
     return (pixelExtents / meterExtents)  * worldVal;
 }
 

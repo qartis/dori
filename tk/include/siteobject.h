@@ -5,13 +5,13 @@ enum SiteObjectType {
     CIRCLE,
 };
 
-#define MAX_METER_EXTENTS 100.0
+#define MAX_METER_EXTENTS 80.0
 
 class SiteObject {
 public:
 
     static float screenToWorld(int screenVal, float meterExtents, int pixelExtents);
-    static int worldToScreen(int worldVal, float meterExtents, int pixelExtents);
+    static int worldToScreen(float worldVal, float meterExtents, int pixelExtents);
 
     virtual void drawWorld() = 0;
     virtual void drawScreen(bool drawCenterPoint, int screenWidth, int screenHeight, float siteMeterExtents) = 0;
@@ -50,6 +50,9 @@ public:
     char special[128];
 
     bool selected;
+
+    float worldOffsetX;
+    float worldOffsetY;
 
     SiteObjectType type;
 };

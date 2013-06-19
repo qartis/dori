@@ -55,6 +55,8 @@
     X(powershot, 0x0b) \
     X(9dof,    0x0c) \
     X(compass, 0x0d) \
+	 X(modema,  0x0e) \
+  	 X(modemb,  0x0f) \
     X(invalid, 0x1f) \
 
 

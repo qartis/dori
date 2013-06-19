@@ -19,7 +19,7 @@ void uart_irq(void)
 {
     char buf[UART_BUF_SIZE];
 
-    uart_getbuf(buf);
+    fgets(buf, sizeof(buf), stdin);
 
     parse_nmea(buf);
 }
@@ -61,12 +61,12 @@ void periodic_irq(void)
 
     p.type = TYPE_value_periodic;
     p.id = ID_compass;
-    p.data[0] = (uint8_t)(hmc.x >> 8);
-    p.data[1] = (uint8_t)hmc.x;
-    p.data[2] = (uint8_t)(hmc.y >> 8);
-    p.data[3] = (uint8_t)hmc.y;
-    p.data[4] = (uint8_t)(hmc.z >> 8);
-    p.data[5] = (uint8_t)hmc.z;
+    p.data[0] = (uint8_t)(mpu.x >> 8);
+    p.data[1] = (uint8_t)mpu.x;
+    p.data[2] = (uint8_t)(mpu.y >> 8);
+    p.data[3] = (uint8_t)mpu.y;
+    p.data[4] = (uint8_t)(mpu.z >> 8);
+    p.data[5] = (uint8_t)mpu.z;
     p.len = 6;
     rc = mcp2515_send2(&p);
     if (rc) {
@@ -76,6 +76,7 @@ void periodic_irq(void)
 
 void can_irq(void)
 {
+		  packet.unread = 0;
 }
 
 void main(void)

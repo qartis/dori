@@ -13,14 +13,14 @@
 #include "siteobject.h"
 #include "lineobject.h"
 #include "rectobject.h"
-//#include "circleobject.h"
+#include "circleobject.h"
 #include "colorchooser.h"
 #include "toolbar.h"
 #include "siteeditor.h"
 #include <unistd.h>
 
 #define CUSTOM_FONT 69
-#define SELECTION_DISTANCE 30
+#define SELECTION_DISTANCE 20
 
 static void window_cb(Fl_Widget *widget, void *data) {
     (void)data;
@@ -49,14 +49,14 @@ int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
 
     switch(type) {
     case LINE:
-        //obj = new LineObject;
-        //break;
+        obj = new LineObject;
+        break;
     case RECT:
         obj = new RectObject;
         break;
     case CIRCLE:
-        //obj = new CircleObject;
-        //break;
+        obj = new CircleObject;
+        break;
     default:
         fprintf(stderr, "ERROR: undefined object type\n");
     }
@@ -99,8 +99,8 @@ static void clickedObjTypeCallback(void *data) {
     siteeditor->clearSelectedObjects();
 }
 
-SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxScreenWidth(w), maxScreenHeight(h), siteMeterExtents(MAX_METER_EXTENTS) {
-    //Fl::set_font(CUSTOM_FONT, "OCRB");
+SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxScreenWidth(w), maxScreenHeight(h), numGridCells(4) {
+    Fl::set_font(CUSTOM_FONT, "OCRB");
     end();
     toolbar = new Toolbar(h, 0, 200, 200);
 
@@ -113,6 +113,8 @@ SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Doubl
     toolbar->show();
 
     loadSiteObjects("data/siteobjects.db");
+
+    siteMeterExtents = numGridCells / 2.0;
 }
 
 SiteEditor::~SiteEditor() {
@@ -174,7 +176,7 @@ void SiteEditor::findObjectsInBoundingBox(float worldStartMouseX, float worldSta
             inputData[i]->select();
         }
         else if(centerX <= worldStartMouseX && centerX >= worldCurMouseX &&
-           centerY >= worldStartMouseY && centerY <= worldCurMouseY) {
+                centerY >= worldStartMouseY && centerY <= worldCurMouseY) {
             outputData.push_back(inputData[i]);
             inputData[i]->select();
         }
@@ -207,53 +209,60 @@ void SiteEditor::loadSiteObjects(const char * db_name) {
 }
 
 void SiteEditor::createNewObject(SiteObjectType type, int mouseX, int mouseY) {
-    if(toolbar->curSelectedObjType == RECT) {
+    if(type == RECT) {
         newSiteObject = new RectObject;
-        RectObject *newRectObject = (RectObject*)newSiteObject;
-
-        int mouseDistX = mouseX - doriScreenX();
-        int mouseDistY = doriScreenY() - mouseY;
-
-        newRectObject->worldOffsetX = SiteObject::screenToWorld(mouseDistX, siteMeterExtents, w());
-        newRectObject->worldOffsetY = SiteObject::screenToWorld(mouseDistY, siteMeterExtents, h());
     }
-    else if(toolbar->curSelectedObjType == LINE) {
+    else if(type == LINE) {
         newSiteObject = new LineObject;
-        LineObject *newLineObject = (LineObject*)newSiteObject;
 
-        int mouseDistX = mouseX - doriScreenX();
-        int mouseDistY = doriScreenY() - mouseY;
-
-        newLineObject->worldOffsetX = SiteObject::screenToWorld(mouseDistX, siteMeterExtents, w());
-        newLineObject->worldOffsetY = SiteObject::screenToWorld(mouseDistY, siteMeterExtents, h());
     }
+    else if(type == CIRCLE) {
+        newSiteObject = new CircleObject;
+    }
+
+    int mouseDistX = mouseX - doriScreenX();
+    int mouseDistY = doriScreenY() - mouseY;
+
+    newSiteObject->worldOffsetX = SiteObject::screenToWorld(mouseDistX, siteMeterExtents, w());
+    newSiteObject->worldOffsetY = SiteObject::screenToWorld(mouseDistY, siteMeterExtents, h());
 }
 
-void SiteEditor::sizeObject(SiteObjectType type, int mouseX, int mouseY) {
+void SiteEditor::sizeObject(SiteObjectType type, SiteObject *object, int mouseX, int mouseY) {
+    int originX = doriScreenX() + SiteObject::worldToScreen(object->worldOffsetX, siteMeterExtents, w());
+    int originY = doriScreenY() - SiteObject::worldToScreen(object->worldOffsetY, siteMeterExtents, h());
+
+    int mouseDistX = mouseX - originX;
+    int mouseDistY = originY - mouseY;
+
     if(toolbar->curSelectedObjType == RECT) {
         RectObject *newRectObject = (RectObject*)newSiteObject;
-
-        int rectOriginX = doriScreenX() + SiteObject::worldToScreen(newRectObject->worldOffsetX, siteMeterExtents, w());
-        int rectOriginY = doriScreenY() - SiteObject::worldToScreen(newRectObject->worldOffsetY, siteMeterExtents, h());
-
-        int mouseDistX = mouseX - rectOriginX;
-        int mouseDistY = rectOriginY - mouseY;
 
         newRectObject->worldWidth  = SiteObject::screenToWorld(mouseDistX, siteMeterExtents, w());
         newRectObject->worldLength = SiteObject::screenToWorld(mouseDistY, siteMeterExtents, h());
     }
     else if(toolbar->curSelectedObjType == LINE) {
-        LineObject *newLineObject = (LineObject*)newSiteObject; int doriX = w() / 2;
-        int doriY = h() / 2;
-
-        int lineOriginX = doriX + SiteObject::worldToScreen(newLineObject->worldOffsetX, siteMeterExtents, w());
-        int lineOriginY = doriY - SiteObject::worldToScreen(newLineObject->worldOffsetY, siteMeterExtents, h());
-
-        int mouseDistX = mouseX - lineOriginX;
-        int mouseDistY = lineOriginY - mouseY;
+        LineObject *newLineObject = (LineObject*)newSiteObject;
 
         newLineObject->worldWidth  = SiteObject::screenToWorld(mouseDistX, siteMeterExtents, w());
         newLineObject->worldLength = SiteObject::screenToWorld(mouseDistY, siteMeterExtents, h());
+    }
+    else if(toolbar->curSelectedObjType == CIRCLE) {
+        CircleObject *newCircleObject = (CircleObject*)newSiteObject;
+
+        int maxMouseDist;
+        int windowSize;
+
+        // Take the max mouse distance as the radius
+        if(mouseDistX > mouseDistY) {
+            maxMouseDist = mouseDistX;
+            windowSize = w();
+        }
+        else {
+            maxMouseDist = mouseDistY;
+            windowSize = h();
+        }
+
+        newCircleObject->worldRadius = SiteObject::screenToWorld(maxMouseDist, siteMeterExtents, windowSize);
     }
 }
 
@@ -321,126 +330,147 @@ int SiteEditor::handle(int event) {
     curMouseY = (Fl::event_y_root() - y());
 
     if(Fl::event_button()) {
-        if(event == FL_PUSH) {
-            int distance = 0;
+        if(Fl::event_button() == FL_LEFT_MOUSE) {
+            if(event == FL_PUSH) {
+                int distance = 0;
 
-            if(toolbar->curSelectedObjType == UNDEFINED) {
-                SiteObject* curSelectedObject = findClosestObject(curMouseX, curMouseY, scaledSelectionDistance(), siteObjects);
-
-                selectionStartMouseX = curMouseX;
-                selectionStartMouseY = curMouseY;
-
-                if(curSelectedObject == NULL) {
-                    clearSelectedObjects();
-                    curState = SELECTING;
-                }
-                else {
-                    // Check if the currently selected object is already in the list of selected objects
-                    // If it isn't, then this should be a new selection, so clear out the list */
-                    if(!isObjectSelected(curSelectedObject)) {
-                        clearSelectedObjects();
-                        selectedObjects.push_back(curSelectedObject);
-                        curSelectedObject->select();
-                        curState = SELECTED;
-                        redraw();
-                    }
-                }
-                return 1;
-            }
-            else { // if we're drawing
-                clearSelectedObjects();
-                curState = DRAWING;
-                createNewObject(toolbar->curSelectedObjType, curMouseX, curMouseY);
-
-                if(newSiteObject) {
-                    newSiteObject->r = toolbar->colorChooser->r() * 255.0;
-                    newSiteObject->g = toolbar->colorChooser->g() * 255.0;
-                    newSiteObject->b = toolbar->colorChooser->b() * 255.0;
-                }
-
-                redraw();
-                return 1;
-            }
-        }
-        else if(event == FL_DRAG) {
-            if(curState == DRAWING) {
-                sizeObject(toolbar->curSelectedObjType, curMouseX, curMouseY);
-                redraw();
-                return 1;
-            }
-            else if(curState == SELECTED) {
-                int mouseDistX = curMouseX - selectionStartMouseX;
-                int mouseDistY = selectionStartMouseY - curMouseY;
-
-                for(unsigned i = 0; i < selectedObjects.size(); i++) {
-                    float originX = selectedObjects[i]->getWorldOffsetCenterX();
-                    float originY = selectedObjects[i]->getWorldOffsetCenterY();
-
-                    float offsetX = SiteObject::screenToWorld(mouseDistX, siteMeterExtents, w());
-                    float offsetY = SiteObject::screenToWorld(mouseDistY, siteMeterExtents, h());
-
-                    selectedObjects[i]->setWorldOffsetCenterX(originX + offsetX);
-                    selectedObjects[i]->setWorldOffsetCenterY(originY + offsetY);
+                if(toolbar->curSelectedObjType == UNDEFINED) {
+                    SiteObject* curSelectedObject = findClosestObject(curMouseX, curMouseY, scaledSelectionDistance(), siteObjects);
 
                     selectionStartMouseX = curMouseX;
                     selectionStartMouseY = curMouseY;
+
+                    if(curSelectedObject == NULL) {
+                        clearSelectedObjects();
+                        curState = SELECTING;
+                    }
+                    else {
+                        // Check if the currently selected object is already in the list of selected objects
+                        // If it isn't, then this should be a new selection, so clear out the list */
+                        if(!isObjectSelected(curSelectedObject)) {
+                            clearSelectedObjects();
+                            selectedObjects.push_back(curSelectedObject);
+                            curSelectedObject->select();
+                            curState = SELECTED;
+                            redraw();
+                        }
+                    }
+                    return 1;
                 }
+                else { // if we're drawing
+                    clearSelectedObjects();
+                    curState = DRAWING;
+                    createNewObject(toolbar->curSelectedObjType, curMouseX, curMouseY);
 
-                redraw();
-                return 1;
-            }
-            else { // we're not drawing and we're not moving objects
-                   // so we must be drawing a selection box
-                curState = SELECTING;
-                redraw();
-                return 1;
-            }
-        }
-        else if(event == FL_RELEASE) {
-            if(curState == DRAWING) {
-                curState = WAITING;
-                redraw();
+                    if(newSiteObject) {
+                        newSiteObject->r = toolbar->colorChooser->r() * 255.0;
+                        newSiteObject->g = toolbar->colorChooser->g() * 255.0;
+                        newSiteObject->b = toolbar->colorChooser->b() * 255.0;
+                    }
 
-                char data[512];
-                char query[512];
-                newSiteObject->toString(data);
-
-                sprintf(query, "INSERT INTO objects (siteid, type, data) VALUES (%d, %d, \"%s\");", 1, newSiteObject->type, data);
-                int rc = sqlite3_exec(db, query, NULL, NULL, NULL);
-                if(SQLITE_OK != rc) {
-                    fprintf(stderr, "Couldn't insert object entry into db\n");
+                    redraw();
+                    return 1;
                 }
-
-                sqlite_int64 rowid = sqlite3_last_insert_rowid(db);
-                newSiteObject->id = rowid;
-                siteObjects.push_back(newSiteObject);
-
-                newSiteObject = NULL;
-                return 1;
             }
-            else if(curState == SELECTED) {
-                commitSelectedObjectsToDatabase();
-                redraw();
-                return 1;
-            }
-            else { // done drawing the selection box
-                float worldStartMouseX = SiteObject::screenToWorld(selectionStartMouseX - doriScreenX(), siteMeterExtents, w());
-                float worldStartMouseY = SiteObject::screenToWorld(doriScreenY() - selectionStartMouseY, siteMeterExtents, h());
-
-                float worldCurMouseX = SiteObject::screenToWorld(curMouseX - doriScreenX(), siteMeterExtents, w());
-                float worldCurMouseY = SiteObject::screenToWorld(doriScreenY() - curMouseY, siteMeterExtents, h());
-
-                findObjectsInBoundingBox(worldStartMouseX, worldStartMouseY, worldCurMouseX, worldCurMouseY, siteObjects, selectedObjects);
-                if(selectedObjects.size() > 0) {
-                    curState = SELECTED;
+            else if(event == FL_DRAG) {
+                if(curState == DRAWING) {
+                    sizeObject(toolbar->curSelectedObjType, newSiteObject, curMouseX, curMouseY);
+                    redraw();
+                    return 1;
                 }
-                else {
+                else if(curState == SELECTED) {
+                    int mouseDistX = curMouseX - selectionStartMouseX;
+                    int mouseDistY = selectionStartMouseY - curMouseY;
+
+                    for(unsigned i = 0; i < selectedObjects.size(); i++) {
+                        float originX = selectedObjects[i]->getWorldOffsetCenterX();
+                        float originY = selectedObjects[i]->getWorldOffsetCenterY();
+
+                        float offsetX = SiteObject::screenToWorld(mouseDistX, siteMeterExtents, w());
+                        float offsetY = SiteObject::screenToWorld(mouseDistY, siteMeterExtents, h());
+
+                        selectedObjects[i]->setWorldOffsetCenterX(originX + offsetX);
+                        selectedObjects[i]->setWorldOffsetCenterY(originY + offsetY);
+
+                        selectionStartMouseX = curMouseX;
+                        selectionStartMouseY = curMouseY;
+                    }
+
+                    redraw();
+                    return 1;
+                }
+                else { // we're not drawing and we're not moving objects
+                    // so we must be drawing a selection box
+                    curState = SELECTING;
+                    redraw();
+                    return 1;
+                }
+            }
+            else if(event == FL_RELEASE) {
+                if(curState == DRAWING) {
                     curState = WAITING;
+                    redraw();
+
+                    char data[512];
+                    char query[512];
+                    newSiteObject->toString(data);
+
+                    sprintf(query, "INSERT INTO objects (siteid, type, data) VALUES (%d, %d, \"%s\");", 1, newSiteObject->type, data);
+                    int rc = sqlite3_exec(db, query, NULL, NULL, NULL);
+                    if(SQLITE_OK != rc) {
+                        fprintf(stderr, "Couldn't insert object entry into db\n");
+                    }
+
+                    sqlite_int64 rowid = sqlite3_last_insert_rowid(db);
+                    newSiteObject->id = rowid;
+                    siteObjects.push_back(newSiteObject);
+
+                    newSiteObject = NULL;
+                    return 1;
                 }
-                redraw();
-                return 1;
+                else if(curState == SELECTED) {
+                    commitSelectedObjectsToDatabase();
+                    redraw();
+                    return 1;
+                }
+                else { // done drawing the selection box
+                    float worldStartMouseX = SiteObject::screenToWorld(selectionStartMouseX - doriScreenX(), siteMeterExtents, w());
+                    float worldStartMouseY = SiteObject::screenToWorld(doriScreenY() - selectionStartMouseY, siteMeterExtents, h());
+
+                    float worldCurMouseX = SiteObject::screenToWorld(curMouseX - doriScreenX(), siteMeterExtents, w());
+                    float worldCurMouseY = SiteObject::screenToWorld(doriScreenY() - curMouseY, siteMeterExtents, h());
+
+                    findObjectsInBoundingBox(worldStartMouseX, worldStartMouseY, worldCurMouseX, worldCurMouseY, siteObjects, selectedObjects);
+                    if(selectedObjects.size() > 0) {
+                        curState = SELECTED;
+                    }
+                    else {
+                        curState = WAITING;
+                    }
+                    redraw();
+                    return 1;
+                }
             }
         }
+        else if(event == FL_MOUSEWHEEL) {
+            if(Fl::event_dy() > 0 && numGridCells < w() / 10) {
+                numGridCells += 4;
+            }
+            else if(numGridCells > 4) {
+                numGridCells -= 4;
+            }
+
+            siteMeterExtents = numGridCells / 2.0;
+            redraw();
+            return 1;
+        }
+    }
+
+    // Redraw on move so that we can update the mouse distance
+    // TODO: Change this to damage instead of redrawing the whole thing
+    if(event == FL_MOVE) {
+        redraw();
+        return 1;
     }
 
     if(event == FL_KEYDOWN) {
@@ -507,35 +537,83 @@ int SiteEditor::handle(int event) {
     return Fl_Window::handle(event);
 }
 
-void SiteEditor::drawGrid() {
-    // horz lines
-    int offset = 5;
-
-    fl_color(FL_GRAY);
-    fl_line_style(FL_DASH, 1);
-    for(int i = offset; i < h(); i+=offset) {
-        fl_line(0, i*offset, w(), i*offset);
+void SiteEditor::drawGrid(int numCells) {
+    float pixelsPerCellX = ((float)w() / (float)numCells);
+    if(pixelsPerCellX < 5) {
+        pixelsPerCellX = 5;
     }
 
+    float pixelsPerCellY = ((float)h() / (float)numCells);
+    if(pixelsPerCellX < 5) {
+        pixelsPerCellY = 5;
+    }
 
+    // horz lines
+    fl_color(FL_LIGHT1);
+    fl_line_style(FL_DASH, 1);
+    for(int i = 0; i < numCells; i++) {
+        fl_line(0, i * pixelsPerCellY, w(), i * pixelsPerCellY);
+    }
+
+    char textBuffer[32];
+    int textWidth, textHeight;
+    fl_font(CUSTOM_FONT, 15);
+
+    // We want to draw the meter markers in distance away from DORI
+    // The number of gridlines specify the number of half meter indications
+    // Therefore our first number should be gridlines / 4
+    // And we should decrement by 1 for every two gridlines
+    // until we hit the middle line, then we increase again
+    int index = numCells / 4;
+    int diff = -1;
+
+    fl_color(FL_WHITE);
     // vert lines
-    for(int i = offset; i < w(); i+=offset) {
-        fl_line(i*offset, 0, i*offset, h());
+    for(int i = 0; i <= numCells; i++) {
+        fl_line_style(FL_DASH, 1);
+        fl_line(i * pixelsPerCellX, 0, i * pixelsPerCellX, h());
+
+        if(i % 2 == 0) {
+            int offset = 7;
+
+            sprintf(textBuffer, "%d", index);
+            fl_measure(textBuffer, textWidth, textHeight, 0);
+
+            if(index == 0) {
+                diff = 1;
+            }
+            else {
+                if(diff > 0) {
+                    offset = -(textWidth + 7);
+                }
+
+                fl_draw(textBuffer, i * pixelsPerCellX + offset, doriScreenY() - 7);
+            }
+
+            index += diff;
+        }
+
     }
 }
+
+void SiteEditor::drawDori() {
+    // draw DORI
+    float offsetX = SiteObject::worldToScreen(1.0, siteMeterExtents, w());
+    float offsetY = SiteObject::worldToScreen(1.0, siteMeterExtents, h());
+
+    fl_draw_box(FL_FLAT_BOX, doriScreenX() - (offsetX - 5), doriScreenY() - offsetY, (offsetX - 5) * 2, offsetY * 2, FL_RED);
+
+    fl_draw_box(FL_FLAT_BOX, doriScreenX() - offsetX, doriScreenY() - offsetY, offsetX * 0.5, offsetY * 2, FL_BLACK);
+    fl_draw_box(FL_FLAT_BOX, doriScreenX() + (offsetX * 0.5), doriScreenY() - offsetY, offsetX * 0.5, offsetY * 2, FL_BLACK);
+}
+
 
 void SiteEditor::draw() {
     fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), fl_rgb_color(25, 25, 25));
 
-    drawGrid();
+    drawDori();
 
-    fl_line_style(0,2);
-
-    fl_color(FL_WHITE);
-    fl_line_style(FL_SOLID, 5);
-
-    // draw DORI
-    fl_draw_box(FL_FLAT_BOX, (295.0 / maxScreenWidth) * w(), (297.0 / maxScreenHeight) * h(), (10.0 / maxScreenWidth) * w(), (8.0 / maxScreenHeight) * h(), FL_RED);
+    drawGrid(numGridCells);
 
     for(unsigned i = 0; i < siteObjects.size(); i++) {
         siteObjects[i]->drawScreen(true, w(), h(), siteMeterExtents);
@@ -564,4 +642,34 @@ void SiteEditor::draw() {
     }
 
     fl_line_style(0);
+
+
+    char textBuffer[128];
+    int textWidth, textHeight;
+
+    fl_font(CUSTOM_FONT, 15);
+
+    float worldCurMouseX = SiteObject::screenToWorld(curMouseX - doriScreenX(), siteMeterExtents, w());
+    float worldCurMouseY = SiteObject::screenToWorld(doriScreenY() - curMouseY, siteMeterExtents, h());
+
+    float worldDist = sqrt((worldCurMouseX * worldCurMouseX) +
+                           (worldCurMouseY * worldCurMouseY)
+                           );
+
+
+    sprintf(textBuffer, "%.3fm", worldDist);
+    fl_measure(textBuffer, textWidth, textHeight, 0);
+    fl_draw_box(FL_FLAT_BOX, 5.0, 5.0, textWidth, textHeight, FL_BLACK);
+
+    fl_color(FL_WHITE);
+    fl_draw(textBuffer, 5.0, textHeight);
+
+    // Drawing line to mouse cursor
+    fl_line_style(FL_DASH, 1);
+    fl_color(FL_DARK1);
+    fl_begin_loop();
+    fl_vertex(doriScreenX(), doriScreenY());
+    fl_vertex(curMouseX, curMouseY);
+    fl_end_loop();
 }
+

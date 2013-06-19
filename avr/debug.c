@@ -5,8 +5,8 @@
 
 void debug_init(void)
 {
-    DDRB |= (1 << PORTB0);
-    PORTB |= (1 << PORTB0);
+    DDRC |= (1 << PORTC0);
+    PORTC |= (1 << PORTC0);
 }
 
 void debug(const char *fmt, ...)
@@ -22,17 +22,17 @@ void debug(const char *fmt, ...)
     char *str = buf;
 
     while (*str) {
-        PORTB &= ~(1 << PORTB0);
+        PORTC &= ~(1 << PORTC0);
         _delay_us(100);
         for (i = 0; i < 8; i++){
             if (*str & (1 << i)) {
-                PORTB |= (1 << PORTB0);
+                PORTC |= (1 << PORTC0);
             } else {
-                PORTB &= ~(1 << PORTB0);
+                PORTC &= ~(1 << PORTC0);
             }
             _delay_us(100);
         }
-        PORTB |= (1 << PORTB0);
+        PORTC |= (1 << PORTC0);
         _delay_us(200);
         str++;
     }

@@ -155,6 +155,7 @@ uint8_t mcp2515_send2(struct mcp2515_packet_t *p)
     return mcp2515_send(p->type, p->id,
         p->len, p->data);
 }
+
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data)
 {
     if (mcp2515_busy) {
