@@ -57,6 +57,8 @@
     X(compass, 0x0d) \
 	 X(modema,  0x0e) \
   	 X(modemb,  0x0f) \
+	 X(accel,   0x10) \
+	 X(gyro,    0x11) \
     X(invalid, 0x1f) \
 
 
