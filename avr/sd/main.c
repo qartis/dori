@@ -4,8 +4,10 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-#include <util/delay.h>
 #include <avr/wdt.h>
+#include <util/delay.h>
+
+#define printf_P(...) ;
 
 #include "sd.h"
 #include "fat.h"
@@ -13,6 +15,7 @@
 #include "spi.h"
 #include "mcp2515.h"
 #include "time.h"
+#include "node.h"
 
 #define NUM_LOGS 64
 #define LOG_INVALID 0xff
@@ -23,9 +26,12 @@ uint8_t cur_log;
 uint32_t tmp_write_pos;
 uint32_t log_write_pos;
 
-void periodic_callback(void)
+void uart_irq(void)
 {
-    (void)0;
+}
+
+void periodic_irq(void)
+{
 }
 
 uint8_t fat_init(void)
@@ -59,7 +65,7 @@ uint8_t find_free_log_after(uint8_t start)
 
     for (i = (start + 1) % NUM_LOGS; i != start; i = (i + 1) % NUM_LOGS) {
         printf_P(PSTR("Trying %d\n"), i);
-        snprintf(buf, sizeof(buf), "%d.LEN", i);
+        //snprintf(buf, sizeof(buf), "%d.LEN", i);
         rc = pf_open(buf);
         if (rc) { /* WTF */
             printf_P(PSTR("open lg er %s\n"), buf);
@@ -124,7 +130,7 @@ uint8_t cd(void)
 }
 
 
-void mcp2515_irq_callback(void)
+void can_irq(void)
 {
     uint8_t i;
     static uint8_t page_buf[512];
@@ -444,7 +450,6 @@ uint8_t ls(uint8_t dest)
     return 0;
 }
 
-
 void main(void)
 {
     uint8_t rc;
@@ -452,16 +457,17 @@ void main(void)
     uint32_t offset;
     struct mcp2515_packet_t p;
 
-    wdt_disable();
-
-    uart_init(BAUD(38400));
-    spi_init();
-    time_init();
-
-    _delay_ms(200);
-    printf_P(PSTR("sd init\n"));
+    NODE_INIT();
 
 
+    //uart_init(BAUD(38400));
+    //spi_init();
+    //time_init();
+
+    //_delay_ms(200);
+    //printf_P(PSTR("sd init\n"));
+
+/*
 reinit:
     rc = mcp2515_init();
     if (rc) {
@@ -469,6 +475,7 @@ reinit:
         _delay_ms(1000);
         goto reinit;
     }
+    */
 
     rc = fat_init();
     if (rc) {
@@ -488,6 +495,27 @@ reinit:
         goto reinit;
     }
 
+    for (;;) {
+        printf_P(PSTR(XSTR(MY_ID) "> "));
+
+        while (irq_signal == 0) {};
+
+        if (irq_signal & IRQ_CAN) {
+            can_irq();
+            irq_signal &= ~IRQ_CAN;
+        }
+
+        if (irq_signal & IRQ_TIMER) {
+            periodic_irq();
+            irq_signal &= ~IRQ_TIMER;
+        }
+
+        if (irq_signal & IRQ_UART) {
+            uart_irq();
+            irq_signal &= ~IRQ_UART;
+        }
+    }
+#if 0
     for (;;) {
         printf_P(PSTR("> "));
 
@@ -532,4 +560,5 @@ reinit:
             break;
         }
     }
+#endif
 }

@@ -1,16 +1,16 @@
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <util/delay.h>
-#include <util/atomic.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <avr/io.h>
+#include <avr/wdt.h>
+#include <avr/pgmspace.h>
+#include <util/delay.h>
+#include <util/atomic.h>
 
 #include "node.h"
 #include "uart.h"
 #include "mcp2515.h"
 #include "time.h"
-#include "output.h"
 #include "ds18b20.h"
 #include "onewire.h"
 #include "spi.h"
@@ -49,14 +49,14 @@ uint8_t read_temp(uint8_t channel, int16_t *temp)
 
 void uart_irq(void)
 {
-    char buf[64];
+    char buf[UART_BUF_SIZE];
 
-    uart_getbuf(buf);
+    fgets(buf, sizeof(buf), stdin);
 
     printf("got: '%s'\n", buf);
 }
 
-void timer_irq(void)
+void periodic_irq(void)
 {
     uint8_t rc;
     int16_t temp;
@@ -124,24 +124,5 @@ void main(void)
 {
     NODE_INIT();
 
-    for (;;) {
-        printf_P(PSTR(XSTR(MY_ID) "> "));
-
-        while (irq_signal == 0) {};
-
-        if (irq_signal & IRQ_CAN) {
-            can_irq();
-            irq_signal &= ~IRQ_CAN;
-        }
-
-        if (irq_signal & IRQ_TIMER) {
-            timer_irq();
-            irq_signal &= ~IRQ_TIMER;
-        }
-
-        if (irq_signal & IRQ_UART) {
-            uart_irq();
-            irq_signal &= ~IRQ_UART;
-        }
-    }
+    NODE_MAIN();
 }

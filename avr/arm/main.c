@@ -1,11 +1,12 @@
-#include <ctype.h>
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <util/delay.h>
-#include <util/atomic.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+#include <avr/io.h>
+#include <avr/pgmspace.h>
+#include <avr/wdt.h>
+#include <util/delay.h>
+#include <util/atomic.h>
 
 #include "uart.h"
 #include "spi.h"
@@ -71,24 +72,5 @@ void main(void)
     NODE_INIT();
     adc_init();
 
-    for (;;) {
-        printf_P(PSTR(XSTR(MY_ID) "> "));
-
-        while (irq_signal == 0) {};
-
-        if (irq_signal & IRQ_CAN) {
-            can_irq();
-            irq_signal &= ~IRQ_CAN;
-        }
-
-        if (irq_signal & IRQ_TIMER) {
-            periodic_irq();
-            irq_signal &= ~IRQ_TIMER;
-        }
-
-        if (irq_signal & IRQ_UART) {
-            uart_irq();
-            irq_signal &= ~IRQ_UART;
-        }
-    }
+    NODE_MAIN();
 }

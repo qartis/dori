@@ -1,11 +1,12 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include <util/delay.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "powershot.h"
 #include "uart.h"
@@ -35,9 +36,9 @@ void can_irq(void)
 
 void uart_irq(void)
 {
-    char buf[64];
+    char buf[UART_BUF_SIZE];
 
-    uart_getbuf(buf);
+    fgets(buf, sizeof(buf), stdin);
 
     int pin = buf[1] - '0';
 
@@ -149,24 +150,5 @@ int main(void) {
     PORTB = 0;
     PORTC = 0;
 
-    for (;;) {
-        printf_P(PSTR(XSTR(MY_ID) "> "));
-
-        while (irq_signal == 0) {};
-
-        if (irq_signal & IRQ_CAN) {
-            can_irq();
-            irq_signal &= ~IRQ_CAN;
-        }
-
-        if (irq_signal & IRQ_TIMER) {
-            periodic_irq();
-            irq_signal &= ~IRQ_TIMER;
-        }
-
-        if (irq_signal & IRQ_UART) {
-            uart_irq();
-            irq_signal &= ~IRQ_UART;
-        }
-    }
+    NODE_MAIN();
 }
