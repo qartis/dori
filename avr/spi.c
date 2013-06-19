@@ -1,7 +1,5 @@
 #include <avr/io.h>
 
-#define printf_P(...) ;
-
 #include "spi.h"
 
 void spi_init(void)

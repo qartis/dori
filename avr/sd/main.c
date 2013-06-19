@@ -7,8 +7,6 @@
 #include <avr/wdt.h>
 #include <util/delay.h>
 
-#define printf_P(...) ;
-
 #include "sd.h"
 #include "fat.h"
 #include "uart.h"
