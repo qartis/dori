@@ -1,7 +1,6 @@
 #include <avr/io.h>
 #include <stdint.h>
 #include <util/delay.h>
-#include <stdio.h>
 
 #include "sd.h"
 #include "spi.h"
