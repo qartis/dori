@@ -18,13 +18,19 @@ void spi_init(void)
            (0 << CPHA) | /* Clock Phase: sample on rising SCK edge */
            (0 << SPR1) | /* Clock Frequency: f_OSC / 128 */
            (0 << SPR0);
-    spi_high();
+    spi_low();
 }
 
 void spi_low(void)
 {
     SPCR |= (1 << SPR1) | (1 << SPR0);
     SPSR &= ~(1 << SPI2X);
+}   
+   
+void spi_medium(void)
+{
+    spi_low();
+    SPSR |= (1 << SPI2X);   
 }   
    
 void spi_high(void)
