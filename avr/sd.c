@@ -33,6 +33,7 @@ void sd_init(void)
 {
     DDRC |= (1 << PORTC5);
     SD_DESELECT();
+    spi_medium();
 }
 
 uint8_t send_cmd (
