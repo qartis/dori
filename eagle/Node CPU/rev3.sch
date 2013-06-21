@@ -9756,22 +9756,22 @@ Source: 008-0260-0_E.pdf</description>
 <part name="MOSI" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="MISO" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="SCK" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PC2" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="PC0" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="PC1" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PC5" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PC6" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PC7" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PC8" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PC4" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="PC2" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="PC3" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="PC4" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="PC5" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="ADC6" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="ADC7" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="PD0" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="PD1" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="PD2" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="PD3" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="PD4" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="PD5" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="PD6" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="PD7" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PD8" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PD3" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PD2" library="pinhead" deviceset="PINHD-1X1" device=""/>
-<part name="PD1" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="VCC" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="GND" library="pinhead" deviceset="PINHD-1X1" device=""/>
 <part name="TX" library="led" deviceset="LED" device="CHIP-LED0603"/>
@@ -9795,6 +9795,20 @@ Source: 008-0260-0_E.pdf</description>
 <part name="JP1" library="SparkFun-Connectors" deviceset="M02" device="3.5MM"/>
 <part name="VCC_1" library="pinhead" deviceset="PINHD-1X1" device="" value="VCC"/>
 <part name="GND_1" library="pinhead" deviceset="PINHD-1X1" device=""/>
+<part name="C6" library="resistor" deviceset="C-EU" device="C0603" value="0.1uF">
+<attribute name="MF" value=""/>
+<attribute name="MPN" value=""/>
+<attribute name="OC_NEWARK" value="unknown"/>
+</part>
+<part name="P+9" library="supply1" deviceset="VCC" device=""/>
+<part name="GND2" library="supply1" deviceset="GND" device=""/>
+<part name="GND9" library="supply1" deviceset="GND" device=""/>
+<part name="P+10" library="supply1" deviceset="VCC" device=""/>
+<part name="C7" library="resistor" deviceset="C-EU" device="C0603" value="0.1uF">
+<attribute name="MF" value=""/>
+<attribute name="MPN" value=""/>
+<attribute name="OC_NEWARK" value="unknown"/>
+</part>
 </parts>
 <sheets>
 <sheet>
@@ -9819,15 +9833,15 @@ Source: 008-0260-0_E.pdf</description>
 <attribute name="MF" x="50.8" y="50.8" size="1.778" layer="96" rot="R180" display="off"/>
 <attribute name="MPN" x="50.8" y="50.8" size="1.778" layer="96" rot="R180" display="off"/>
 </instance>
-<instance part="C5" gate="G$1" x="38.1" y="45.72" rot="R90">
-<attribute name="OC_NEWARK" x="38.1" y="45.72" size="1.778" layer="96" display="off"/>
-<attribute name="MF" x="38.1" y="45.72" size="1.778" layer="96" display="off"/>
-<attribute name="MPN" x="38.1" y="45.72" size="1.778" layer="96" display="off"/>
+<instance part="C5" gate="G$1" x="38.1" y="48.26" rot="R90">
+<attribute name="OC_NEWARK" x="38.1" y="48.26" size="1.778" layer="96" display="off"/>
+<attribute name="MF" x="38.1" y="48.26" size="1.778" layer="96" display="off"/>
+<attribute name="MPN" x="38.1" y="48.26" size="1.778" layer="96" display="off"/>
 </instance>
-<instance part="C4" gate="G$1" x="38.1" y="55.88" rot="R90">
-<attribute name="OC_NEWARK" x="38.1" y="55.88" size="1.778" layer="96" display="off"/>
-<attribute name="MF" x="38.1" y="55.88" size="1.778" layer="96" display="off"/>
-<attribute name="MPN" x="38.1" y="55.88" size="1.778" layer="96" display="off"/>
+<instance part="C4" gate="G$1" x="38.1" y="53.34" rot="R90">
+<attribute name="OC_NEWARK" x="38.1" y="53.34" size="1.778" layer="96" display="off"/>
+<attribute name="MF" x="38.1" y="53.34" size="1.778" layer="96" display="off"/>
+<attribute name="MPN" x="38.1" y="53.34" size="1.778" layer="96" display="off"/>
 </instance>
 <instance part="GND1" gate="1" x="35.56" y="35.56"/>
 <instance part="P+1" gate="VCC" x="58.42" y="30.48" rot="R180"/>
@@ -9889,22 +9903,22 @@ Source: 008-0260-0_E.pdf</description>
 <instance part="MOSI" gate="G$1" x="182.88" y="17.78"/>
 <instance part="MISO" gate="G$1" x="182.88" y="15.24"/>
 <instance part="SCK" gate="G$1" x="182.88" y="12.7"/>
-<instance part="PC2" gate="G$1" x="109.22" y="71.12"/>
+<instance part="PC0" gate="G$1" x="109.22" y="71.12"/>
 <instance part="PC1" gate="G$1" x="109.22" y="68.58"/>
-<instance part="PC5" gate="G$1" x="109.22" y="66.04"/>
-<instance part="PC6" gate="G$1" x="109.22" y="63.5"/>
-<instance part="PC7" gate="G$1" x="109.22" y="60.96"/>
-<instance part="PC8" gate="G$1" x="109.22" y="58.42"/>
-<instance part="PC4" gate="G$1" x="109.22" y="55.88"/>
-<instance part="PC3" gate="G$1" x="109.22" y="53.34"/>
-<instance part="PD4" gate="G$1" x="109.22" y="48.26"/>
-<instance part="PD5" gate="G$1" x="109.22" y="45.72"/>
-<instance part="PD6" gate="G$1" x="109.22" y="43.18"/>
-<instance part="PD7" gate="G$1" x="109.22" y="40.64"/>
-<instance part="PD8" gate="G$1" x="109.22" y="38.1"/>
-<instance part="PD3" gate="G$1" x="109.22" y="35.56"/>
-<instance part="PD2" gate="G$1" x="109.22" y="33.02"/>
-<instance part="PD1" gate="G$1" x="109.22" y="30.48"/>
+<instance part="PC2" gate="G$1" x="109.22" y="66.04"/>
+<instance part="PC3" gate="G$1" x="109.22" y="63.5"/>
+<instance part="PC4" gate="G$1" x="109.22" y="60.96"/>
+<instance part="PC5" gate="G$1" x="109.22" y="58.42"/>
+<instance part="ADC6" gate="G$1" x="109.22" y="55.88"/>
+<instance part="ADC7" gate="G$1" x="109.22" y="53.34"/>
+<instance part="PD0" gate="G$1" x="109.22" y="48.26"/>
+<instance part="PD1" gate="G$1" x="109.22" y="45.72"/>
+<instance part="PD2" gate="G$1" x="109.22" y="43.18"/>
+<instance part="PD3" gate="G$1" x="109.22" y="40.64"/>
+<instance part="PD4" gate="G$1" x="109.22" y="38.1"/>
+<instance part="PD5" gate="G$1" x="109.22" y="35.56"/>
+<instance part="PD6" gate="G$1" x="109.22" y="33.02"/>
+<instance part="PD7" gate="G$1" x="109.22" y="30.48"/>
 <instance part="VCC" gate="G$1" x="271.78" y="25.4"/>
 <instance part="GND" gate="G$1" x="271.78" y="17.78"/>
 <instance part="TX" gate="G$1" x="198.12" y="60.96"/>
@@ -9928,6 +9942,22 @@ Source: 008-0260-0_E.pdf</description>
 <instance part="JP1" gate="G$1" x="246.38" y="45.72" rot="R180"/>
 <instance part="VCC_1" gate="G$1" x="104.14" y="88.9"/>
 <instance part="GND_1" gate="G$1" x="104.14" y="86.36"/>
+<instance part="MCP2" gate="G$2" x="228.6" y="66.04"/>
+<instance part="C6" gate="G$1" x="220.98" y="68.58">
+<attribute name="OC_NEWARK" x="220.98" y="68.58" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MF" x="220.98" y="68.58" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MPN" x="220.98" y="68.58" size="1.778" layer="96" rot="R180" display="off"/>
+</instance>
+<instance part="MCP1" gate="P" x="177.8" y="73.66"/>
+<instance part="P+9" gate="VCC" x="177.8" y="83.82"/>
+<instance part="GND2" gate="1" x="177.8" y="63.5"/>
+<instance part="GND9" gate="1" x="228.6" y="55.88"/>
+<instance part="P+10" gate="VCC" x="228.6" y="76.2"/>
+<instance part="C7" gate="G$1" x="170.18" y="76.2">
+<attribute name="OC_NEWARK" x="170.18" y="76.2" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MF" x="170.18" y="76.2" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MPN" x="170.18" y="76.2" size="1.778" layer="96" rot="R180" display="off"/>
+</instance>
 </instances>
 <busses>
 </busses>
@@ -10000,8 +10030,8 @@ Source: 008-0260-0_E.pdf</description>
 <segment>
 <pinref part="C4" gate="G$1" pin="1"/>
 <pinref part="C5" gate="G$1" pin="1"/>
-<wire x1="35.56" y1="55.88" x2="35.56" y2="45.72" width="0.1524" layer="91"/>
-<wire x1="35.56" y1="45.72" x2="35.56" y2="40.64" width="0.1524" layer="91"/>
+<wire x1="35.56" y1="53.34" x2="35.56" y2="48.26" width="0.1524" layer="91"/>
+<wire x1="35.56" y1="48.26" x2="35.56" y2="40.64" width="0.1524" layer="91"/>
 <pinref part="GND1" gate="1" pin="GND"/>
 <pinref part="IC1" gate="G$1" pin="GND@1"/>
 <wire x1="35.56" y1="40.64" x2="35.56" y2="38.1" width="0.1524" layer="91"/>
@@ -10013,7 +10043,7 @@ Source: 008-0260-0_E.pdf</description>
 <junction x="58.42" y="38.1"/>
 <junction x="58.42" y="40.64"/>
 <junction x="35.56" y="40.64"/>
-<junction x="35.56" y="45.72"/>
+<junction x="35.56" y="48.26"/>
 <pinref part="C3" gate="G$1" pin="2"/>
 <wire x1="50.8" y1="38.1" x2="45.72" y2="38.1" width="0.1524" layer="91"/>
 <junction x="50.8" y="38.1"/>
@@ -10051,6 +10081,22 @@ Source: 008-0260-0_E.pdf</description>
 <wire x1="58.42" y1="66.04" x2="50.8" y2="66.04" width="0.1524" layer="91"/>
 <wire x1="50.8" y1="66.04" x2="50.8" y2="63.5" width="0.1524" layer="91"/>
 <junction x="50.8" y="63.5"/>
+</segment>
+<segment>
+<wire x1="170.18" y1="71.12" x2="170.18" y2="66.04" width="0.1524" layer="91"/>
+<pinref part="MCP1" gate="P" pin="GND"/>
+<wire x1="170.18" y1="66.04" x2="177.8" y2="66.04" width="0.1524" layer="91"/>
+<pinref part="GND2" gate="1" pin="GND"/>
+<junction x="177.8" y="66.04"/>
+<pinref part="C7" gate="G$1" pin="2"/>
+</segment>
+<segment>
+<pinref part="C6" gate="G$1" pin="2"/>
+<wire x1="220.98" y1="63.5" x2="220.98" y2="58.42" width="0.1524" layer="91"/>
+<pinref part="MCP2" gate="G$2" pin="GND"/>
+<wire x1="220.98" y1="58.42" x2="228.6" y2="58.42" width="0.1524" layer="91"/>
+<pinref part="GND9" gate="1" pin="GND"/>
+<junction x="228.6" y="58.42"/>
 </segment>
 </net>
 <net name="VCC" class="0">
@@ -10100,15 +10146,30 @@ Source: 008-0260-0_E.pdf</description>
 <wire x1="259.08" y1="30.48" x2="259.08" y2="25.4" width="0.1524" layer="91"/>
 <wire x1="259.08" y1="25.4" x2="269.24" y2="25.4" width="0.1524" layer="91"/>
 </segment>
+<segment>
+<pinref part="MCP1" gate="P" pin="VCC"/>
+<wire x1="177.8" y1="81.28" x2="170.18" y2="81.28" width="0.1524" layer="91"/>
+<wire x1="170.18" y1="81.28" x2="170.18" y2="78.74" width="0.1524" layer="91"/>
+<pinref part="P+9" gate="VCC" pin="VCC"/>
+<junction x="177.8" y="81.28"/>
+<pinref part="C7" gate="G$1" pin="1"/>
+</segment>
+<segment>
+<pinref part="MCP2" gate="G$2" pin="VCC"/>
+<wire x1="228.6" y1="73.66" x2="220.98" y2="73.66" width="0.1524" layer="91"/>
+<pinref part="C6" gate="G$1" pin="1"/>
+<wire x1="220.98" y1="73.66" x2="220.98" y2="71.12" width="0.1524" layer="91"/>
+<pinref part="P+10" gate="VCC" pin="VCC"/>
+<junction x="228.6" y="73.66"/>
+</segment>
 </net>
 <net name="N$9" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PB7(XTAL2/TOSC2)"/>
-<wire x1="58.42" y1="45.72" x2="58.42" y2="48.26" width="0.1524" layer="91"/>
 <pinref part="XTAL" gate="G$1" pin="2"/>
-<wire x1="58.42" y1="45.72" x2="50.8" y2="48.26" width="0.1524" layer="91"/>
+<wire x1="58.42" y1="48.26" x2="50.8" y2="48.26" width="0.1524" layer="91"/>
 <pinref part="C5" gate="G$1" pin="2"/>
-<wire x1="50.8" y1="48.26" x2="43.18" y2="45.72" width="0.1524" layer="91"/>
+<wire x1="50.8" y1="48.26" x2="43.18" y2="48.26" width="0.1524" layer="91"/>
 <junction x="50.8" y="48.26"/>
 </segment>
 </net>
@@ -10163,7 +10224,7 @@ Source: 008-0260-0_E.pdf</description>
 <net name="N$20" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PC0(ADC0)"/>
-<pinref part="PC2" gate="G$1" pin="1"/>
+<pinref part="PC0" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$21" class="0">
@@ -10175,85 +10236,85 @@ Source: 008-0260-0_E.pdf</description>
 <net name="N$22" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PC2(ADC2)"/>
-<pinref part="PC5" gate="G$1" pin="1"/>
+<pinref part="PC2" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$23" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PC3(ADC3)"/>
-<pinref part="PC6" gate="G$1" pin="1"/>
+<pinref part="PC3" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$24" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PC4(ADC4/SDA)"/>
-<pinref part="PC7" gate="G$1" pin="1"/>
+<pinref part="PC4" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$25" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PC5(ADC5/SCL)"/>
-<pinref part="PC8" gate="G$1" pin="1"/>
+<pinref part="PC5" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$26" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="ADC6"/>
-<pinref part="PC4" gate="G$1" pin="1"/>
+<pinref part="ADC6" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$27" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="ADC7"/>
-<pinref part="PC3" gate="G$1" pin="1"/>
+<pinref part="ADC7" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$28" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PD0(RXD)"/>
-<pinref part="PD4" gate="G$1" pin="1"/>
+<pinref part="PD0" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$29" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PD1(TXD)"/>
-<pinref part="PD5" gate="G$1" pin="1"/>
+<pinref part="PD1" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$30" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PD2(INT0)"/>
-<pinref part="PD6" gate="G$1" pin="1"/>
+<pinref part="PD2" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$31" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PD3(INT1)"/>
-<pinref part="PD7" gate="G$1" pin="1"/>
+<pinref part="PD3" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$32" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PD4(XCK/T0)"/>
-<pinref part="PD8" gate="G$1" pin="1"/>
+<pinref part="PD4" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$33" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PD5(T1)"/>
-<pinref part="PD3" gate="G$1" pin="1"/>
+<pinref part="PD5" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$34" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PD6(AIN0)"/>
-<pinref part="PD2" gate="G$1" pin="1"/>
+<pinref part="PD6" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$35" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PD7(AIN1)"/>
-<pinref part="PD1" gate="G$1" pin="1"/>
+<pinref part="PD7" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$18" class="0">
@@ -10326,10 +10387,9 @@ Source: 008-0260-0_E.pdf</description>
 <segment>
 <pinref part="C4" gate="G$1" pin="2"/>
 <pinref part="XTAL" gate="G$1" pin="1"/>
-<wire x1="43.18" y1="55.88" x2="50.8" y2="53.34" width="0.1524" layer="91"/>
+<wire x1="43.18" y1="53.34" x2="50.8" y2="53.34" width="0.1524" layer="91"/>
 <pinref part="IC1" gate="G$1" pin="PB6(XTAL1/TOSC1)"/>
-<wire x1="58.42" y1="53.34" x2="58.42" y2="55.88" width="0.1524" layer="91"/>
-<wire x1="50.8" y1="53.34" x2="58.42" y2="55.88" width="0.1524" layer="91"/>
+<wire x1="50.8" y1="53.34" x2="58.42" y2="53.34" width="0.1524" layer="91"/>
 <junction x="50.8" y="53.34"/>
 </segment>
 </net>
