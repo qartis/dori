@@ -27,15 +27,10 @@
     X(get_value, 0x24) \
     X(set_value, 0x25) \
 \
-    X(xfer_cts, 0x70) \
-    X(xfer_cancel, 0x71) \
-    X(xfer_data, 0x72) \
-    X(full_log_offer, 0x73) \
-    X(request_list_files, 0x74) \
-    X(file_listing, 0x75) \
-    X(request_file, 0x76) \
-    X(file_contents, 0x77) \
-    X(file_write, 0x78) \
+    X(conn_syn, 0x80) \
+    X(conn_rst, 0x81) \
+    X(conn_cts, 0x82) \
+    X(conn_data, 0x83) \
 \
     X(invalid, 0xff) \
 
@@ -55,14 +50,12 @@
     X(powershot, 0x0b) \
     X(9dof,    0x0c) \
     X(compass, 0x0d) \
-	 X(modema,  0x0e) \
-  	 X(modemb,  0x0f) \
-	 X(accel,   0x10) \
-	 X(gyro,    0x11) \
+    X(modema,  0x0e) \
+    X(modemb,  0x0f) \
+    X(accel,   0x10) \
+    X(gyro,    0x11) \
     X(invalid, 0x1f) \
 
-
-#define TYPE_XFER(type) ((type & 0xf0) == 0x70)
 
 enum type {
 #define X(name, value) TYPE_ ## name = value, \
@@ -79,9 +72,11 @@ enum id {
 #undef X
 };
 
+typedef uint8_t mcp2515_id_t;
+
 struct mcp2515_packet_t {
     uint8_t type;
-    uint8_t id;
+    mcp2515_id_t id;
     uint8_t more;
     uint8_t len;
     uint8_t data[9];
@@ -98,7 +93,6 @@ extern volatile uint8_t mcp2515_busy;
 extern volatile uint8_t irq_signal;
 extern volatile struct mcp2515_packet_t packet;
 void mcp2515_irq(void);
-typedef uint8_t (*mcp2515_xfer_callback_t)(void);
 
 #define BRP0        0
 #define BTLMODE     7
@@ -261,8 +255,3 @@ void modify_register(uint8_t address, uint8_t mask, const uint8_t value);
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data);
 uint8_t mcp2515_send2(struct mcp2515_packet_t *p);
 void load_tx0(uint8_t type, uint8_t id, uint8_t len, const uint8_t *data);
-
-uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, void *data);
-uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
-    mcp2515_xfer_callback_t xfer_cb);
-uint8_t mcp2515_send_xfer_wait(struct mcp2515_packet_t *p);
