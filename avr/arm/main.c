@@ -15,11 +15,12 @@
 #include "arm.h"
 #include "node.h"
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
     /* this also gets called when we move the arm */
     uint8_t rc;
@@ -38,11 +39,13 @@ void periodic_irq(void)
 
     rc = mcp2515_send(TYPE_value_periodic, ID_arm, 3, buf);
     if (rc != 0) {
-        //how to handle error here?
+        return rc;
     }
+
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
     uint8_t pos;
 
@@ -65,6 +68,8 @@ void can_irq(void)
     default:
         break;
     }
+
+    return 0;
 }
 
 void main(void)

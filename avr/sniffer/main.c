@@ -53,7 +53,6 @@ ID_LIST(X)
 	printf_P(PSTR("\n"));
 }
 
-
 uint8_t parse_arg(const char *arg)
 {
     /* first check all the type names*/
@@ -82,7 +81,7 @@ uint8_t parse_arg(const char *arg)
     return 0xff;
 }
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
     char buf[64];
     char *arg;
@@ -100,14 +99,14 @@ void uart_irq(void)
         arg = strtok(NULL, " ");
         if (arg == NULL) {
             show_send_usage();
-            return;
+            return 0;
         }
         type = parse_arg(arg);
 
         arg = strtok(NULL, " ");
         if (arg == NULL) {
             show_send_usage();
-            return;
+            return 0;
         }
         id = parse_arg(arg);
 
@@ -127,17 +126,19 @@ void uart_irq(void)
     } else {
         show_usage();
     }
+
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
-    (void)0;
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
     uint8_t i;
-	 packet.unread = 0;
+    packet.unread = 0;
 
 #define X(name, value) static char const temp_type_ ## name [] PROGMEM = #name;
 TYPE_LIST(X)
@@ -176,7 +177,10 @@ ID_LIST(X)
     for (i = 0; i < packet.len; i++) {
         printf_P(PSTR("%x,"), packet.data[i]);
     }
+
     printf_P(PSTR("\n"));
+
+    return 0;
 }
 
 void main(void)

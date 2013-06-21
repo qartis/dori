@@ -19,7 +19,9 @@ reinit: \
         _delay_ms(500); \
     } \
 \
-    sei();
+    sei(); \
+\
+    rc = 0;
 
 
 

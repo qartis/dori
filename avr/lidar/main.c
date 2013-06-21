@@ -12,16 +12,19 @@
 #include "time.h"
 #include "node.h"
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
+    return 0;
 }
 
 void main(void)
