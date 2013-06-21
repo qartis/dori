@@ -1,4 +1,5 @@
-PROG_DEVICE = /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A20008Dd-if00-port0
+PROG_DEVICE = /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A4007hkl-if00-port0
+PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A20008Dd-if00-port0
 PROG_TYPE = stk500v2
 GCC_PART ?= atmega88
 DUDE_PART ?= m88
@@ -15,7 +16,7 @@ all: main.hex
 
 $(OBJS) : $(wildcard *.h) Makefile
 
-%.o : %.c
+%.o : %.c ../*.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
 %.o : %.S
