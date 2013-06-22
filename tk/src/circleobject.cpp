@@ -14,19 +14,16 @@ CircleObject::~CircleObject() { };
 void CircleObject::drawWorld() {
 }
 
-void CircleObject::drawScreen(bool drawCenterPoint, int windowWidth, int windowLength, float siteMeterExtents) {
-    // (pixels / meter extents for a site) * offset from DORI
-    // (windowWidth / 100 meters) * offset from DORI in meters
-    int screenOffsetX = (float)(windowWidth / siteMeterExtents) * worldOffsetX;
-    int screenOffsetY = (float)(windowLength / siteMeterExtents) * worldOffsetY;
-
-    int doriScreenX = windowWidth / 2.0;
-    int doriScreenY = windowLength / 2.0;
+void CircleObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, int pixelsPerCell, int doriScreenX, int doriScreenY) {
+    // # cells = (cells / meter) * (worldOffset in meters)
+    // # cells * pixelsPerCell = position in pixels
+    float screenOffsetX = (cellsPerMeter * worldOffsetX) * pixelsPerCell;
+    float screenOffsetY = (cellsPerMeter * worldOffsetY) * pixelsPerCell;
 
     int circleOriginX = doriScreenX + screenOffsetX;
     int circleOriginY = doriScreenY - screenOffsetY;
 
-    int circleRadius = SiteObject::worldToScreen(worldRadius, siteMeterExtents, windowWidth);
+    int circleRadius = (cellsPerMeter * worldRadius) * pixelsPerCell;
 
     // if the object is selected, draw the outline first
     if(selected) {

@@ -35,9 +35,11 @@ private:
 
     SiteObject* findClosestObject(int mouseX, int mouseY, int distance, std::vector<SiteObject*> &dataset);
 
-    void findObjectsInBoundingBox(float worldStartMouseX, float worldStartMouseY, float worldCurMouseX, float worldCurMouseY, std::vector<SiteObject*> &inputData, std::vector<SiteObject*> &outputData);
+    void findObjectsInBoundingBox(int startMouseX, int startMouseY, int curMouseX, int curMouseY, std::vector<SiteObject*> &inputData, std::vector<SiteObject*> &outputData);
 
-    void drawGrid(int numCells);
+    void drawGrid(float pixelsPerCell, int numCells);
+
+    void drawArcs();
 
     void drawDori();
 
@@ -47,8 +49,8 @@ private:
 
     void commitSelectedObjectsToDatabase();
 
-    int doriScreenX();
-    int doriScreenY();
+    int siteScreenCenterX();
+    int siteScreenCenterY();
 
     bool isObjectSelected(SiteObject *obj);
 
@@ -81,9 +83,22 @@ private:
 
     SiteObject *newSiteObject;
 
-    float maxScreenWidth;
-    float maxScreenHeight;
+    float maxWindowWidth;
+    float maxWindowLength;
 
     float siteMeterExtents;
+    int sitePixelExtents;
     int numGridCells;
+
+    // Keeps track of where we've panned the screen to
+    int panStartMouseX;
+    int panStartMouseY;
+
+    int screenPanX;
+    int screenPanY;
+
+    float pixelsPerCell;
+    int cellsPerMeter;
+
+    int numArcs;
 };

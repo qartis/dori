@@ -14,7 +14,7 @@ public:
     static int worldToScreen(float worldVal, float meterExtents, int pixelExtents);
 
     virtual void drawWorld() = 0;
-    virtual void drawScreen(bool drawCenterPoint, int screenWidth, int screenHeight, float siteMeterExtents) = 0;
+    virtual void drawScreen(bool drawCenterPoint, float cellsPerMeter, int pixelsPerCell, int doriScreenX, int doriScreenY) = 0;
 
     virtual float getWorldOffsetCenterX() = 0;
     virtual float getWorldOffsetCenterY() = 0;

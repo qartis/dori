@@ -32,7 +32,7 @@
 #include "siteobject.h"
 #include "lineobject.h"
 #include "rectobject.h"
-//#include "circleobject.h"
+#include "circleobject.h"
 #include "colorchooser.h"
 #include "toolbar.h"
 #include "viewport.h"

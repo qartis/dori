@@ -89,7 +89,7 @@ static void spawnSiteEditor(Fl_Widget *widget, void *data) {
     (void)data;
     //WidgetWindow *window = (WidgetWindow*)data;
 
-    SiteEditor *siteEditor = new SiteEditor(0, 0, 600, 600, NULL);
+    SiteEditor *siteEditor = new SiteEditor(0, 0, 700, 700, NULL);
     //siteEditor->user_data(&window->table->rowdata);
 
     siteEditor->show();

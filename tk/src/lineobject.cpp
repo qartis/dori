@@ -77,21 +77,18 @@ void LineObject::drawWorld() {
     */
 }
 
-void LineObject::drawScreen(bool drawCenterPoint, int windowWidth, int windowLength, float siteMeterExtents) {
-    // (pixels / meter extents for a site) * offset from DORI
-    // (windowWidth / 100 meters) * offset from DORI in meters
-    // eventually do 100 meters * zoomLevel
-    float screenOffsetX = ((float)windowWidth / siteMeterExtents) * (float)worldOffsetX;
-    float screenOffsetY = ((float)windowLength / siteMeterExtents) * (float)worldOffsetY;
 
-    float doriScreenX = windowWidth / 2.0;
-    float doriScreenY = windowLength / 2.0;
+void LineObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, int pixelsPerCell, int doriScreenX, int doriScreenY) {
+    // # cells = (cells / meter) * (worldOffset in meters)
+    // # cells * pixelsPerCell = position in pixels
+    float screenOffsetX = (cellsPerMeter * worldOffsetX) * pixelsPerCell;
+    float screenOffsetY = (cellsPerMeter * worldOffsetY) * pixelsPerCell;
 
     float lineOriginX = doriScreenX + screenOffsetX;
     float lineOriginY = doriScreenY - screenOffsetY;
 
-    float lineWidth = SiteObject::worldToScreen(worldWidth, siteMeterExtents, windowWidth);
-    float lineLength = SiteObject::worldToScreen(worldLength, siteMeterExtents, windowLength);
+    float lineWidth = (cellsPerMeter * worldWidth) * pixelsPerCell;
+    float lineLength = (cellsPerMeter * worldLength) * pixelsPerCell;
 
     // if the object is selected, draw the outline first
     if(selected) {
@@ -113,8 +110,8 @@ void LineObject::drawScreen(bool drawCenterPoint, int windowWidth, int windowLen
 
     if(drawCenterPoint) {
         fl_color(255, 0, 0);
-        int centX = doriScreenX + SiteObject::worldToScreen(getWorldOffsetCenterX(), siteMeterExtents, windowWidth);
-        int centY = doriScreenY - SiteObject::worldToScreen(getWorldOffsetCenterY(), siteMeterExtents, windowLength);
+        int centX = doriScreenX + (cellsPerMeter * getWorldOffsetCenterX()) * pixelsPerCell;
+        int centY = doriScreenY - (cellsPerMeter * getWorldOffsetCenterY()) * pixelsPerCell;
         fl_circle(centX, centY, 1);
     }
 }
