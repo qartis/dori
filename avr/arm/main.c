@@ -1,11 +1,12 @@
-#include <ctype.h>
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <util/delay.h>
-#include <util/atomic.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+#include <avr/io.h>
+#include <avr/pgmspace.h>
+#include <avr/wdt.h>
+#include <util/delay.h>
+#include <util/atomic.h>
 
 #include "uart.h"
 #include "spi.h"
@@ -14,11 +15,12 @@
 #include "arm.h"
 #include "node.h"
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
     /* this also gets called when we move the arm */
     uint8_t rc;
@@ -37,11 +39,13 @@ void periodic_irq(void)
 
     rc = mcp2515_send(TYPE_value_periodic, ID_arm, 3, buf);
     if (rc != 0) {
-        //how to handle error here?
+        return rc;
     }
+
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
     uint8_t pos;
 
@@ -64,6 +68,8 @@ void can_irq(void)
     default:
         break;
     }
+
+    return 0;
 }
 
 void main(void)
@@ -71,24 +77,5 @@ void main(void)
     NODE_INIT();
     adc_init();
 
-    for (;;) {
-        printf_P(PSTR(XSTR(MY_ID) "> "));
-
-        while (irq_signal == 0) {};
-
-        if (irq_signal & IRQ_CAN) {
-            can_irq();
-            irq_signal &= ~IRQ_CAN;
-        }
-
-        if (irq_signal & IRQ_TIMER) {
-            periodic_irq();
-            irq_signal &= ~IRQ_TIMER;
-        }
-
-        if (irq_signal & IRQ_UART) {
-            uart_irq();
-            irq_signal &= ~IRQ_UART;
-        }
-    }
+    NODE_MAIN();
 }

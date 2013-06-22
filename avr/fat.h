@@ -7,14 +7,9 @@
 #define _USE_WRITE  1   /* 1:Enable pf_write() */
 
 #define _FS_FAT12   0   /* 1:Enable FAT12 support */
-#define _FS_FAT32   0   /* 1:Enable FAT32 support */
 
 
-#if _FS_FAT32
-#define CLUST   uint32_t
-#else
 #define CLUST   uint16_t
-#endif
 
 
 /* File system object structure */

@@ -25,6 +25,6 @@ disk_result_t disk_writep (const uint8_t *, uint32_t);
 #define CT_SDC              (CT_SD1|CT_SD2) /* SD */
 #define CT_BLOCK            0x08    /* Block addressing */
 
-#define SD_DESELECT() PORTC |=  (1 << PORTC5)
-#define SD_SELECT()   PORTC &= ~(1 << PORTC5)
+#define SD_DESELECT() PORTD |=  (1 << PORTD7)
+#define SD_SELECT()   PORTD &= ~(1 << PORTD7)
 

@@ -4,8 +4,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-#include <util/delay.h>
 #include <avr/wdt.h>
+#include <util/delay.h>
 
 #include "sd.h"
 #include "fat.h"
@@ -13,6 +13,7 @@
 #include "spi.h"
 #include "mcp2515.h"
 #include "time.h"
+#include "node.h"
 
 #define NUM_LOGS 64
 #define LOG_INVALID 0xff
@@ -23,9 +24,43 @@ uint8_t cur_log;
 uint32_t tmp_write_pos;
 uint32_t log_write_pos;
 
-void periodic_callback(void)
+mcp2515_id_t conn_id;
+enum conn_type {
+    CONN_READ_FILE,
+    CONN_WRITE_FILE,
+} conn_type;
+uint32_t conn_ptr;
+
+uint8_t uart_irq(void)
 {
-    (void)0;
+    char buf[512];
+    uint8_t rc;
+    
+    fgets(buf, sizeof(buf), stdin);
+    buf[strlen(buf) - 1] = '\0';
+
+    puts_P(PSTR("got "));
+    puts(buf);
+
+    if (strcmp(buf, "read") == 0) {
+        rc = pf_open("tmp");
+        printf("open: %d\n", rc);
+        uint16_t rd;
+        pf_read(buf, 512, &rd);
+        uint16_t i;
+        for(i=0;i<rd;i++){
+            printf("%x ", buf[i]);
+        }
+    }
+
+    return 0;
+}
+
+uint8_t periodic_irq(void)
+{
+    puts("tick");
+
+    return 0;
 }
 
 uint8_t fat_init(void)
@@ -58,17 +93,17 @@ uint8_t find_free_log_after(uint8_t start)
     uint16_t discard;
 
     for (i = (start + 1) % NUM_LOGS; i != start; i = (i + 1) % NUM_LOGS) {
-        printf_P(PSTR("Trying %d\n"), i);
+        printf_P(PSTR("789 %d\n"), i);
         snprintf(buf, sizeof(buf), "%d.LEN", i);
         rc = pf_open(buf);
         if (rc) { /* WTF */
-            printf_P(PSTR("open lg er %s\n"), buf);
+            printf_P(PSTR("543 %s\n"), buf);
             continue;
         }
 
         rc = pf_read(&log_len, sizeof(log_len), &discard);
         if (rc) { /* WTF */
-            printf_P(PSTR("open lg len er %s\n"), buf);
+            printf_P(PSTR("123 %s\n"), buf);
             continue;
         }
 
@@ -118,33 +153,20 @@ uint8_t cd(void)
         return rc;
     }
 
-    printf_P(PSTR("dir: '%s'\n"), dir_buf);
+    printf_P(PSTR("d %s\n"), dir_buf);
 
     return 0;
 }
 
 
-void mcp2515_irq_callback(void)
+uint8_t log_packet(void)
 {
     uint8_t i;
-    static uint8_t page_buf[512];
-    static uint16_t page_buf_len = 0;
     uint16_t wrote;
     char buf[16];
     uint8_t rc;
-
-    switch (packet.type) {
-    case TYPE_file_chdir:
-        rc = cd();
-        printf_P(PSTR("cd: %d\n"), rc);
-        break;
-    }
-
-    printf_P(PSTR("SD node rx [%x %x] %db: "), packet.type, packet.id, packet.len);
-    for (i = 0; i < packet.len; i++) {
-        printf_P(PSTR("%x,"), packet.data[i]);
-    }
-    printf_P(PSTR("\n"));
+    static uint8_t page_buf[512];
+    static uint16_t page_buf_len = 0;
 
     if (((uint16_t)page_buf_len + packet.len) > sizeof(page_buf)) {
         /* dump the page buf */
@@ -171,20 +193,20 @@ void mcp2515_irq_callback(void)
 
         rc = pf_lseek(log_write_pos);
         if (rc) {
-            printf_P(PSTR("tmp lseek failed\n"));
+            printf_P(PSTR("err3\n"));
             goto err;
         }
 
         rc = pf_write(page_buf, page_buf_len, &wrote);
         printf_P(PSTR("cb: pf_write(%d) = '%u'\n"), page_buf_len, wrote);
         if (rc || wrote != page_buf_len) {
-            printf_P(PSTR("tmp write fialed\n"));
+            printf_P(PSTR("err1\n"));
             goto err;
         }
 
         rc = pf_write(NULL, 0, &wrote);
         if (rc) {
-            printf_P(PSTR("final tmp write fialed\n"));
+            printf_P(PSTR("err2\n"));
             goto err;
         }
 
@@ -194,19 +216,19 @@ void mcp2515_irq_callback(void)
         //snprintf(buf, sizeof(buf), "%d.LEN", cur_log);
         rc = pf_open(buf);
         if (rc) {
-            printf_P(PSTR("error opening log len '%s': %d\n"), buf, rc);
+            printf_P(PSTR("err3 %s: %d\n"), buf, rc);
             goto err;
         }
 
         rc = pf_write(&log_write_pos, sizeof(log_write_pos), &wrote);
         if (rc || wrote != sizeof(log_write_pos)) {
-            printf_P(PSTR("log len write failed\n"));
+            printf_P(PSTR("err4\n"));
             goto err;
         }
 
         rc = pf_write(NULL, 0, &wrote);
         if (rc) {
-            printf_P(PSTR("final log len w fialed\n"));
+            printf_P(PSTR("err5\n"));
             goto err;
         }
 
@@ -223,8 +245,44 @@ void mcp2515_irq_callback(void)
 err:
     sei();
     page_buf_len = 0;
-    return;
+    return 1;
 }
+
+uint8_t conn_got_data(void)
+{
+    /* process this data */
+    return 0;
+}
+
+uint8_t can_irq(void)
+{
+    uint8_t rc;
+
+    packet.unread = 0;
+
+    if (packet.type == TYPE_conn_data && packet.id == MY_ID) {
+        /* don't log this */
+        return conn_got_data();
+    }
+
+    log_packet();
+
+    if (packet.type == TYPE_conn_syn) {
+        if (conn_id != ID_invalid) {
+            rc = mcp2515_send(TYPE_conn_rst, packet.id, 0, "");
+            return rc;
+        }
+        conn_id = packet.id;
+        conn_ptr = 0;
+        conn_type = packet.data[0];
+
+        rc = mcp2515_send(TYPE_conn_cts, packet.id, 0, "");
+        return rc;
+    }
+
+    return 0;
+}
+
 
 uint8_t write_file_cb(void)
 {
@@ -241,25 +299,25 @@ uint8_t write_file_cb(void)
         || p.len < 8) {
         /* dump the page buf */
 
-        printf_P(PSTR("dumping tmp buf: %lu\n"), tmp_write_pos);
+        printf_P(PSTR("dump %lu\n"), tmp_write_pos);
 
         rc = pf_open("TMP");
         if (rc) {
             rc = 1;
-            printf_P(PSTR("TMP open er\n"));
+            printf_P(PSTR("TMP err\n"));
             goto err;
         }
 
-        printf_P(PSTR("seek(%lu)\n"), tmp_write_pos);
+        //printf_P(PSTR("seek %lu\n"), tmp_write_pos);
         rc = pf_lseek(tmp_write_pos);
         if (rc) {
             rc = 2;
-            printf_P(PSTR("tmp lseek er\n"));
+            printf_P(PSTR("seek er\n"));
             goto err;
         }
 
         rc = pf_write(page_buf, page_buf_len, &wrote);
-        printf_P(PSTR("tmp: wr(%d) = %u\n"), page_buf_len, wrote);
+        printf_P(PSTR("t wr %d = %u\n"), page_buf_len, wrote);
         if (rc || wrote < page_buf_len) {
             rc = 3;
             printf_P(PSTR("tmp wr er\n"));
@@ -444,40 +502,24 @@ uint8_t ls(uint8_t dest)
     return 0;
 }
 
-
 void main(void)
 {
-    uint8_t rc;
-    uint8_t sender;
-    uint32_t offset;
-    struct mcp2515_packet_t p;
+    NODE_INIT();
 
-    wdt_disable();
+    /* SD SPI CS */
+    DDRD |= (1 << PORTD7);
 
-    uart_init(BAUD(38400));
-    spi_init();
-    time_init();
-
-    _delay_ms(200);
-    printf_P(PSTR("sd init\n"));
-
-
-reinit:
-    rc = mcp2515_init();
-    if (rc) {
-        printf_P(PSTR("mcp: error\n"));
-        _delay_ms(1000);
-        goto reinit;
-    }
+    conn_id = ID_invalid;
 
     rc = fat_init();
     if (rc) {
-        printf_P(PSTR("fat: error\n"));
+        puts("fat err\n");
         mcp2515_send(TYPE_file_error, ID_sd, sizeof(rc), &rc);
         _delay_ms(1000);
         goto reinit;
     }
 
+    #if 0
     /* we start searching from log AFTER this one, which is num 0 */
     cur_log = find_free_log_after(NUM_LOGS - 1);
     if (cur_log == LOG_INVALID) {
@@ -487,7 +529,10 @@ reinit:
         _delay_ms(1000);
         goto reinit;
     }
+#endif
 
+    NODE_MAIN();
+#if 0
     for (;;) {
         printf_P(PSTR("> "));
 
@@ -532,4 +577,5 @@ reinit:
             break;
         }
     }
+#endif
 }

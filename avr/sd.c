@@ -1,7 +1,6 @@
 #include <avr/io.h>
 #include <stdint.h>
 #include <util/delay.h>
-#include <stdio.h>
 
 #include "sd.h"
 #include "spi.h"
@@ -34,6 +33,7 @@ void sd_init(void)
 {
     DDRC |= (1 << PORTC5);
     SD_DESELECT();
+    spi_medium();
 }
 
 uint8_t send_cmd (

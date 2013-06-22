@@ -1,8 +1,9 @@
-#include <avr/io.h>
 #include <stdio.h>
-#include <util/delay.h>
+#include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
+#include <util/delay.h>
 
 #include "uart.h"
 #include "i2c.h"
@@ -15,16 +16,18 @@
 #include "nunchuck.h"
 #include "nmea.h"
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
     char buf[UART_BUF_SIZE];
 
     fgets(buf, sizeof(buf), stdin);
 
     parse_nmea(buf);
+
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
     uint8_t rc;
     struct hmc5883_t hmc;
@@ -47,16 +50,20 @@ void periodic_irq(void)
     rc = hmc_read(&hmc);
     if (rc) {
         /* sensor error, reinit */
+        return rc;
     }
 
     rc = mpu_read(&mpu);
     if (rc) {
         /* sensor error, reinit */
+        return rc;
     }
 
     rc = nunchuck_read(&nunchuck);
+
     if (rc) {
         /* sensor error, reinit */
+        return rc;
     }
 
     p.type = TYPE_value_periodic;
@@ -71,19 +78,54 @@ void periodic_irq(void)
     rc = mcp2515_send2(&p);
     if (rc) {
         /* can error, attempt to transmit error, reinit */
+        return rc;
     }
+
+	 _delay_ms(150);
+	 p.type = TYPE_value_periodic;
+    p.id = ID_gyro;
+    p.data[0] = (uint8_t)(hmc.x >> 8);
+    p.data[1] = (uint8_t)hmc.x;
+    p.data[2] = (uint8_t)(hmc.y >> 8);
+    p.data[3] = (uint8_t)hmc.y;
+    p.data[4] = (uint8_t)(hmc.z >> 8);
+    p.data[5] = (uint8_t)hmc.z;
+    p.len = 6;
+    rc = mcp2515_send2(&p);
+    if (rc) {
+        /* can error, attempt to transmit error, reinit */
+        return rc;
+    }
+	 _delay_ms(150);
+    p.type = TYPE_value_periodic;
+    p.id = ID_accel;
+    p.data[0] = (uint8_t)(nunchuck.accel_x >> 8);
+    p.data[1] = (uint8_t)nunchuck.accel_x;
+    p.data[2] = (uint8_t)(nunchuck.accel_y >> 8);
+    p.data[3] = (uint8_t)nunchuck.accel_y;
+    p.data[4] = (uint8_t)(nunchuck.accel_z >> 8);
+    p.data[5] = (uint8_t)nunchuck.accel_z;
+    p.len = 6;
+    rc = mcp2515_send2(&p);
+    if (rc) {
+        return rc;
+        /* can error, attempt to transmit error, reinit */
+    }
+
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
 		  packet.unread = 0;
+
+          return 0;
 }
 
 void main(void)
 {
-    uint8_t rc;
-
     NODE_INIT();
+
     rc = hmc_init();
     if (rc) {
         puts_P(PSTR("hmc init"));
@@ -98,6 +140,8 @@ void main(void)
     if (rc) {
         puts_P(PSTR("nunch init"));
     }
+
+	 hmc_set_continuous();
 
     for (;;) {
         printf_P(PSTR(XSTR(MY_ID) "> "));

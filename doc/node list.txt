@@ -1,4 +1,4 @@
-=== Main Modem node ===
+=== Main Modem node === HARDWARE DONE
 * Main modem (uart)
 
 
@@ -26,7 +26,7 @@
 * Ultrasonic (2 io)
 
 
-=== 9DOF node ===
+=== 9DOF node === HARDWARE DONE
 * nunchuk (i2c)
 * compass (i2c)
 * gyro (i2c)
@@ -74,3 +74,6 @@
 * LIDAR (3 io)
 * PIR motion (1 io)
 * IR Thermo (spi)
+*
+
+=== (Sniffer node) === HARDWARE DONE

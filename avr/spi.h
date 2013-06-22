@@ -1,5 +1,6 @@
 void spi_init(void);
 void spi_low(void);
+void spi_medium(void);
 void spi_high(void);
 uint8_t spi_write(uint8_t);
 uint8_t spi_write_timeout(uint8_t);

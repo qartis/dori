@@ -1,8 +1,10 @@
-#include <avr/io.h>
 #include <stdio.h>
-#include <util/delay.h>
+#include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
+#include <util/delay.h>
+
 
 #include "uart.h"
 #include "spi.h"
@@ -10,40 +12,24 @@
 #include "time.h"
 #include "node.h"
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
+    return 0;
 }
 
 void main(void)
 {
     NODE_INIT();
 
-    for (;;) {
-        printf_P(PSTR(XSTR(MY_ID) "> "));
-
-        while (irq_signal == 0) {};
-
-        if (irq_signal & IRQ_CAN) {
-            can_irq();
-            irq_signal &= ~IRQ_CAN;
-        }
-
-        if (irq_signal & IRQ_TIMER) {
-            periodic_irq();
-            irq_signal &= ~IRQ_TIMER;
-        }
-
-        if (irq_signal & IRQ_UART) {
-            uart_irq();
-            irq_signal &= ~IRQ_UART;
-        }
-    }
+    NODE_MAIN();
 }

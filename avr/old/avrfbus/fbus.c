@@ -6,7 +6,7 @@
 #include "timer.h"
 #include "fbus.h"
 #include "power.h"
-#include "uart.h"
+#include "../uart.h"
 
 #define TYPE_SMS_MGMT 0x14
 #define TYPE_SMS 0x02
@@ -15,9 +15,9 @@
 #define TYPE_ID  0xd2
 #define TYPE_NET_STATUS 0x0a
 
-inline void print(const uint8_t *buf, uint8_t len){
+inline void print_len(const uint8_t *buf, uint8_t len){
     while(len--){
-        uart_putchar(*buf++, NULL);
+        uart_putchar(*buf++);
     }
 }
 
@@ -64,8 +64,8 @@ uint8_t bcd(uint8_t *dest, const char *s){
 }
 
 char* addchar(char *str, char c){
-    *buf = c;
-    return buf + 1;
+    *str = c;
+    return str + 1;
 }
 
 char phonenum_buf[16];
@@ -224,7 +224,7 @@ void sendframe(uint8_t type, uint8_t *data, uint8_t size){
     at += 2;
 
     // send the message!
-    print(buf, at);
+    print_len(buf, at);
 }
 
 void sendack(uint8_t type, uint8_t seqnum){
@@ -358,7 +358,7 @@ void uart_sendsms(const char *num, const char *ascii){
 void fbus_init(void){
     uint8_t c;
     for (c = 0; c < 128; c++){
-        uart_putchar('U', NULL);
+        uart_putchar('U');
         delay_ms(1);
     }
     delay_ms(1);

@@ -1,11 +1,12 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+#include <avr/wdt.h>
 #include <util/delay.h>
 #include <util/atomic.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "time.h"
 #include "uart.h"
@@ -52,7 +53,6 @@ ID_LIST(X)
 	printf_P(PSTR("\n"));
 }
 
-
 uint8_t parse_arg(const char *arg)
 {
     /* first check all the type names*/
@@ -81,7 +81,7 @@ uint8_t parse_arg(const char *arg)
     return 0xff;
 }
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
     char buf[64];
     char *arg;
@@ -99,14 +99,14 @@ void uart_irq(void)
         arg = strtok(NULL, " ");
         if (arg == NULL) {
             show_send_usage();
-            return;
+            return 0;
         }
         type = parse_arg(arg);
 
         arg = strtok(NULL, " ");
         if (arg == NULL) {
             show_send_usage();
-            return;
+            return 0;
         }
         id = parse_arg(arg);
 
@@ -126,17 +126,19 @@ void uart_irq(void)
     } else {
         show_usage();
     }
+
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
-    (void)0;
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
     uint8_t i;
-	 packet.unread = 0;
+    packet.unread = 0;
 
 #define X(name, value) static char const temp_type_ ## name [] PROGMEM = #name;
 TYPE_LIST(X)
@@ -175,40 +177,15 @@ ID_LIST(X)
     for (i = 0; i < packet.len; i++) {
         printf_P(PSTR("%x,"), packet.data[i]);
     }
+
     printf_P(PSTR("\n"));
+
+    return 0;
 }
 
-void test_pins(void)
-{
-		  DDRC = 0b11111111;        //set all pins of port c as outputs
-		  DDRD = 0b11111111;        //set all pins of port d as outputs
-		  PORTD = 0xff;
-		  PORTC = 0xff;
-}
-		  
 void main(void)
 {
     NODE_INIT();
 
-    for (;;) {
-        puts_P(PSTR("\n" XSTR(MY_ID) "> "));
-
-        while (irq_signal == 0) {};
-
-        if (irq_signal & IRQ_CAN) {
-            can_irq();
-            irq_signal &= ~IRQ_CAN;
-        }
-
-        if (irq_signal & IRQ_TIMER) {
-            periodic_irq();
-            irq_signal &= ~IRQ_TIMER;
-        }
-
-        if (irq_signal & IRQ_UART) {
-            uart_irq();
-            irq_signal &= ~IRQ_UART;
-        }
-
-    }
+    NODE_MAIN();
 }

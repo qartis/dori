@@ -6,11 +6,7 @@
 #include "sd.h"
 
 
-#if _FS_FAT32
-#define LD_CLUST(dir)   (((uint32_t)LD_16(dir+DIR_FstClusHI)<<16) | LD_16(dir+DIR_FstClusLO))
-#else
 #define LD_CLUST(dir)   LD_16(dir+DIR_FstClusLO)
-#endif
 
 
 /* FatFs refers the members in the FAT structures with byte offset instead
@@ -78,27 +74,9 @@ static CLUST get_fat (  /* 1:IO error, Else:Cluster status */
         return 1;
 
     switch (fs.fs_type) {
-#if _FS_FAT12
-    case FS_FAT12 :
-        bc = (uint16_t)clst; bc += bc / 2;
-        ofs = bc % 512; bc /= 512;
-        if (ofs != 511) {
-            if (disk_readp(buf, fs.fatbase + bc, ofs, 2)) break;
-        } else {
-            if (disk_readp(buf, fs.fatbase + bc, 511, 1)) break;
-            if (disk_readp(buf+1, fs.fatbase + bc + 1, 0, 1)) break;
-        }
-        wc = LD_16(buf);
-        return (clst & 1) ? (wc >> 4) : (wc & 0xFFF);
-#endif
     case FS_FAT16 :
         if (disk_readp(buf, fs.fatbase + clst / 256, (uint16_t)(((uint16_t)clst % 256) * 2), 2)) break;
         return LD_16(buf);
-#if _FS_FAT32
-    case FS_FAT32 :
-        if (disk_readp(buf, fs.fatbase + clst / 128, (uint16_t)(((uint16_t)clst % 128) * 4), 4)) break;
-        return LD_32(buf) & 0x0FFFFFFF;
-#endif
     }
 
     return 1;   /* An error occured at the disk I/O layer */
@@ -128,8 +106,7 @@ FRESULT dir_rewind (
     clst = dj->sclust;
     if (clst == 1 || clst >= fs.n_fatent)   /* Check start cluster range */
         return FR_DISK_ERR;
-    if (_FS_FAT32 && !clst && fs.fs_type == FS_FAT32)   /* Replace cluster# 0 with root cluster# if in FAT32 */
-        clst = (CLUST)fs.dirbase;
+
     dj->clust = clst;                       /* Current cluster */
     dj->sect = clst ? clust2sect(clst) : fs.dirbase;    /* Current sector */
 
@@ -360,8 +337,7 @@ uint8_t check_fs (  /* 0:The FAT boot record, 1:Valid boot record but not an FAT
 
     if (!disk_readp(buf, sect, BS_FilSysType, 2) && LD_16(buf) == 0x4146)   /* Check FAT12/16 */
         return 0;
-    if (_FS_FAT32 && !disk_readp(buf, sect, BS_FilSysType32, 2) && LD_16(buf) == 0x4146)    /* Check FAT32 */
-        return 0;
+
     return 1;
 }
 
@@ -417,17 +393,10 @@ FRESULT pf_mount(void)
         return FR_NO_FILESYSTEM;
 #endif
     if (mclst >= 0xFFF7)                    /* Number of clusters >= 0xFFF5 */
-#if _FS_FAT32
-        fmt = FS_FAT32;
-#else
         return FR_NO_FILESYSTEM;
-#endif
 
     fs.fs_type = fmt;       /* FAT sub-type */
-    if (_FS_FAT32 && fmt == FS_FAT32)
-        fs.dirbase = LD_32(buf+(BPB_RootClus-13));  /* Root directory start cluster */
-    else
-        fs.dirbase = fs.fatbase + fsize;                /* Root directory start sector (lba) */
+    fs.dirbase = fs.fatbase + fsize;                /* Root directory start sector (lba) */
     fs.database = fs.fatbase + fsize + fs.n_rootdir / 16;   /* Data start sector (lba) */
 
     fs.flag = 0;
