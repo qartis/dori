@@ -8,12 +8,16 @@ SiteObject::SiteObject() {
     selected = false;
 }
 
-float SiteObject::screenToWorld(int screenVal, float meterExtents, int pixelExtents) {
-    return ((float)meterExtents / (float)pixelExtents)  * (float)screenVal;
+// # cells = pixels * (cells / pixel)
+// worldCoords =  # cells * metersPerCell
+float SiteObject::screenToWorld(float screenVal, float cellsPerPixel, float metersPerCell) {
+    return screenVal * cellsPerPixel * metersPerCell;
 }
 
-int SiteObject::worldToScreen(float worldVal, float meterExtents, int pixelExtents) {
-    return (pixelExtents / meterExtents)  * worldVal;
+// # cells = meters * (cells / meter)
+// screenCoords =  # cells * pixelsPerCell
+float SiteObject::worldToScreen(float worldVal, float pixelsPerCell, float cellsPerMeter) {
+    return worldVal * cellsPerMeter * pixelsPerCell;
 }
 
 void SiteObject::select() {

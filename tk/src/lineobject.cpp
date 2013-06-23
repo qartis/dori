@@ -78,7 +78,7 @@ void LineObject::drawWorld() {
 }
 
 
-void LineObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, int pixelsPerCell, int doriScreenX, int doriScreenY) {
+void LineObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, int doriScreenX, int doriScreenY) {
     // # cells = (cells / meter) * (worldOffset in meters)
     // # cells * pixelsPerCell = position in pixels
     float screenOffsetX = (cellsPerMeter * worldOffsetX) * pixelsPerCell;
