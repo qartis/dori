@@ -35,25 +35,32 @@ private:
 
     SiteObject* findClosestObject(int mouseX, int mouseY, int distance, std::vector<SiteObject*> &dataset);
 
-    void findObjectsInBoundingBox(float worldStartMouseX, float worldStartMouseY, float worldCurMouseX, float worldCurMouseY, std::vector<SiteObject*> &inputData, std::vector<SiteObject*> &outputData);
+    void findObjectsInBoundingBox(int startMouseX, int startMouseY, int curMouseX, int curMouseY, std::vector<SiteObject*> &inputData, std::vector<SiteObject*> &outputData);
 
-    void drawGrid(int numCells);
-
+    void drawGrid(float pixelsPerCell, int numCells);
+    void drawArcs();
     void drawDori();
+    void drawDistanceLine();
+    void drawDistanceText();
 
     void createNewObject(SiteObjectType type, int mouseX, int mouseY);
 
-    void sizeObject(SiteObjectType type, SiteObject *object, int mouseX, int mouseY);
+    void sizeObject(SiteObjectType type, SiteObject *object, int clickedX, int clickedY, int curX, int curY);
 
     void commitSelectedObjectsToDatabase();
 
-    int doriScreenX();
-    int doriScreenY();
+    virtual void resize(int X, int Y, int W, int H);
+
+    float screenToWorld(float screenVal);
+    float worldToScreen(float worldVal);
+
+    int siteScreenCenterX();
+    int siteScreenCenterY();
 
     bool isObjectSelected(SiteObject *obj);
 
-    int selectionStartMouseX;
-    int selectionStartMouseY;
+    int clickedMouseX;
+    int clickedMouseY;
 
     int curMouseX;
     int curMouseY;
@@ -81,9 +88,25 @@ private:
 
     SiteObject *newSiteObject;
 
-    float maxScreenWidth;
-    float maxScreenHeight;
+    float maxWindowWidth;
+    float maxWindowLength;
 
     float siteMeterExtents;
+    int sitePixelExtents;
     int numGridCells;
+
+    // Keeps track of where we've panned the screen to
+    int panStartMouseX;
+    int panStartMouseY;
+
+    int screenPanX;
+    int screenPanY;
+
+    float pixelsPerCell;
+    float cellsPerMeter;
+
+    int numArcs;
+
+    bool showArcs;
+    bool showGrid;
 };

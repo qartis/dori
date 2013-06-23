@@ -26,15 +26,17 @@ inline uint8_t streq(const char *a, const char *b)
     return strcmp(a,b) == 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
+    return 0;
 }
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
     char buf[UART_BUF_SIZE];
 
@@ -136,6 +138,8 @@ void uart_irq(void)
     } else {
         puts_P(PSTR("unknown command"));
     }
+
+    return 0;
 }
 
 int main(void) {

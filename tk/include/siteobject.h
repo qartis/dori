@@ -10,11 +10,11 @@ enum SiteObjectType {
 class SiteObject {
 public:
 
-    static float screenToWorld(int screenVal, float meterExtents, int pixelExtents);
-    static int worldToScreen(float worldVal, float meterExtents, int pixelExtents);
+    static float screenToWorld(float screenVal, float cellsPerPixel, float metersPerCell);
+    static float worldToScreen(float worldVal, float pixelsPerCell, float cellsPerMeter);
 
     virtual void drawWorld() = 0;
-    virtual void drawScreen(bool drawCenterPoint, int screenWidth, int screenHeight, float siteMeterExtents) = 0;
+    virtual void drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, int doriScreenX, int doriScreenY) = 0;
 
     virtual float getWorldOffsetCenterX() = 0;
     virtual float getWorldOffsetCenterY() = 0;

@@ -2,6 +2,7 @@
 #define STR(X) #X
 
 #define NODE_INIT() \
+    uint8_t rc; \
     wdt_disable(); \
     uart_init(BAUD(38400)); \
     time_init(); \
@@ -18,7 +19,9 @@ reinit: \
         _delay_ms(500); \
     } \
 \
-    sei();
+    sei(); \
+\
+    rc = 0;
 
 
 
@@ -29,17 +32,32 @@ reinit: \
         while (irq_signal == 0) {}; \
 \
         if (irq_signal & IRQ_CAN) { \
-            can_irq(); \
+            rc = can_irq(); \
             irq_signal &= ~IRQ_CAN; \
         } \
 \
+        if (rc) {\
+            puts_P(PSTR("$$1"));\
+            goto reinit;\
+        }\
+\
         if (irq_signal & IRQ_TIMER) { \
-            periodic_irq(); \
+            rc = periodic_irq(); \
             irq_signal &= ~IRQ_TIMER; \
         } \
 \
+        if (rc) {\
+            puts_P(PSTR("$$2"));\
+            goto reinit;\
+        }\
+\
         if (irq_signal & IRQ_UART) { \
-            uart_irq(); \
+            rc = uart_irq(); \
             irq_signal &= ~IRQ_UART; \
         } \
+\
+        if (rc) {\
+            puts_P(PSTR("$$3"));\
+            goto reinit;\
+        }\
     }

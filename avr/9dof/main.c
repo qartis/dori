@@ -16,16 +16,18 @@
 #include "nunchuck.h"
 #include "nmea.h"
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
     char buf[UART_BUF_SIZE];
 
     fgets(buf, sizeof(buf), stdin);
 
     parse_nmea(buf);
+
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
     uint8_t rc;
     struct hmc5883_t hmc;
@@ -48,17 +50,20 @@ void periodic_irq(void)
     rc = hmc_read(&hmc);
     if (rc) {
         /* sensor error, reinit */
+        return rc;
     }
 
     rc = mpu_read(&mpu);
     if (rc) {
         /* sensor error, reinit */
+        return rc;
     }
 
     rc = nunchuck_read(&nunchuck);
 
-	 if (rc) {
+    if (rc) {
         /* sensor error, reinit */
+        return rc;
     }
 
     p.type = TYPE_value_periodic;
@@ -73,6 +78,7 @@ void periodic_irq(void)
     rc = mcp2515_send2(&p);
     if (rc) {
         /* can error, attempt to transmit error, reinit */
+        return rc;
     }
 
 	 _delay_ms(150);
@@ -88,6 +94,7 @@ void periodic_irq(void)
     rc = mcp2515_send2(&p);
     if (rc) {
         /* can error, attempt to transmit error, reinit */
+        return rc;
     }
 	 _delay_ms(150);
     p.type = TYPE_value_periodic;
@@ -101,20 +108,24 @@ void periodic_irq(void)
     p.len = 6;
     rc = mcp2515_send2(&p);
     if (rc) {
+        return rc;
         /* can error, attempt to transmit error, reinit */
     }
+
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
 		  packet.unread = 0;
+
+          return 0;
 }
 
 void main(void)
 {
-    uint8_t rc;
-
     NODE_INIT();
+
     rc = hmc_init();
     if (rc) {
         puts_P(PSTR("hmc init"));

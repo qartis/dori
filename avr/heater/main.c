@@ -47,16 +47,18 @@ uint8_t read_temp(uint8_t channel, int16_t *temp)
     return 0;
 }
 
-void uart_irq(void)
+uint8_t uart_irq(void)
 {
     char buf[UART_BUF_SIZE];
 
     fgets(buf, sizeof(buf), stdin);
 
     printf("got: '%s'\n", buf);
+
+    return 0;
 }
 
-void periodic_irq(void)
+uint8_t periodic_irq(void)
 {
     uint8_t rc;
     int16_t temp;
@@ -67,7 +69,7 @@ void periodic_irq(void)
     if (rc != 0) {
         rc = mcp2515_send(TYPE_sensor_error, ID_heater, 1, (void *)&rc);
         /* assume that sent */
-        return;
+        return rc;
     }
 
     uint8_t buf[3];
@@ -77,14 +79,17 @@ void periodic_irq(void)
 
     rc = mcp2515_send(TYPE_value_periodic, ID_heater, 3, buf);
     if (rc != 0) {
-        //how to handle error here?
+        return rc;
     }
+
+    return 0;
 }
 
-void can_irq(void)
+uint8_t can_irq(void)
 {
     packet.unread = 0;
-    return;
+
+    return 0;
 
     switch (packet.type) {
     case TYPE_set_output:
