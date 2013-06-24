@@ -63,7 +63,7 @@ void* interrupt(void *arg)
 		              flag_tcp_state = TCP_CONNECTED;
 		          }else if (streq(buf, "SEND OK")) {
 		              flag_tcp_send = TCP_SEND_OK;
-		          }else if (strcasestart(buf, ">")) {
+		          }else if (streq(buf, "> ")) {
 		              flag_tcp_send = TCP_SEND_EXPECTING_DATA;
 		          }else if (streq(buf, "CONNECT FAIL")) {
 		              flag_tcp_state = TCP_CONNECT_FAILED;
