@@ -83,7 +83,7 @@ uint8_t parse_arg(const char *arg)
 
 uint8_t uart_irq(void)
 {
-    char buf[64];
+    char buf[UART_BUF_SIZE];
     char *arg;
 
     uint8_t i = 0;
@@ -92,9 +92,11 @@ uint8_t uart_irq(void)
     uint8_t id = 0;
     uint8_t rc;
 
-    //uart_getbuf(buf);
     fgets(buf, sizeof(buf), stdin);
-	 arg = strtok(buf, " ");
+    buf[strlen(buf) - 1] = '\0';
+
+    arg = strtok(buf, " ");
+
     if (strcmp(arg, "send") == 0) {
         arg = strtok(NULL, " ");
         if (arg == NULL) {
