@@ -17,7 +17,7 @@ tk: $(OBJS) $(INCLUDES)
 $(BUILDDIR)/main.o: main.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILDDIR)/%.o: %.cpp %.h
+$(BUILDDIR)/%.o: %.cpp %.h obj
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
@@ -25,3 +25,6 @@ clean:
 
 run: tk
 	LD_LIBRARY_PATH="../widgets:../multiarcball" ./tk
+
+obj:
+	mkdir -p obj
