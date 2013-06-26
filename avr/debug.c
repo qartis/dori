@@ -22,6 +22,8 @@ void debug(const char *fmt, ...)
     char *str = buf;
 
     while (*str) {
+crnl:
+
         PORTC &= ~(1 << PORTC0);
         _delay_us(100);
         for (i = 0; i < 8; i++){
@@ -34,6 +36,12 @@ void debug(const char *fmt, ...)
         }
         PORTC |= (1 << PORTC0);
         _delay_us(200);
+        
+        if (*str == '\n') {
+            *str = '\r';
+            goto crnl;
+        }
+
         str++;
     }
 }
