@@ -9809,6 +9809,13 @@ Source: 008-0260-0_E.pdf</description>
 <attribute name="MPN" value=""/>
 <attribute name="OC_NEWARK" value="unknown"/>
 </part>
+<part name="PWR" library="led" deviceset="LED" device="CHIP-LED0603"/>
+<part name="R9" library="resistor" deviceset="R-EU_" device="R0603" value="470">
+<attribute name="MF" value=""/>
+<attribute name="MPN" value=""/>
+<attribute name="OC_NEWARK" value="unknown"/>
+</part>
+<part name="P+11" library="supply1" deviceset="VCC" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -9906,7 +9913,7 @@ Source: 008-0260-0_E.pdf</description>
 <instance part="PC0" gate="G$1" x="109.22" y="71.12"/>
 <instance part="PC1" gate="G$1" x="109.22" y="68.58"/>
 <instance part="PC2" gate="G$1" x="109.22" y="66.04"/>
-<instance part="PC3" gate="G$1" x="109.22" y="63.5"/>
+<instance part="PC3" gate="G$1" x="134.62" y="63.5"/>
 <instance part="PC4" gate="G$1" x="109.22" y="60.96"/>
 <instance part="PC5" gate="G$1" x="109.22" y="58.42"/>
 <instance part="ADC6" gate="G$1" x="109.22" y="55.88"/>
@@ -9958,6 +9965,13 @@ Source: 008-0260-0_E.pdf</description>
 <attribute name="MF" x="170.18" y="76.2" size="1.778" layer="96" rot="R180" display="off"/>
 <attribute name="MPN" x="170.18" y="76.2" size="1.778" layer="96" rot="R180" display="off"/>
 </instance>
+<instance part="PWR" gate="G$1" x="124.46" y="76.2"/>
+<instance part="R9" gate="G$1" x="124.46" y="83.82" rot="R90">
+<attribute name="OC_NEWARK" x="124.46" y="83.82" size="1.778" layer="96" display="off"/>
+<attribute name="MF" x="124.46" y="83.82" size="1.778" layer="96" display="off"/>
+<attribute name="MPN" x="124.46" y="83.82" size="1.778" layer="96" display="off"/>
+</instance>
+<instance part="P+11" gate="VCC" x="124.46" y="91.44"/>
 </instances>
 <busses>
 </busses>
@@ -10162,6 +10176,10 @@ Source: 008-0260-0_E.pdf</description>
 <pinref part="P+10" gate="VCC" pin="VCC"/>
 <junction x="228.6" y="73.66"/>
 </segment>
+<segment>
+<pinref part="R9" gate="G$1" pin="2"/>
+<pinref part="P+11" gate="VCC" pin="VCC"/>
+</segment>
 </net>
 <net name="N$9" class="0">
 <segment>
@@ -10237,12 +10255,6 @@ Source: 008-0260-0_E.pdf</description>
 <segment>
 <pinref part="IC1" gate="G$1" pin="PC2(ADC2)"/>
 <pinref part="PC2" gate="G$1" pin="1"/>
-</segment>
-</net>
-<net name="N$23" class="0">
-<segment>
-<pinref part="IC1" gate="G$1" pin="PC3(ADC3)"/>
-<pinref part="PC3" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$24" class="0">
@@ -10406,6 +10418,23 @@ Source: 008-0260-0_E.pdf</description>
 <wire x1="231.14" y1="40.64" x2="231.14" y2="43.18" width="0.1524" layer="91"/>
 <pinref part="JP1" gate="G$1" pin="2"/>
 <wire x1="231.14" y1="43.18" x2="238.76" y2="43.18" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="N$36" class="0">
+<segment>
+<pinref part="PWR" gate="G$1" pin="A"/>
+<pinref part="R9" gate="G$1" pin="1"/>
+</segment>
+</net>
+<net name="N$40" class="0">
+<segment>
+<pinref part="PWR" gate="G$1" pin="C"/>
+<wire x1="124.46" y1="71.12" x2="124.46" y2="63.5" width="0.1524" layer="91"/>
+<pinref part="IC1" gate="G$1" pin="PC3(ADC3)"/>
+<wire x1="124.46" y1="63.5" x2="106.68" y2="63.5" width="0.1524" layer="91"/>
+<pinref part="PC3" gate="G$1" pin="1"/>
+<wire x1="124.46" y1="63.5" x2="132.08" y2="63.5" width="0.1524" layer="91"/>
+<junction x="124.46" y="63.5"/>
 </segment>
 </net>
 </nets>
