@@ -8,18 +8,18 @@
     time_init(); \
     spi_init(); \
 \
-    _delay_ms(200); \
-    puts_P(PSTR("\n\n" XSTR(MY_ID) " start: " XSTR(VERSION))); \
+    _delay_ms(300); \
+    puts_P(PSTR("\n" XSTR(MY_ID) " start: " XSTR(VERSION))); \
 \
 \
     goto reinit; \
+\
 reinit: \
+    cli(); \
     while (mcp2515_init()) { \
         puts_P(PSTR("mcp: init")); \
         _delay_ms(500); \
     } \
-\
-    sei(); \
 \
     rc = 0;
 
@@ -27,7 +27,7 @@ reinit: \
 
 #define NODE_MAIN() \
     for (;;) { \
-        puts_P(PSTR("\n\n" XSTR(MY_ID) "> ")); \
+        print_P(PSTR("\n" XSTR(MY_ID) "> ")); \
 \
         while (irq_signal == 0) {}; \
 \
