@@ -12,16 +12,16 @@
 #include <unistd.h>
 
 #define STATUS_CMD "AT+CIPSTATUS"
-#define SINGLE_CON_CMD "AT+CIPMUX=0"
+#define SINGLE_CON_CMD "AT+CIPMUX=1"
 #define PAP_SETUP_CMD "AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\""
-#define CLOSE_TCP_CMD "AT+CIPCLOSE"
+#define CLOSE_TCP_CMD "AT+CIPCLOSE=0"
 #define SHUT_CMD "AT+CIPSHUT"
-#define SEND_CMD "AT+CIPSEND=%d\r"
+#define SEND_CMD "AT+CIPSEND=0\r"
 #define WIRELESS_UP_CMD "AT+CIICR"
 #define GET_IP_ADDR_CMD "AT+CIFSR"
-#define CONNECT_CMD "AT+CIPSTART=\"TCP\",\"%s\",\"%d\"\r"
+#define CONNECT_CMD "AT+CIPSTART=0,\"TCP\",\"%s\",\"%d\"\r"
 
-#define TIMEOUT_RETRIES 50
+#define TIMEOUT_RETRIES 500
 
 #define BUFFER_SIZE 256
 #define AT_NO_ECHO 0
@@ -51,6 +51,7 @@ volatile int flag_nocarrier;
 volatile int flag_connect;
 volatile int flag_tcp_state;
 volatile int flag_tcp_send;
+volatile int flag_tcp_received;
 volatile int flag_ip_state;
 volatile int flag_http;
 volatile int received;
@@ -65,3 +66,4 @@ void upload(const char *filename);
 int modem_init(const char *device);
 
 size_t slow_write(int fd, const char *buf, size_t count);
+void _delay_ms(int delay);
