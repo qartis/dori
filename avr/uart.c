@@ -76,8 +76,6 @@ void uart_init(uint16_t ubrr)
 
     stdout = &mystdout;
     stdin = &mystdout;
-
-    sei();
 }
 
 
@@ -308,6 +306,16 @@ void print(const char *s)
 {
     while (*s) {
         uart_putchar(*s);
+        s++;
+    }
+}
+
+void print_P(const char * PROGMEM s)
+{
+    uint8_t c;
+
+    while ((c = pgm_read_byte(s))) {
+        uart_putchar(c);
         s++;
     }
 }

@@ -20,6 +20,7 @@ char *getline(char *s, int bufsize, FILE *f, volatile uint8_t *signal);
 void prints(int16_t);
 void printu(uint16_t);
 void print(const char *);
+void print_P(const char * PROGMEM);
 void printx(uint16_t);
 #if 0
 void printb(uint16_t number, uint8_t base);
