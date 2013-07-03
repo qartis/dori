@@ -13,7 +13,7 @@ volatile uint16_t periodic_interval;
 void periodic_tophalf(void)
 {
     if (irq_signal & IRQ_TIMER) {
-        puts_P(PSTR("FUCK OFF!"));
+        puts_P(PSTR("timer overrun!"));
     }
 
     irq_signal |= IRQ_TIMER;
