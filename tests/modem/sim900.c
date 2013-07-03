@@ -26,10 +26,10 @@ size_t slow_write(int fd, const char *buf, size_t count)
             perror("write");
             exit(1);
         }
-        usleep(50); // was set to 5000 for file transfer test
+        usleep(5000); // was set to 5000 for file transfer test
 
         if (buf[i] == '\r') {
-            usleep(100);
+            usleep(10000);
         }
         i++;
     }
@@ -38,10 +38,7 @@ size_t slow_write(int fd, const char *buf, size_t count)
 }
 
 void _delay_ms(int delay){
-    struct timespec tim, tim2;
-    tim.tv_sec = delay/1000;
-    tim.tv_nsec = (delay*1000000)%1000000000;
-    nanosleep(&tim, &tim2);
+	usleep(delay*1000);
 }
 
 uint8_t TCP_state_is(int state){
@@ -129,7 +126,7 @@ void sendATCommand(const char* command)
 				flag_error = 0;
 				slow_write(modemFD, command, strlen(command));
 				slow_write(modemFD, "\r", strlen("\r"));
-				_delay_ms(1000);
+				_delay_ms(100);
 }
 
 
@@ -138,38 +135,55 @@ void TCPClose(void)
 	flag_error = 0;
 	sendATCommand(CLOSE_TCP_CMD);
   if (!TCP_state_is(TCP_CLOSED)){
-  	printf("error closing tcp.");
+  	printf("error closing tcp.\n");
   }
   
   flag_error = 0;
 	sendATCommand(SHUT_CMD);
   if (!IP_state_is(IP_CLOSED)){
-  	printf("error shutting off radio. :/");
+  	printf("error shutting off radio. :/\n");
   }
 }
 
 void TCPSend(char * buf, int length)
 {
 	flag_error = 0;
+	flag_tcp_send = 0;
 	char send_cmd[50];
- 	sprintf(send_cmd, SEND_CMD,length);
+ 	sprintf(send_cmd, "AT+CIPSEND=0\r");
   slow_write(modemFD, send_cmd, strlen(send_cmd));
   uint16_t retry = TIMEOUT_RETRIES;
-  while (retry-- && flag_tcp_send != TCP_SEND_EXPECTING_DATA && !flag_error){
+  while (retry-- && flag_tcp_send != TCP_SEND_EXPECTING_DATA  && !flag_error){
   		_delay_ms(20);
   }
-  if (flag_error || flag_tcp_send != TCP_SEND_EXPECTING_DATA){
-  	printf("error sending.");
+  if (flag_tcp_send != TCP_SEND_EXPECTING_DATA || flag_error){
+  	printf("error sending.\n"); 
+  	// need to figure out how to properly cancel the send.
   	return;
   }
+  
+	printf("ok to send.\n"); 
+  //_delay_ms(3000);
   flag_error = 0;
   flag_ok = 0;
-  slow_write(modemFD, buf, length); 
-  slow_write(modemFD, "\r", strlen("\r"));
+  char ch = 0;
+  while  (ch !='.') {
+        ch = getchar();
+        if (ch == '.')
+        	slow_write(modemFD, "\x1a", strlen("\x1a"));
+        else 
+        	write(modemFD, &ch, 1);
+    }
+ // slow_write(modemFD, buf, length); 
+ // slow_write(modemFD, "\x1a", strlen("\x1a"));
   retry = TIMEOUT_RETRIES;
-  while (retry-- && !flag_ok && !flag_error){
+  while (retry-- && flag_tcp_send!=TCP_SEND_OK  && !flag_error){
   		_delay_ms(20);
   }
+  if (flag_tcp_send!=TCP_SEND_OK)
+  	printf("Sending failed.\n");
+  else
+  	printf("Sending succeeded.\n");
 }
 
 // reads the flags that are sent by the responses... although it's not 100% perfect because sometimes the modem returns slightly different answers if it's already been partially connected... we should look into whether there are a few extra commands that need to go into TCPclose in order to really turn the radio off.
@@ -178,7 +192,7 @@ int TCPConnect(const char * host, uint16_t port)
 	flag_error = 0;
 	char buf[128];
 	if (flag_tcp_state != TCP_CLOSED || flag_ip_state != IP_CLOSED){
-		printf("Connection is open. Closing connection in order to reconnect.");
+		printf("Connection is open. Closing connection in order to reconnect.\n");
 		TCPClose();
 	}
 	// Selects Single-connection mode
@@ -210,15 +224,15 @@ int TCPConnect(const char * host, uint16_t port)
 		printf("error opening IP.\n");
 		//return 1;
 	}
-	//sendATCommand("AT+CIPSTART=\"TCP\",\"h.qartis.com\",\"53\"");   
+	//sendATCommand("AT+CIPSTART=0,\"TCP\",\"h.qartis.com\",\"53\"");   
 	sprintf(buf,CONNECT_CMD, host, port); 
   slow_write(modemFD,buf, strlen(buf)); 
   if(!TCP_state_is(TCP_CONNECTED)){
-		printf("error opening TCP Connection.");
+		printf("error opening TCP Connection.\n");
 		return 1;
 	}
 	else
-		printf("TCP Connected.");  
+		printf("TCP Connected.\n");  
   return 0; 
 }
 
