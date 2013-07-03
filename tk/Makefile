@@ -11,13 +11,13 @@ OBJS = $(patsubst src/%,obj/%,$(SRCS))
 vpath %.cpp ./src
 vpath %.h ./include
 
-tk: $(OBJS) $(INCLUDES)
+tk: $(OBJS) $(INCLUDES) obj
 	$(CXX) $(CXXFLAGS) $(OBJS) -o tk $(LDFLAGS)
 
 $(BUILDDIR)/main.o: main.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILDDIR)/%.o: %.cpp %.h obj
+$(BUILDDIR)/%.o: %.cpp %.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:

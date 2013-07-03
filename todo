@@ -27,16 +27,28 @@ Site editor
       X * add circles
 
     Iteration 2:
-    * add zoom support
-    * panning + Zooming,
+    X add zoom support
+    X panning + Zooming,
     X * add window resizing support
+    * pointer to DORI
+    * kill diagonal line
+    * add crosshair with meter labels
+    * fix scaling zoom bug - if you're zoomed
+    * fix zoom bouncing
+    * draw more rings (make the square that approximates the ring bigger)
+    * polygon tool
+    * zoom into / out of middle of screen
 
     Iteration 3:
+    * build the sidebar - put the toolbar into it
     * hierarchy by type of object,
     * text objects,
     * laser data,
     * photo info data (fov),
     * time (arrival, departure)
+    * grouping
+    * locking objects
+    * Markers: drawing lines that show measurement distance, ghost dori
 
 tk
     X sends its rowid for each table (records + logs) to gateway on execution, gateway sends back records with higher row id,

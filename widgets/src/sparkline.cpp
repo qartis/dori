@@ -184,6 +184,10 @@ void Fl_Sparkline::draw(void)
     int i;
     int index;
 
+    width = w() - padding * 2;
+    height = h() - padding * 2;
+
+    draw_box();
 
     if(num_values == 0) {
         return;
@@ -199,11 +203,6 @@ void Fl_Sparkline::draw(void)
         drawCursor();
         return;
     }
-
-    width = w() - padding * 2;
-    height = h() - padding * 2;
-
-    draw_box();
 
     fl_color(FL_BLACK);
 
