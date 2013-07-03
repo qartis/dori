@@ -8,8 +8,8 @@
     X(sos_stfu, 6) \
     X(sos_nostfu, 7) \
 \
-    X(file_chdir, 0x11) \
-\
+    X(file_read, 0x10) \
+    X(file_write, 0x11) \
     X(file_error, 0x12) \
 \
     X(sensor_error, 0x13) \
@@ -27,10 +27,9 @@
     X(get_value, 0x24) \
     X(set_value, 0x25) \
 \
-    X(conn_syn, 0x80) \
-    X(conn_rst, 0x81) \
-    X(conn_cts, 0x82) \
-    X(conn_data, 0x83) \
+    X(xfer_cts, 0x80) \
+    X(xfer_chunk, 0x81) \
+    X(xfer_cancel, 0x82) \
 \
     X(invalid, 0xff) \
 
@@ -73,9 +72,12 @@ enum id {
 };
 
 typedef uint8_t mcp2515_id_t;
+typedef uint8_t mcp2515_type_t;
+
+typedef uint8_t (*mcp2515_xfer_callback_t)(void);
 
 struct mcp2515_packet_t {
-    uint8_t type;
+    mcp2515_type_t type;
     mcp2515_id_t id;
     uint8_t more;
     uint8_t len;
@@ -89,10 +91,23 @@ enum {
     IRQ_UART  = (1 << 2),
 };
 
+enum XFER_STATE {
+    XFER_CHUNK_SENT,
+    XFER_GOT_CTS,
+    XFER_WAIT_CHUNK,
+    XFER_CANCEL,
+};
+
+extern volatile enum XFER_STATE xfer_state;
+
 extern volatile uint8_t mcp2515_busy;
 extern volatile uint8_t irq_signal;
 extern volatile struct mcp2515_packet_t packet;
-void mcp2515_irq(void);
+
+#ifdef CAN_TOPHALF
+void can_tophalf(void);
+#endif
+
 
 #define BRP0        0
 #define BTLMODE     7
@@ -255,3 +270,7 @@ void modify_register(uint8_t address, uint8_t mask, const uint8_t value);
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data);
 uint8_t mcp2515_send2(struct mcp2515_packet_t *p);
 void load_tx0(uint8_t type, uint8_t id, uint8_t len, const uint8_t *data);
+
+uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, void *data);
+uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
+    mcp2515_xfer_callback_t xfer_cb);

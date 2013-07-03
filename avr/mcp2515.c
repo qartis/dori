@@ -20,15 +20,22 @@ volatile struct mcp2515_packet_t packet;
 volatile uint8_t stfu;
 volatile uint8_t irq_signal;
 
+volatile enum XFER_STATE xfer_state;
+
+volatile mcp2515_type_t expecting_xfer_type;
 
 void mcp2515_tophalf(void)
 {
     if (irq_signal & IRQ_CAN) {
-        puts_P(PSTR("PISS OFF!"));
+        puts_P(PSTR("CAN overrun"));
     }
 
     irq_signal |= IRQ_CAN;
     packet.unread = 1;
+
+#ifdef CAN_TOPHALF
+    can_tophalf();
+#endif
 }
 
 inline void mcp2515_select(void)
@@ -147,7 +154,7 @@ uint8_t mcp2515_send2(struct mcp2515_packet_t *p)
 uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data)
 {
     if (mcp2515_busy) {
-        printf_P(PSTR("tx overrun\n"));
+        puts_P(PSTR("tx overrun"));
         return 1;
     }
 
@@ -192,7 +199,7 @@ void read_packet(uint8_t regnum)
     uint8_t i;
 
     if (packet.unread) {
-        puts_P(PSTR("RX OVERRUN"));
+        puts_P(PSTR("CAN rx overrun"));
         return;
     }
 
@@ -215,7 +222,7 @@ void read_packet(uint8_t regnum)
     packet.len = spi_recv() & 0x0f;
 
     if (packet.len > 8) {
-        printf_P(PSTR("mcp len!\n"));
+        puts_P(PSTR("mcp len!"));
         packet.len = 8;
     }
 
@@ -230,10 +237,8 @@ void read_packet(uint8_t regnum)
     mcp2515_unselect();
 
     if (MY_ID == ID_any) {
-        packet.unread = 1;
         mcp2515_tophalf();
     } else {
-        packet.unread = 1;
         mcp2515_tophalf();
         if (packet.type == TYPE_value_periodic && packet.id == ID_time) {
             uint32_t new_time = (uint32_t)packet.data[0] << 24 |
@@ -303,4 +308,81 @@ uint8_t mcp2515_check_alive(void)
     rc = read_register(MCP_REGISTER_CANINTE);
 
     return (rc == 0b00100111);
+}
+
+uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, void *data)
+{
+    uint8_t retry;
+
+    xfer_state = XFER_CHUNK_SENT;
+
+    mcp2515_send(type, dest, len, data);
+
+    retry = 255;
+    while (xfer_state == XFER_CHUNK_SENT && --retry)
+        _delay_ms(40);
+
+    if (retry == 0) {
+        xfer_state = XFER_CANCEL;
+        puts_P(PSTR("xfer: cts timeout"));
+        //didn't get a response
+        //expected TYPE_xfer_cts
+        return 1;
+    } else if (xfer_state == XFER_CANCEL) {
+        return 2;
+    }
+
+    return 0;
+}
+
+uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
+    mcp2515_xfer_callback_t xfer_cb)
+{
+    uint8_t retry;
+    uint8_t rc;
+
+    expecting_xfer_type = type;
+    xfer_state = XFER_WAIT_CHUNK;
+
+    puts_P(PSTR("sent CTS"));
+    mcp2515_send(TYPE_xfer_cts, sender_id, 0, NULL);
+
+    for (;;) {
+        retry = 255;
+        while (xfer_state == XFER_WAIT_CHUNK && --retry)
+            _delay_ms(40);
+
+        puts_P(PSTR("done"));
+        if (retry == 0) {
+            /* timed out waiting for xfer */
+            xfer_state = XFER_CANCEL;
+            puts_P(PSTR("wt_rx_xf: timeout"));
+            return 1;
+        }
+
+        if (xfer_state == XFER_CANCEL) {
+            puts_P(PSTR("wt_rx_xf: cancelled"));
+            return 1;
+        }
+
+        /* handle this new chunk */
+        rc = xfer_cb();
+        if (rc) {
+            puts_P(PSTR("xfer_cb error, cancelled"));
+            xfer_state = XFER_CANCEL;
+            return rc;
+        }
+
+        xfer_state = XFER_WAIT_CHUNK;
+
+        mcp2515_send(TYPE_xfer_cts, sender_id, 0, NULL);
+
+        if (packet.len < 8) {
+            /* we just sent our last (partial) chunk. success. */
+            puts_P(PSTR("rx_xf_wt: success"));
+            break;
+        }
+    }
+
+    return 0;
 }
