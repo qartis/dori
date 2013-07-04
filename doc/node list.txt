@@ -14,9 +14,6 @@
 * Arm control (2 relays)
 * Linear actuator feedback (analog)
 * Microswitch to detect lower limit
-
-
-=== Sensor plate node ===
 * Sensor plate spin control (L298N)
 * Floodlight control (relay)
 
