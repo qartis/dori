@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <wordexp.h>
 #include <sys/stat.h>
 #include <ctype.h>
 #include <sys/time.h>
@@ -22,176 +23,127 @@ int streq(const char *a, const char *b)
     return strcmp(a, b) == 0;
 }
 
-void* interrupt(void *arg)
+void hexdump(uint8_t *buf, int len)
 {
-  (void)arg; // use the arg to keep the compiler from bitching
-  int rc;
-  char c;
-  char buf[128];
-  char receive_buf[128];
-  int count = 0;
-  static int http_len;
+    int i;
 
-	for (;;) {
-		  rc = read(modemFD, &c, 1);
-		  if (rc < 0) {
-		      perror("read");
-		      exit(1);
-		  }
+    for (i = 0; i < len; i++) {
+        printf("0x%x ", buf[i]);
+        if (((i + 1) % 16) == 0) {
+            printf("\n");
+        } else if (((i + 1) % 8) == 0) {
+            printf(" ");
+        }
+    }
+}
 
-	//  printf("%x %c\n", c, isprint(c) ? c : '?');
-		  if (flag_tcp_received == 0)putchar(c);
-			
-		  received = 1;
-		  if (c == '\r' && flag_tcp_received > 0 && count == flag_tcp_received) { // got the data we were expecting
-		  	int i = 0; 
-		  	for (i = 0; i < flag_tcp_received; i++){
-		  		receive_buf[i] = buf[i];
-		  	}
-		  	receive_buf[count] = '\0';
-		  	count = 0;
-		  	buf[0] = '\0';
-		  	printf("Got: [%s]", receive_buf);
-		  	flag_tcp_received = 0;
-		  } else if (streq(buf, ">"))
-			{
-				flag_tcp_send = TCP_SEND_EXPECTING_DATA;
-				count = 0;
-		    buf[0] = '\0';
-			} else if (c == '\r') {
-		      if (!ignore && flag_tcp_received ==0) {
-		          if (streq(buf, "OK")) {
-		              flag_ok = 1;
-		          } else if (streq(buf, "ERROR")) {
-		              flag_error = 1;
-		          } else if (streq(buf, "STATE: IP INITIAL")) {
-		              flag_ip_state = IP_INITIAL;
-		          }else if (streq(buf, "STATE: IP START")) {
-		              flag_ip_state = IP_START;
-		          }else if (streq(buf, "STATE: IP GPRSACT")) {
-		              flag_ip_state = IP_GPRS;
-		          }else if (streq(buf, "STATE: IP STATUS")) {
-		              flag_ip_state = IP_STATUS;
-		          }else if (streq(buf, "STATE: TCP CONNECTING")) {
-		              flag_tcp_state = TCP_CONNECTING;
-		          }else if (streq(buf, "0, CONNECT OK")) {
-		              flag_tcp_state = TCP_CONNECTED;
-		          }else if (streq(buf, "0, SEND OK")) {
-		              flag_tcp_send = TCP_SEND_OK;
-		          }else if (streq(buf, "0, CONNECT FAIL")) {
-		              flag_tcp_state = TCP_CONNECT_FAILED;
-		          }else if (streq(buf, "0, CLOSE OK")) {
-		              flag_tcp_state = TCP_CLOSED;
-		          }else if (streq(buf, "SHUT OK")) {
-		              flag_ip_state = IP_CLOSED;
-		              flag_tcp_state = TCP_CLOSED;
-		          }else if (strcasestart(buf,"+RECEIVE,0,")) {
-		          		printf("totally received %d bytes", atoi(buf+strlen("+RECEIVE,0,")));
-		          		flag_tcp_received = atoi(buf+strlen("+RECEIVE,0,"));
-		          }else if (strncmp(buf, "HTTP", 4) == 0) {
-		              char *status = buf + strlen("HTTP/1.0 ");
-		              flag_http = atoi(status);
-		          } else if (strcasestart(buf, "Content-length")) {
-		              char *length = buf + strlen("Content-length: ");
-		              if (flag_http) {
-		                  http_len = atoi(length);
-		              }
-		          } else if (flag_http > 0 && http_len > 0 && count == 0) {
-		              /* get rid of last \n from http header */
-		              read(modemFD, &c, 1);
-		              int i;
-		              for (i = 0; i < http_len; i++) {
-		                  read(modemFD, &c, 1);
-		              }
+void* modem_thread(void *arg)
+{
+    (void)arg;
+    int rc;
+    char c;
+    char at_buf[128];
+    unsigned char tcp_rx_buf[128];
+    int tcp_rx_buf_len = 0;
+    int count;
 
-		              flag_http = 0;
-		          } //else
-		          if (count > 0) {
-		            //printf("received: '%s'\n", buf);
-		          }
-		      } 
-		      count = 0;
-		      buf[0] = '\0';
-		  } else if (c != '\n' && c != '\0') {
-		      buf[count] = c;
-		      buf[count + 1] = '\0';
-		      count++;
-		  }
-	}
+    int tcp_toread = 0;
+
+    for (;;) {
+        rc = read(modemFD, &c, 1);
+        if (rc < 0) {
+            perror("read");
+            exit(1);
+        }
+
+        /* if we're reading a tcp chunk */
+        if (tcp_toread > 0) {
+            tcp_rx_buf[tcp_rx_buf_len] = c;
+            tcp_rx_buf_len++;
+            tcp_toread--;
+            if (tcp_toread == 0) {
+                printf("got TCP chunk:\n");
+                hexdump(tcp_rx_buf, tcp_rx_buf_len);
+                tcp_rx_buf_len = 0;
+            }
+
+            continue;
+        }
+
+
+        received = 1;
+
+        if (streq(at_buf, ">")) {
+            flag_tcp_send = TCP_SEND_EXPECTING_DATA;
+            count = 0;
+            at_buf[0] = '\0';
+        } else if (c == '\r') {
+            if (!ignore) {
+                if (streq(at_buf, "OK")) {
+                    flag_ok = 1;
+                } else if (streq(at_buf, "ERROR")) {
+                    flag_error = 1;
+                } else if (streq(at_buf, "STATE: IP INITIAL")) {
+                    state = STATE_IP_INITIAL;
+                } else if (streq(at_buf, "STATE: IP START")) {
+                    state = STATE_IP_START;
+                } else if (streq(at_buf, "STATE: IP GPRSACT")) {
+                    state = STATE_IP_GPRS;
+                } else if (streq(at_buf, "STATE: IP STATUS")) {
+                    state = STATE_IP_STATUS;
+                } else if (streq(at_buf, "STATE: TCP CONNECTING")) {
+                    state = STATE_TCP_CONNECTING;
+                } else if (streq(at_buf, "0, CONNECT OK")) {
+                    state = STATE_TCP_CONNECTED;
+                } else if (streq(at_buf, "0, SEND OK")) {
+                    state = STATE_TCP_SEND_OK;
+                } else if (streq(at_buf, "0, CONNECT FAIL")) {
+                    state = STATE_TCP_CONNECT_FAILED;
+                } else if (streq(at_buf, "SHUT OK")) {
+                    state = STATE_CLOSED;
+                } else if (strcasestart(at_buf,"+RECEIVE,0,")) {
+                    printf("TCP: Going to read %d bytes", atoi(at_buf+strlen("+RECEIVE,0,")));
+                    tcp_toread = atoi(at_buf+strlen("+RECEIVE,0,"));
+                } else if (streq(at_buf, "RING")) {
+                    printf("ringing!\n");
+                    slow_write(modemFD, "ATH\r", strlen("ATH\r"));
+                }
+            } 
+
+            count = 0;
+            at_buf[0] = '\0';
+        } else if (c != '\n' && c != '\0') {
+            at_buf[count] = c;
+            at_buf[count + 1] = '\0';
+            count++;
+        }
+    }
 }
 
 void parse_command(int modemFD, char *command)
 {
-    char cmd[BUFFER_SIZE];
-    char arg1[BUFFER_SIZE];
-    char arg2[BUFFER_SIZE];
-    char *ptr;
-    int num_args;
+    int argc;
+    char **argv;
+    wordexp_t p;
 
-    int length = strlen(command);
+    wordexp(command, &p, 0);
 
-    strcpy(cmd, command);
+    argv = p.we_wordv;
+    argc = p.we_wordc;
 
-    // break up the commands and the arguments
-    ptr = strtok(cmd, " ");
-    if (ptr != NULL) {
-        strcpy(cmd, ptr);
-    }
-
-    num_args = 0;
-    ptr = strtok(NULL, " ");
-    if (ptr != NULL) {
-        strcpy(arg1, ptr);
-        num_args++;
-
-        ptr = strtok(NULL, " ");
-        if (ptr != NULL) {
-            strcpy(arg2, ptr);
-            num_args++;
-        }
-    }
-
-    if (strcmp (cmd, "connect")==0){
-    		if (num_args == 1) {
-            printf("usage: connect [hostname] [port]\n");
-            return;
-        }	
-        if (num_args == 0)
-        	TCPConnect("h.qartis.com", 53);
-        else
-        	TCPConnect(arg1, atoi(arg2));
-    } else if (strcmp (cmd, "spam")==0){
-    int i;	
-		  for (i = 0; i < 50; i++)
-		  	sendATCommand("AT+CSQ");
-    }else if (strcasecmp(cmd, "put") == 0) {
-        if (num_args != 1) {
-            printf("usage: put [filename]\n");
-            return;
-        }
-        if (!flag_ok || flag_error || flag_tcp_state !=TCP_CONNECTED) {
-            printf("not connected!\n");
+    if (strcmp(argv[0], "connect") == 0){
+        if (argc != 1) {
+            printf("usage: connect\n");
             return;
         }
 
-        printf("connected!\n");
-
-        upload(arg1);
-
-        uint16_t retry = TIMEOUT_RETRIES;
-        while (flag_http == 0 && --retry) {
-            _delay_ms(20);
-        }
-
-        if (retry == 0) {
-            printf("no response!\n");
-        } else if (flag_http == 200) {
-            printf("upload success\n");
-        } else {
-            printf("http error: %d\n", flag_http);
-        }
-    } else if (strcasecmp(cmd, "send") == 0) {
-        if (num_args != 1) {
+        TCPConnect("h.qartis.com", 53);
+    } else if (strcmp(argv[0], "spam") == 0){
+        int i;
+        for (i = 0; i < 50; i++)
+            sendATCommand("AT+CSQ");
+    } else if (strcasecmp(argv[0], "send") == 0) {
+        if (argc != 1) {
             printf("usage: send [chars] (no spaces allowed)\n");
             return;
         }
@@ -201,15 +153,14 @@ void parse_command(int modemFD, char *command)
         }
 
         printf("connected!\n");
-				printf("arg1: %s\n",arg1);
-        TCPSend(arg1, strlen(arg1));
+        printf("arg1: %s\n",argv[1]);
+        TCPSend();
 
-    }else if (strcasecmp(cmd, "close") == 0) {
+    }else if (strcasecmp(argv[0], "close") == 0) {
         TCPClose();
     }else if (strcasestart(command, "AT")) {
-        command[length] = '\r';
-        command[length + 1] = '\0';
         slow_write(modemFD, command, strlen(command));
+        slow_write(modemFD, "\r", strlen("\r"));
         usleep(1000000);
         if (flag_error) {
             printf("got 'error'\n");
@@ -219,27 +170,30 @@ void parse_command(int modemFD, char *command)
             printf("wtf!\n");
             exit(1);
         }
-    }else if (strcmp(cmd, "") == 0) { // don't whine if I press enter
+    //} else if (strcmp(argv[0], "") == 0) { // don't whine if I press enter
     } else {
-        printf("error: unrecognized command: %s\n", cmd);
+        printf("error: unrecognized command: %s\n", command);
     }
 }
 
-    
+
 
 int main(int argc, char * argv[])
 {
     char buf[256];
     int rc;
-    if (argc >1)
-        modem_init(argv[1]);
-    else
-        modem_init("/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0");
-
-		setbuf(stdout,NULL);
     pthread_t thread;
+    char *dev;
 
-    pthread_create(&thread, NULL, interrupt, NULL);
+    dev = "/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0";
+    if (argc > 1)
+        dev = argv[1];
+
+    modem_init(dev);
+
+    setbuf(stdout,NULL);
+
+    pthread_create(&thread, NULL, modem_thread, NULL);
 
     ignore = 1;
     slow_write(modemFD, "ATE0\r", strlen("ATE0\r")); // turn on/off echo.
@@ -256,5 +210,6 @@ int main(int argc, char * argv[])
         buf[rc - 1] = '\0';
         parse_command(modemFD, buf);
     }
+
     return 0;
 }

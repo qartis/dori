@@ -140,6 +140,7 @@ uint8_t periodic_irq(void)
 uint8_t can_irq(void)
 {
     uint8_t i;
+
     packet.unread = 0;
 
 #define X(name, value) static char const temp_type_ ## name [] PROGMEM = #name;

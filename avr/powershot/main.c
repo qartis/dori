@@ -42,7 +42,7 @@ uint8_t uart_irq(void)
 
     fgets(buf, sizeof(buf), stdin);
 
-    int pin = buf[1] - '0';
+    //int pin = buf[1] - '0';
 
     if (0) {
     } else if (streq(buf, "auto")) {

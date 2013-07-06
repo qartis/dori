@@ -43,22 +43,22 @@
 #define TCP_SEND_EXPECTING_DATA 2
 #define TCP_SEND_FAILED					0
 
-int modemFD;
+extern int modemFD;
 
-volatile int flag_ok;
-volatile int flag_error;
-volatile int flag_nocarrier;
-volatile int flag_connect;
-volatile int flag_tcp_state;
-volatile int flag_tcp_send;
-volatile int flag_tcp_received;
-volatile int flag_ip_state;
-volatile int flag_http;
-volatile int received;
-volatile int ignore;
+extern volatile int flag_ok;
+extern volatile int flag_error;
+extern volatile int flag_nocarrier;
+extern volatile int flag_connect;
+extern volatile int flag_tcp_state;
+extern volatile int flag_tcp_send;
+extern volatile int flag_tcp_received;
+extern volatile int flag_ip_state;
+extern volatile int flag_http;
+extern volatile int received;
+extern volatile int ignore;
 
 void sendATCommand(const char* command);
-void TCPSend(char * buf, int length);
+void TCPSend(void);
 int TCPConnect(const char * host, uint16_t port);
 void TCPClose(void);
 void upload(const char *filename);
