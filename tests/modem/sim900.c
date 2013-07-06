@@ -55,7 +55,7 @@ size_t slow_write(int fd, const char *buf, size_t count)
 
 void _delay_ms(int delay)
 {
-	usleep(delay*1000);
+    usleep(delay*1000);
 }
 
 /*
@@ -146,15 +146,15 @@ uint8_t TCPDisconnect(void)
 
     state = STATE_UNKNOWN;
 
-	sendATCommand("AT+CIPCLOSE=0");
+    sendATCommand("AT+CIPCLOSE=0");
     wait_for_state(STATE_CLOSED);
 
     state = STATE_UNKNOWN;
 
-	sendATCommand("AT+CIPSHUT");
+    sendATCommand("AT+CIPSHUT");
     wait_for_state(STATE_CLOSED);
 
-	sendATCommand("AT+CIPSTATUS");
+    sendATCommand("AT+CIPSTATUS");
     rc = wait_for_state(STATE_IP_INITIAL);
 
     return rc;
@@ -184,7 +184,7 @@ uint8_t TCPSend(void)
         return 1;
     }
   
-	fprintf(stderr, "Data to send: ");
+    fprintf(stderr, "Data to send: ");
     while (len--) {
         c = getchar();
         write(modemFD, &c, 1);
@@ -206,10 +206,10 @@ uint8_t TCPConnect(void)
 
     TCPDisconnect();
 
-	/* Multi-connection mode in order to encapsulate received data */
-	sendATCommand("AT+CIPMUX=1");
+    /* Multi-connection mode in order to encapsulate received data */
+    sendATCommand("AT+CIPMUX=1");
 
-	sendATCommand("AT+CIPSTATUS");
+    sendATCommand("AT+CIPSTATUS");
     rc = wait_for_state(STATE_IP_INITIAL);
     if (rc != 0) {
         printf("failed to get IP state INITIAL\n");
@@ -219,9 +219,9 @@ uint8_t TCPConnect(void)
 
     printf("state: IP INITIAL\n");
 
-	sendATCommand("AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\"");
+    sendATCommand("AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\"");
 
-	sendATCommand("AT+CIPSTATUS");
+    sendATCommand("AT+CIPSTATUS");
     rc = wait_for_state(STATE_IP_START);
     if (rc != 0) {
         printf("failed to get IP state START\n");
@@ -232,10 +232,10 @@ uint8_t TCPConnect(void)
     printf("state: IP START\n");
 
     /* This command takes a little while */
-	sendATCommand("AT+CIICR");
+    sendATCommand("AT+CIICR");
     _delay_ms(2000);
 
-	sendATCommand("AT+CIPSTATUS");
+    sendATCommand("AT+CIPSTATUS");
     rc = wait_for_state(STATE_IP_GPRSACT);
     if (rc != 0) {
         printf("Failed to get IP state GPRSACT\n");
@@ -246,9 +246,9 @@ uint8_t TCPConnect(void)
     printf("state: IP GPRSACT\n");
 
     /* We aren't online until we check our IP address */
-	sendATCommand("AT+CIFSR");
+    sendATCommand("AT+CIFSR");
 
-	sendATCommand("AT+CIPSTATUS");
+    sendATCommand("AT+CIPSTATUS");
     rc = wait_for_state(STATE_IP_STATUS);
     if (rc != 0) {
         printf("Failed to get IP state STATUS\n");
@@ -258,9 +258,9 @@ uint8_t TCPConnect(void)
 
     printf("state: IP STATUS\n");
 
-	sendATCommand("AT+CIPSTART=0,\"TCP\",\"h.qartis.com\",\"53\"");   
+    sendATCommand("AT+CIPSTART=0,\"TCP\",\"h.qartis.com\",\"53\"");   
 
-	sendATCommand("AT+CIPSTATUS");
+    sendATCommand("AT+CIPSTATUS");
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {
         printf("Failed to get IP state IP PROCESSING (connected)\n");
