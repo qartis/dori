@@ -29,7 +29,7 @@ Site editor
     Iteration 2:
     X add zoom support
     X panning + Zooming,
-    X * add window resizing support
+    * add window resizing support
     * pointer to DORI
     * kill diagonal line
     * add crosshair with meter labels
