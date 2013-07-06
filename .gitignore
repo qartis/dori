@@ -9,6 +9,7 @@
 *.tar
 *.tar.gz
 *.gz
+*.db
 tags
-db*
+db
 eagle
