@@ -6,6 +6,17 @@
 
 #include "debug.h"
 
+#define DEBUG_BUF_SIZE 64
+
+volatile uint8_t debug_buf[DEBUG_BUF_SIZE];
+volatile uint8_t debug_buf_in;
+volatile uint8_t debug_buf_out;
+
+static FILE mystdout = FDEV_SETUP_STREAM(
+    (int (*)(char,FILE*))debug_putchar, 
+    (int (*)(FILE*))debug_getchar,
+    _FDEV_SETUP_RW);
+
 void debug_init(void)
 {
     /* tx */
@@ -17,17 +28,11 @@ void debug_init(void)
 
     PCMSK1 = (1 << PCINT9);
     PCICR |= (1 << PCIE1);
+    
+    stdout = &mystdout;
+    stdin = &mystdout;
 }
 
-volatile uint8_t debug_buf[64];
-volatile uint8_t debug_buf_len;
-volatile uint8_t debug_has_line;
-
-void debug_reset(void)
-{
-    debug_buf_len = 0;
-    debug_has_line = 0;
-}
 
 ISR(PCINT1_vect)
 {
@@ -37,9 +42,8 @@ ISR(PCINT1_vect)
     if (PINC & (1 << PINC1))
         return;
 
-    if (debug_has_line)
-        return;
 
+	
     _delay_us(150);
     for (i = 0; i < 8; i++){
         c >>= 1;
@@ -49,49 +53,31 @@ ISR(PCINT1_vect)
         _delay_us(100);
     }
 
-    debug_putchar(c);
-
-    if (c == '\r') {
-        debug_putchar('\n');
-        debug_has_line = 1;
-        return;
-    }
-
-    debug_buf[debug_buf_len] = c;
-    debug_buf[debug_buf_len + 1] = '\0';
-
-    if (debug_buf_len < sizeof(debug_buf) - 1)
-        debug_buf_len++;
+ 	//	debug_putchar(c);
+ 		
+	  debug_buf[debug_buf_in] = c;
+    debug_buf_in = (debug_buf_in + 1) % DEBUG_BUF_SIZE;
 }
 
-void debug(const char *fmt, ...)
+int debug_getchar(void)
 {
-    va_list ap;
-    char buf[128];
+		int c;
 
-    va_start(ap, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, ap);
-    va_end(ap);
+    while (debug_buf_in == debug_buf_out) {};
+    
+    c = debug_buf[debug_buf_out];
+    debug_buf_out = (debug_buf_out + 1) % DEBUG_BUF_SIZE;
 
-    char *str = buf;
-
-    while (*str) {
-crnl:
-
-        debug_putchar(*str);
-        
-        if (*str == '\n') {
-            *str = '\r';
-            goto crnl;
-        }
-
-        str++;
+    if (c == '\r'){
+        c = '\n';
     }
+    //debug_putchar(c);
+    return c;
 }
 
-
-void debug_putchar(uint8_t c)
+int debug_putchar(char c)
 {
+		cli();
     uint8_t i;
 
     PORTC &= ~(1 << PORTC0);
@@ -106,4 +92,6 @@ void debug_putchar(uint8_t c)
     }
     PORTC |= (1 << PORTC0);
     _delay_us(150);
+    sei();
+    return c;
 }

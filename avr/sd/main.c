@@ -100,7 +100,6 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
     }
 
     log_write_pos += page_buf_len;
-    page_buf_len = 0;
 
     snprintf(buf, sizeof(buf), "%d.LEN", cur_log);
     rc = pf_open(buf);
@@ -124,7 +123,6 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
     return 0;
 
 err:
-    page_buf_len = 0;
     return 1;
 }
 
@@ -138,7 +136,7 @@ uint8_t log_packet(void)
     static uint16_t page_buf_len = 0;
 
     /* if we have room to store in cache, then copy it and we're done */
-    if (((uint16_t)page_buf_len + packet.len) > sizeof(page_buf)) {
+    if (((uint16_t)page_buf_len + packet.len) < sizeof(page_buf)) {
         page_buf[page_buf_len++] = packet.type;
         page_buf[page_buf_len++] = packet.id;
         page_buf[page_buf_len++] = packet.len;
@@ -146,13 +144,15 @@ uint8_t log_packet(void)
         for (i = 0; i < packet.len; i++) {
             page_buf[page_buf_len++] = packet.data[i];
         }
-
+				printf("Page buffer: %d/512\n",page_buf_len);
+				
         return 0;
     }
 
     /* dump the page buf */
     cli();
     rc = dump_page_buf(page_buf, page_buf_len);
+    page_buf_len = 0;
     sei();
 
     return rc;
@@ -188,10 +188,16 @@ uint8_t uart_irq(void)
     if (strcmp(buf, "read") == 0) {
         rc = pf_open("tmp");
         printf("open: %d\n", rc);
-        uint16_t rd;
-        pf_read(buf, 512, &rd);
+        uint16_t rd = -1;
+        uint16_t total_rd = 0;
+        while (rd != 0){
+        	rc = pf_read(buf+total_rd, 1, &rd);
+        	if (rc)
+        		break;
+        	total_rd += rd;
+        }
         uint16_t i;
-        for(i=0;i<rd;i++){
+        for(i=0;i<total_rd;i++){
             printf("%x ", buf[i]);
         }
     }

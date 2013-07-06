@@ -35,7 +35,7 @@
 #include "basic_ball.h"
 #include "Fl_Custom_Cursor.H"
 #include "FlGlArcballWindow.h"
-#include "mgl2/fltk.h"
+//#include "mgl2/fltk.h"
 #include "siteobject.h"
 #include "rectobject.h"
 #include "colorchooser.h"
