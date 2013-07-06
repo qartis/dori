@@ -50,6 +50,7 @@ Site editor
     * locking objects
     * Markers: drawing lines that show measurement distance, ghost dori
 
+
 tk
     X sends its rowid for each table (records + logs) to gateway on execution, gateway sends back records with higher row id,
     X store database on disk, not memory,
@@ -65,3 +66,15 @@ status screen:
     colour gauges based on freshness,
     widgets: compass, dori's orientation in 3d visualization and gauges (airplane cockpit), last known battery level, temperature, humidity, position in the world, last captured image, node uptime
 
+
+shell
+    * Connect directly to gateway (netcat), then send an identification for the type of action (in plain ASCII), and action parameter
+    * PUT [file slot] [file size]
+    * GET [node id] [file slot]
+    * GETIMG [file specifier: directory #, file #, file extension]
+    * TREE
+    * EXPLICIT [node id]
+    * SETUPDATEINTERVAL [node id]
+    * CHECKSUM [node id] [file slot]
+    * CAN [can frame in hex]
+    * AT Command buffer, 8 slots of 8 bytes that we reference individually

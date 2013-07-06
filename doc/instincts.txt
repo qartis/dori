@@ -14,6 +14,7 @@
 
 -- Logging --
 - when log reaches critical size, send it off to gateway
+- (optional) Investigate: Powershot node to monitor the heartbeat of the logger, and take over for logging
 
 -- Redundancy --
  - Detect when modem is unavailable and switch to the other one, send a message
