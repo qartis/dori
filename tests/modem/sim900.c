@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include <ctype.h>
 #include <sys/time.h>
@@ -6,33 +7,34 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <termios.h>
-#include <termio.h>
 #include <string.h>
 #include <unistd.h>
+
 #include "sim900.h"
 
 int modemFD;
 
-volatile int flag_ok;
-volatile int flag_error;
-volatile int flag_nocarrier;
-volatile int flag_connect;
-volatile int flag_tcp_state;
-volatile int flag_tcp_send;
-volatile int flag_tcp_received;
-volatile int ip_state;
-volatile int flag_http;
-volatile int received;
-volatile int ignore;
+volatile enum state state;
+
+uint8_t wait_for_state(uint8_t goal_state)
+{
+    uint8_t retry;
+
+    /* 255 * 10 = 2550 ms */
+    retry = 255;
+    while (state != goal_state && state != STATE_ERROR && --retry)
+        _delay_ms(20);
+
+    return state != goal_state;
+}
+
 
 size_t slow_write(int fd, const char *buf, size_t count)
 {
     unsigned i = 0;
     size_t rc;
-
-    flag_ok = 0;
-    flag_error = 0;
 
     while (i < count) {
         rc = write(fd, (uint8_t *)buf + i, 1);
@@ -51,22 +53,9 @@ size_t slow_write(int fd, const char *buf, size_t count)
     return i;
 }
 
-void _delay_ms(int delay){
+void _delay_ms(int delay)
+{
 	usleep(delay*1000);
-}
-
-uint8_t get_ip_state(int state){
-    uint16_t retry;
-    
-    ip_state = STATE_UNKNOWN;
-
-    sendATCommand(STATUS_CMD);
-
-    retry = TIMEOUT_RETRIES;
-    while (ip_state == STATE_UNKNOWN && --retry)
-        _delay_ms(20);
-
-    return ip_state;
 }
 
 /*
@@ -135,165 +124,173 @@ void upload(const char *filename)
 
 
 // TODO: optimize this?
-void sendATCommand(const char* command)
+void sendATCommand(const char *fmt, ...)
 {
-				flag_ok = 0;
-				flag_error = 0;
-				slow_write(modemFD, command, strlen(command));
-				slow_write(modemFD, "\r", strlen("\r"));
-				_delay_ms(100);
+    char buf[256];
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+
+    slow_write(modemFD, buf, strlen(buf));
+    slow_write(modemFD, "\r", strlen("\r"));
+
+    _delay_ms(100);
 }
 
 
-void TCPClose(void)
+uint8_t TCPDisconnect(void)
 {
-	sendATCommand(CLOSE_TCP_CMD);
-	sendATCommand(SHUT_CMD);
-}
+    uint8_t rc;
 
-void TCPSend(void)
-{
-	flag_error = 0;
-	flag_tcp_send = 0;
-	char send_cmd[50];
- 	sprintf(send_cmd, "AT+CIPSEND=0\r");
-  slow_write(modemFD, send_cmd, strlen(send_cmd));
-  uint16_t retry = TIMEOUT_RETRIES;
-  while (retry-- && flag_tcp_send != TCP_SEND_EXPECTING_DATA  && !flag_error){
-  		_delay_ms(20);
-  }
-  if (flag_tcp_send != TCP_SEND_EXPECTING_DATA || flag_error){
-  	printf("error sending.\n"); 
-  	// need to figure out how to properly cancel the send.
-  	return;
-  }
-  
-	printf("ok to send.\n"); 
-  //_delay_ms(3000);
-  flag_error = 0;
-  flag_ok = 0;
-  char ch = 0;
-  while (ch !='.') {
-        ch = getchar();
-        if (ch == '.')
-        	slow_write(modemFD, "\x1a", strlen("\x1a"));
-        else 
-        	write(modemFD, &ch, 1);
-    }
- // slow_write(modemFD, buf, length); 
- // slow_write(modemFD, "\x1a", strlen("\x1a"));
-  retry = TIMEOUT_RETRIES;
-  while (retry-- && flag_tcp_send!=TCP_SEND_OK  && !flag_error){
-  		_delay_ms(20);
-  }
-  if (flag_tcp_send!=TCP_SEND_OK)
-  	printf("Sending failed.\n");
-  else
-  	printf("Sending succeeded.\n");
-}
+    state = STATE_UNKNOWN;
 
-uint8_t wait_for_ip_status(uint8_t goal_state)
-{
-    uint8_t retry;
+	sendATCommand("AT+CIPCLOSE=0");
+    wait_for_state(STATE_CLOSED);
+
+    state = STATE_UNKNOWN;
+
+	sendATCommand("AT+CIPSHUT");
+    wait_for_state(STATE_CLOSED);
 
 	sendATCommand("AT+CIPSTATUS");
+    rc = wait_for_state(STATE_IP_INITIAL);
 
-    retry = 255;
-    while (state != goal_state && --retry)
-        _delay_ms(20);
-
-    return state != goal_state;
+    return rc;
 }
 
-// reads the flags that are sent by the responses... although it's not 100% perfect because sometimes the modem returns slightly different answers if it's already been partially connected... we should look into whether there are a few extra commands that need to go into TCPclose in order to really turn the radio off.
-uint8_t TCPConnect(const char * host, uint16_t port)
+uint8_t TCPSend(void)
 {
-	flag_error = 0;
-	char buf[128];
-    uint8_t retry;
+    char c;
+    int len;
+    uint8_t rc;
 
-#define STATUS_CMD "AT+CIPSTATUS"
-#define SINGLE_CON_CMD "AT+CIPMUX=1"
-#define PAP_SETUP_CMD "AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\""
-#define CLOSE_TCP_CMD "AT+CIPCLOSE=0"
-#define SHUT_CMD "AT+CIPSHUT"
-#define SEND_CMD "AT+CIPSEND=0\r"
-#define WIRELESS_UP_CMD "AT+CIICR"
-#define GET_IP_ADDR_CMD "AT+CIFSR"
-#define CONNECT_CMD "AT+CIPSTART=0,\"TCP\",\"%s\",\"%d\"\r"
+    fprintf(stderr, "Data len: ");
 
-    TCPClose();
+    scanf("%d", &len);
+
+    /* chomp newline */
+    (void)getchar();
+
+    state = STATE_EXPECTING_PROMPT;
+    sendATCommand("AT+CIPSEND=0,%d", len);
+
+    rc = wait_for_state(STATE_GOT_PROMPT);
+    if (rc != 0) {
+        printf("wanted to send data, but didn't get prompt\n");
+        /* send CAN error, but continue regardless */
+
+        return 1;
+    }
+  
+	fprintf(stderr, "Data to send: ");
+    while (len--) {
+        c = getchar();
+        write(modemFD, &c, 1);
+    }
+
+    rc = wait_for_state(STATE_CONNECTED);
+    if (rc != 0) {
+        printf("Sending failed\n");
+    } else {
+        printf("Sending succeeded\n");
+    }
+
+    return rc;
+}
+
+uint8_t TCPConnect(void)
+{
+    uint8_t rc;
+
+    TCPDisconnect();
 
 	/* Multi-connection mode in order to encapsulate received data */
 	sendATCommand("AT+CIPMUX=1");
 
-    /* At this point we should be in "IP INITIAL" state */
 	sendATCommand("AT+CIPSTATUS");
-
-    retry = 255;
-    while (state != STATE_IP_INITIAL && --retry)
-        _delay_ms(20);
-
-    if (state != STATE_IP_INITIAL) {
-        printf("Failed to get initial IP status\n");
-
-        /* we should probably dispatch a MODEM_ERROR CAN packet
-           and then continue with the IP setup */
-
-        return 1;
-    }
-
-    /* Sending PAP credentials also moves us to "IP START" */
-	sendATCommand("AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\"");
-
-    rc = wait_for_ip_status(STATUS_IP_INITIAL);
+    rc = wait_for_state(STATE_IP_INITIAL);
     if (rc != 0) {
-        printf("Failed to get initial IP status\n");
+        printf("failed to get IP state INITIAL\n");
+        /* dispatch a MODEM_ERROR CAN packet and try to continue */
         return rc;
     }
 
-	sendATCommand(WIRELESS_UP_CMD);
-	_delay_ms(3000);
-	flag_error = 0;
-	sendATCommand(STATUS_CMD);
-	if(!IP_state_is(IP_GPRS)){
-		printf("error connecting to gprs.\n");
-		//return 1;
-	}
-	sendATCommand(GET_IP_ADDR_CMD);
-	sendATCommand(STATUS_CMD);
-	if(!IP_state_is(IP_STATUS)){
-		printf("error opening IP.\n");
-		//return 1;
-	}
-	//sendATCommand("AT+CIPSTART=0,\"TCP\",\"h.qartis.com\",\"53\"");   
-	sprintf(buf,CONNECT_CMD, host, port); 
-  slow_write(modemFD,buf, strlen(buf)); 
-  if(!TCP_state_is(TCP_CONNECTED)){
-		printf("error opening TCP Connection.\n");
-		return 1;
-	}
-	else
-		printf("TCP Connected.\n");  
-  return 0; 
+    printf("state: IP INITIAL\n");
+
+	sendATCommand("AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\"");
+
+	sendATCommand("AT+CIPSTATUS");
+    rc = wait_for_state(STATE_IP_START);
+    if (rc != 0) {
+        printf("failed to get IP state START\n");
+        /* dispatch a MODEM_ERROR CAN packet and try to continue */
+        return rc;
+    }
+
+    printf("state: IP START\n");
+
+    /* This command takes a little while */
+	sendATCommand("AT+CIICR");
+    _delay_ms(2000);
+
+	sendATCommand("AT+CIPSTATUS");
+    rc = wait_for_state(STATE_IP_GPRSACT);
+    if (rc != 0) {
+        printf("Failed to get IP state GPRSACT\n");
+        /* dispatch a MODEM_ERROR CAN packet and try to continue */
+        return rc;
+    }
+
+    printf("state: IP GPRSACT\n");
+
+    /* We aren't online until we check our IP address */
+	sendATCommand("AT+CIFSR");
+
+	sendATCommand("AT+CIPSTATUS");
+    rc = wait_for_state(STATE_IP_STATUS);
+    if (rc != 0) {
+        printf("Failed to get IP state STATUS\n");
+        /* dispatch a MODEM_ERROR CAN packet and try to continue */
+        return rc;
+    }
+
+    printf("state: IP STATUS\n");
+
+	sendATCommand("AT+CIPSTART=0,\"TCP\",\"h.qartis.com\",\"53\"");   
+
+	sendATCommand("AT+CIPSTATUS");
+    rc = wait_for_state(STATE_CONNECTED);
+    if (rc != 0) {
+        printf("Failed to get IP state IP PROCESSING (connected)\n");
+        /* dispatch a MODEM_ERROR CAN packet and try to continue */
+        return rc;
+    }
+
+    printf("state: IP PROCESSING (connected)\n");
+
+    return 0; 
 }
 
 
 int modem_init(const char *device)
 {
-    struct termios tp;
-
-    modemFD = open(device,O_RDWR | O_NOCTTY);
+    modemFD = open(device, O_RDWR | O_NOCTTY);
     if (modemFD < 0) {
         perror("open modemFD");
         exit(1);
     }
+
+    /*
+    struct termios tp;
 
     tcflush(modemFD, TCIOFLUSH);
     ioctl(modemFD, TCGETS, &tp);
     cfmakeraw(&tp);
     cfsetspeed(&tp, 9600);
     ioctl(modemFD, TCSETS, &tp);
+    */
 
     return modemFD;
 }
