@@ -45,6 +45,7 @@ private:
     void drawSiteObjects();
 
     void drawDistanceText();
+    void drawDoriArrow();
 
     void createNewObject(SiteObjectType type, float mouseX, float mouseY);
 
@@ -59,8 +60,9 @@ private:
     float screenToWorld(float screenVal);
     float worldToScreen(float worldVal);
 
-    int siteScreenCenterX();
-    int siteScreenCenterY();
+    float screenCenterWorldX();
+
+    float screenCenterWorldY();
 
     bool isObjectSelected(SiteObject *obj);
 

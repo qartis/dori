@@ -381,6 +381,14 @@ void SiteEditor::resize(int X, int Y, int W, int H) {
     enforceSiteBounds();
 }
 
+inline float SiteEditor::screenCenterWorldX() {
+    return worldPanX + screenToWorld(w() / 2);
+}
+
+inline float SiteEditor::screenCenterWorldY() {
+    return worldPanY + screenToWorld(h() / 2);
+}
+
 // Snap the pan back within bounds if necessary
 void SiteEditor::enforceSiteBounds() {
     if(worldPanX < 0) {
@@ -551,13 +559,13 @@ int SiteEditor::handle(int event) {
             // Store the old world center, before zooming
             // so that after we zoom, we can pan back to our old coordinate,
             // and simulate zooming into the center of the screen
-            float oldCenterX = worldPanX + screenToWorld(w() / 2);
-            float oldCenterY = worldPanY + screenToWorld(h() / 2);
+            float oldCenterX = screenCenterWorldX();
+            float oldCenterY = screenCenterWorldY();
 
             pixelsPerCell -= zoomAmount;
 
-            float newCenterX = worldPanX + screenToWorld(w() / 2);
-            float newCenterY = worldPanY + screenToWorld(h() / 2);
+            float newCenterX = screenCenterWorldX();
+            float newCenterY = screenCenterWorldY();
 
             if(pixelsPerCell < MIN_PIXELS_PER_CELL) {
                 pixelsPerCell = MIN_PIXELS_PER_CELL;
@@ -781,8 +789,8 @@ void SiteEditor::drawArcs() {
     // approximate the circle as a square:
     // we make the squares smaller by 75% to under approximate the circle
     // so that we won't hide the arcs near the edge of the screen
-    float centerX = worldToScreen((siteMeterExtents / 2.0) - worldPanX);
-    float centerY = worldToScreen((siteMeterExtents / 2.0) - worldPanY);
+    float centerX = worldToScreen(screenCenterWorldX());
+    float centerY = worldToScreen(screenCenterWorldY());
 
     for(int i = 0; i < numArcs; i++) {
         // radius = (i+1) meters
@@ -917,6 +925,31 @@ void SiteEditor::drawSiteObjects() {
     }
 }
 
+
+// Draw an arrow that points to DORI's location (center of the site)
+void SiteEditor::drawDoriArrow() {
+    fl_push_matrix();
+
+    float centerX = screenCenterWorldX();
+    float centerY = screenCenterWorldY();
+
+    float angle = atan2(worldToScreen((siteMeterExtents / 2.0) - centerX), worldToScreen((siteMeterExtents / 2.0) - centerY))  * (180.0/M_PI);
+
+    fl_translate(w() / 2, h() / 2);
+    fl_rotate(angle);
+
+    fl_line_style(0, 5);
+    fl_color(FL_BLACK);
+
+    fl_begin_line();
+    fl_vertex(-10, 0);
+    fl_vertex(0, 10);
+    fl_vertex(10, 0);
+    fl_end_line();
+
+    fl_pop_matrix();
+}
+
 void SiteEditor::draw() {
     fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), FL_DARK2);
 
@@ -937,5 +970,7 @@ void SiteEditor::draw() {
 
     // handles drawing of the new site object or object selection
     drawSelectionState();
+
+    drawDoriArrow();
 }
 
