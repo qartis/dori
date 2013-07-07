@@ -37,17 +37,22 @@ private:
 
     void findObjectsInBoundingBox(int startMouseX, int startMouseY, int curMouseX, int curMouseY, std::vector<SiteObject*> &inputData, std::vector<SiteObject*> &outputData);
 
-    void drawGrid(float pixelsPerCell, int numCells);
+    void drawGrid();
     void drawArcs();
     void drawDori();
-    void drawDistanceLine();
+    void drawCrosshair();
+    void drawSelectionState();
+    void drawSiteObjects();
+
     void drawDistanceText();
 
-    void createNewObject(SiteObjectType type, int mouseX, int mouseY);
+    void createNewObject(SiteObjectType type, float mouseX, float mouseY);
 
     void sizeObject(SiteObjectType type, SiteObject *object, int clickedX, int clickedY, int curX, int curY);
 
     void commitSelectedObjectsToDatabase();
+
+    void enforceSiteBounds();
 
     virtual void resize(int X, int Y, int W, int H);
 
@@ -58,6 +63,8 @@ private:
     int siteScreenCenterY();
 
     bool isObjectSelected(SiteObject *obj);
+
+    void panToWorldCenter();
 
     int clickedMouseX;
     int clickedMouseY;
@@ -96,11 +103,11 @@ private:
     int numGridCells;
 
     // Keeps track of where we've panned the screen to
-    int panStartMouseX;
-    int panStartMouseY;
+    float panStartWorldX;
+    float panStartWorldY;
 
-    int screenPanX;
-    int screenPanY;
+    float worldPanX;
+    float worldPanY;
 
     float pixelsPerCell;
     float cellsPerMeter;
@@ -109,4 +116,6 @@ private:
 
     bool showArcs;
     bool showGrid;
+
+    float curWorldDistance;
 };

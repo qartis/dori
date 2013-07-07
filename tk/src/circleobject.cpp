@@ -14,14 +14,16 @@ CircleObject::~CircleObject() { };
 void CircleObject::drawWorld() {
 }
 
-void CircleObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, int doriScreenX, int doriScreenY) {
-    // # cells = (cells / meter) * (worldOffset in meters)
+void CircleObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, float worldPanX, float worldPanY) {    // # cells = (cells / meter) * (worldOffset in meters)
     // # cells * pixelsPerCell = position in pixels
-    float screenOffsetX = (cellsPerMeter * worldOffsetX) * pixelsPerCell;
-    float screenOffsetY = (cellsPerMeter * worldOffsetY) * pixelsPerCell;
+    float screenOffsetX = SiteObject::worldToScreen(worldOffsetX, pixelsPerCell, cellsPerMeter);
+    float screenOffsetY = SiteObject::worldToScreen(worldOffsetY, pixelsPerCell, cellsPerMeter);
 
-    int circleOriginX = doriScreenX + screenOffsetX;
-    int circleOriginY = doriScreenY - screenOffsetY;
+    float siteCenterScreenX = SiteObject::worldToScreen(siteCenterX - worldPanX, pixelsPerCell, cellsPerMeter);
+    float siteCenterScreenY = SiteObject::worldToScreen(siteCenterY - worldPanY, pixelsPerCell, cellsPerMeter);
+
+    int circleOriginX = siteCenterScreenX + screenOffsetX;
+    int circleOriginY = siteCenterScreenY - screenOffsetY;
 
     int circleRadius = (cellsPerMeter * worldRadius) * pixelsPerCell;
 

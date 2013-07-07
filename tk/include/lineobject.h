@@ -5,7 +5,7 @@ public:
     virtual ~LineObject();
 
     void drawWorld();
-    void drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, int doriScreenX, int doriScreenY);
+    void drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, float worldPanX, float worldPanY);
     float getWorldOffsetCenterX();
     float getWorldOffsetCenterY();
 

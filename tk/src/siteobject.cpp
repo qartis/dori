@@ -5,6 +5,10 @@ SiteObject::SiteObject() {
     g = backupG = 0;
     b = backupB = 0;
 
+    // This is temporary until the database is plugged in
+    siteCenterX = SITE_METER_EXTENTS;
+    siteCenterY = SITE_METER_EXTENTS;
+
     selected = false;
 }
 

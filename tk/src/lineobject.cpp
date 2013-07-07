@@ -77,18 +77,22 @@ void LineObject::drawWorld() {
     */
 }
 
+void LineObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, float worldPanX, float worldPanY) {
+    // Subtract out the world pan amount, then convert to screen coordinates
+    // this gives us the offset (distance from the center of the site) in pixels
+    // while taking panning into account
 
-void LineObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, int doriScreenX, int doriScreenY) {
-    // # cells = (cells / meter) * (worldOffset in meters)
-    // # cells * pixelsPerCell = position in pixels
-    float screenOffsetX = (cellsPerMeter * worldOffsetX) * pixelsPerCell;
-    float screenOffsetY = (cellsPerMeter * worldOffsetY) * pixelsPerCell;
+    float screenOffsetX = SiteObject::worldToScreen(worldOffsetX, pixelsPerCell, cellsPerMeter);
+    float screenOffsetY = SiteObject::worldToScreen(worldOffsetY, pixelsPerCell, cellsPerMeter);
 
-    float lineOriginX = doriScreenX + screenOffsetX;
-    float lineOriginY = doriScreenY - screenOffsetY;
+    float siteCenterScreenX = SiteObject::worldToScreen(siteCenterX - worldPanX, pixelsPerCell, cellsPerMeter);
+    float siteCenterScreenY = SiteObject::worldToScreen(siteCenterY - worldPanY, pixelsPerCell, cellsPerMeter);
 
-    float lineWidth = (cellsPerMeter * worldWidth) * pixelsPerCell;
-    float lineLength = (cellsPerMeter * worldLength) * pixelsPerCell;
+    float lineOriginX = siteCenterScreenX + screenOffsetX;
+    float lineOriginY = siteCenterScreenY - screenOffsetY;
+
+    float lineWidth = SiteObject::worldToScreen(worldWidth, pixelsPerCell, cellsPerMeter);
+    float lineLength = SiteObject::worldToScreen(worldLength, pixelsPerCell, cellsPerMeter);
 
     // if the object is selected, draw the outline first
     if(selected) {
@@ -110,8 +114,8 @@ void LineObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pix
 
     if(drawCenterPoint) {
         fl_color(255, 0, 0);
-        int centX = doriScreenX + (cellsPerMeter * getWorldOffsetCenterX()) * pixelsPerCell;
-        int centY = doriScreenY - (cellsPerMeter * getWorldOffsetCenterY()) * pixelsPerCell;
+        int centX = siteCenterScreenX + (cellsPerMeter * getWorldOffsetCenterX()) * pixelsPerCell;
+        int centY = siteCenterScreenY - (cellsPerMeter * getWorldOffsetCenterY()) * pixelsPerCell;
         fl_circle(centX, centY, 1);
     }
 }

@@ -20,7 +20,16 @@
 #include <unistd.h>
 
 #define CUSTOM_FONT 69
-#define SELECTION_DISTANCE 20
+#define SELECTION_DISTANCE_PIXELS 20
+#define CELLS_PER_METER 4.0
+#define MIN_PIXELS_PER_CELL 16
+#define MAX_PIXELS_PER_CELL 320
+#define ZOOM_PIXEL_AMOUNT 4
+
+#define BG_COLOUR FL_DARK2
+#define GRID_COLOUR FL_DARK1
+#define LABEL_COLOUR FL_BLACK
+#define CROSSHAIR_COLOUR FL_BLACK
 
 static void window_cb(Fl_Widget *widget, void *data) {
     (void)data;
@@ -29,20 +38,14 @@ static void window_cb(Fl_Widget *widget, void *data) {
     siteeditor->hide();
 }
 
-float SiteEditor::scaledSelectionDistance() {
-    int minX = (SELECTION_DISTANCE / maxWindowWidth) * w();
-    int minY = (SELECTION_DISTANCE / maxWindowLength) * h();
-    return minX < minY ? minX : minY;
-}
-
 float SiteEditor::screenToWorld(float screenVal) {
     float cellsPerPixel = 1.0 / pixelsPerCell;
-    float metersPerCell = 1.0 / cellsPerMeter;
+    float metersPerCell = 1.0 / CELLS_PER_METER;
     return SiteObject::screenToWorld(screenVal, cellsPerPixel, metersPerCell);
 }
 
 float SiteEditor::worldToScreen(float worldVal) {
-    return SiteObject::worldToScreen(worldVal, pixelsPerCell, cellsPerMeter);
+    return SiteObject::worldToScreen(worldVal, pixelsPerCell, CELLS_PER_METER);
 }
 
 int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
@@ -112,7 +115,7 @@ static void clickedObjTypeCallback(void *data) {
     siteeditor->clearSelectedObjects();
 }
 
-SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxWindowWidth(w), maxWindowLength(h), panStartMouseX(0), panStartMouseY(0), screenPanX(0), screenPanY(0), showArcs(false), showGrid(true) {
+SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxWindowWidth(w), maxWindowLength(h), panStartWorldX(0), panStartWorldY(0), showArcs(false), showGrid(true), curWorldDistance(0.0) {
     Fl::set_font(CUSTOM_FONT, "OCRB");
     end();
     toolbar = new Toolbar(x + w, y, 200, 200);
@@ -128,21 +131,16 @@ SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Doubl
 
     loadSiteObjects("data/siteobjects.db");
 
-    siteMeterExtents = MAX_METER_EXTENTS * 2; // 80m in all directions
+    siteMeterExtents = SITE_METER_EXTENTS * 2; // 80m in all directions
     sitePixelExtents = w * 8;
-    cellsPerMeter = 4.0;
 
+    numGridCells = siteMeterExtents * (float)CELLS_PER_METER;
+    pixelsPerCell = MIN_PIXELS_PER_CELL;
 
-    // numGridCells =  (site in meters) / (meters / cell)
-    //              =  (site in meters) * (cell / meters)
-    //              =  cells
-    numGridCells = siteMeterExtents * (float)cellsPerMeter;
-    pixelsPerCell = ((float)sitePixelExtents / (float)numGridCells);
+    // one arc per meter
+    numArcs = SITE_METER_EXTENTS;
 
-    numArcs = MAX_METER_EXTENTS;
-
-    screenPanX = -((sitePixelExtents / 2) - (w / 2));
-    screenPanY = -((sitePixelExtents / 2) - (h / 2));
+    panToWorldCenter();
 }
 
 SiteEditor::~SiteEditor() {
@@ -153,34 +151,51 @@ SiteEditor::~SiteEditor() {
     sqlite3_close(db);
 }
 
-inline int SiteEditor::siteScreenCenterX() {
-    return screenPanX + (sitePixelExtents / 2);
+
+/*
+float SiteEditor::getAbsoluteWorldMouseX() {
+    worldPanX + screenToWorld(mouseX);
 }
 
-inline int SiteEditor::siteScreenCenterY() {
-    return screenPanY + (sitePixelExtents / 2);
+float SiteEditor::getAbsoluteWorldMouseY() {
+    worldPanY + screenToWorld(mouseY);
 }
+*/
 
+void SiteEditor::panToWorldCenter() {
+    worldPanX = (siteMeterExtents / 2.0) - (screenToWorld(w()) / 2.0);
+    worldPanY = (siteMeterExtents / 2.0) - (screenToWorld(h()) / 2.0);
+}
 
 SiteObject* SiteEditor::findClosestObject(int mouseX, int mouseY, int maxDistance, std::vector<SiteObject*>& dataset) {
     SiteObject *closest = NULL;
-    int square, minSquare;
-    int squareMaxDist = maxDistance * maxDistance;
+    float square, minSquare;
     minSquare = INT_MAX;
 
+    float mouseWorldX = worldPanX + screenToWorld(mouseX);
+    float mouseWorldY = worldPanY + screenToWorld(mouseY);
+
+    // Convert the max selection distance from pixels to meters
+    // then square it, so we can compare distance calculations
+    float maxDistanceMeters = screenToWorld(maxDistance);
+    maxDistanceMeters *= maxDistanceMeters;
+
+    // distance of mouse cursor to center of site (in world coords)
+    float mouseOffsetX = mouseWorldX - (siteMeterExtents / 2.0);
+    float mouseOffsetY = (siteMeterExtents / 2.0) - mouseWorldY;
+
     for(unsigned i = 0; i < dataset.size(); i++) {
+       // distance of site object to center of site (in world coords)
         float worldOffsetCenterX = dataset[i]->getWorldOffsetCenterX();
         float worldOffsetCenterY = dataset[i]->getWorldOffsetCenterY();
 
-        int screenCenterX = siteScreenCenterX() + (worldOffsetCenterX * cellsPerMeter) * pixelsPerCell;
-        int screenCenterY = siteScreenCenterY() - (worldOffsetCenterY * cellsPerMeter) * pixelsPerCell;
-
-        int diffX = (mouseX - screenCenterX);
-        int diffY = (mouseY - screenCenterY);
+        // difference between mouse world and object world coords
+        float diffX = (mouseOffsetX - worldOffsetCenterX);
+        float diffY = (mouseOffsetY - worldOffsetCenterY);
 
         square = (diffX * diffX) + (diffY * diffY);
 
-        if(square < squareMaxDist && square < minSquare) {
+        if(square < maxDistanceMeters && square < minSquare) {
             minSquare = square;
             closest = dataset[i];
         }
@@ -192,11 +207,16 @@ SiteObject* SiteEditor::findClosestObject(int mouseX, int mouseY, int maxDistanc
 void SiteEditor::findObjectsInBoundingBox(int mouseStartX, int mouseStartY, int curMouseX, int curMouseY, std::vector<SiteObject*> &inputData, std::vector<SiteObject*> &outputData) {
     outputData.clear();
 
-    float worldStartMouseX = screenToWorld(mouseStartX - siteScreenCenterX());
-    float worldStartMouseY = screenToWorld(siteScreenCenterY() - mouseStartY);
+    // Convert the mouse coordinates to world coordinates here
+    // to figure out the meter offset of the mouse cursor from center of the site
+    // (currently center of the world)
+    // This is better than converting the world site object coords to screen coords
+    // in the loop below
+    float worldStartMouseX = screenToWorld(mouseStartX) + worldPanX - (siteMeterExtents / 2.0);
+    float worldStartMouseY = (siteMeterExtents / 2.0) - (screenToWorld(mouseStartY) + worldPanY);
 
-    float worldCurMouseX = screenToWorld(curMouseX - siteScreenCenterX());
-    float worldCurMouseY = screenToWorld(siteScreenCenterY() - curMouseY);
+    float worldCurMouseX = screenToWorld(curMouseX) + worldPanX - (siteMeterExtents / 2.0);
+    float worldCurMouseY = (siteMeterExtents / 2.0) - (screenToWorld(curMouseY) + worldPanY);
 
     // set the 'start' variables to the minimums
     // and the 'cur' variables to the maximums
@@ -246,7 +266,7 @@ void SiteEditor::loadSiteObjects(const char * db_name) {
     redraw();
 }
 
-void SiteEditor::createNewObject(SiteObjectType type, int mouseX, int mouseY) {
+void SiteEditor::createNewObject(SiteObjectType type, float mouseX, float mouseY) {
     if(type == RECT) {
         newSiteObject = new RectObject;
     }
@@ -258,11 +278,11 @@ void SiteEditor::createNewObject(SiteObjectType type, int mouseX, int mouseY) {
         newSiteObject = new CircleObject;
     }
 
-    int mouseDistX = mouseX - siteScreenCenterX();
-    int mouseDistY = siteScreenCenterY() - mouseY;
+    float mouseDistX = mouseX - (siteMeterExtents / 2.0);
+    float mouseDistY = (siteMeterExtents / 2.0) - mouseY;
 
-    newSiteObject->worldOffsetX = screenToWorld(mouseDistX);
-    newSiteObject->worldOffsetY = screenToWorld(mouseDistY);
+    newSiteObject->worldOffsetX = mouseDistX;
+    newSiteObject->worldOffsetY = mouseDistY;
 }
 
 void SiteEditor::sizeObject(SiteObjectType type, SiteObject *object, int clickedX, int clickedY, int curX, int curY) {
@@ -357,9 +377,25 @@ void SiteEditor::commitSelectedObjectsToDatabase() {
 }
 
 void SiteEditor::resize(int X, int Y, int W, int H) {
-    //printf("resize(%d, %d, %d, %d)\n", X, Y, W, H);
-    //toolbar->position(X + W, Y);
     Fl_Window::resize(X, Y, W, H);
+    enforceSiteBounds();
+}
+
+// Snap the pan back within bounds if necessary
+void SiteEditor::enforceSiteBounds() {
+    if(worldPanX < 0) {
+        worldPanX = 0;
+    }
+    else if(worldPanX + screenToWorld(w()) > siteMeterExtents) {
+        worldPanX = siteMeterExtents - screenToWorld(w());
+    }
+
+    if(worldPanY < 0) {
+        worldPanY = 0;
+    }
+    else if(worldPanY + screenToWorld(h()) > siteMeterExtents) {
+        worldPanY = siteMeterExtents - screenToWorld(h());
+    }
 }
 
 int SiteEditor::handle(int event) {
@@ -373,7 +409,7 @@ int SiteEditor::handle(int event) {
                 clickedMouseY = curMouseY;
 
                 if(toolbar->curSelectedObjType == UNDEFINED) {
-                    SiteObject* curSelectedObject = findClosestObject(curMouseX, curMouseY, scaledSelectionDistance(), siteObjects);
+                    SiteObject* curSelectedObject = findClosestObject(curMouseX, curMouseY, SELECTION_DISTANCE_PIXELS, siteObjects);
 
                     if(curSelectedObject == NULL) {
                         clearSelectedObjects();
@@ -395,7 +431,11 @@ int SiteEditor::handle(int event) {
                 else { // if we're drawing
                     clearSelectedObjects();
                     curState = DRAWING;
-                    createNewObject(toolbar->curSelectedObjType, curMouseX, curMouseY);
+
+                    float curMouseWorldX = worldPanX + screenToWorld(curMouseX);
+                    float curMouseWorldY = worldPanY + screenToWorld(curMouseY);
+
+                    createNewObject(toolbar->curSelectedObjType, curMouseWorldX, curMouseWorldY);
 
                     if(newSiteObject) {
                         newSiteObject->r = toolbar->colorChooser->r() * 255.0;
@@ -483,55 +523,79 @@ int SiteEditor::handle(int event) {
         }
         else if(Fl::event_button() == FL_MIDDLE_MOUSE) {
             if(event == FL_PUSH) {
-                panStartMouseX = curMouseX;
-                panStartMouseY = curMouseY;
+                panStartWorldX = screenToWorld(curMouseX);
+                panStartWorldY = screenToWorld(curMouseY);
             }
             else if(event == FL_DRAG) {
-                int newPanX = screenPanX + (curMouseX - panStartMouseX);
-                int newPanY = screenPanY + (curMouseY - panStartMouseY);
+                float curMouseWorldX = screenToWorld(curMouseX);
+                float curMouseWorldY = screenToWorld(curMouseY);
 
-                // Prevent panning off the left side of the screen
-                if(newPanX > 0) {
-                    newPanX = 0;
-                }
-                // Prevent panning off of the right side of the screen
-                // Subtract w() because panning is measured from the
-                // left side of the screen, so we want to stop panning
-                // to the right with one screen length remaining
-                else if(newPanX < -(sitePixelExtents - w())) {
-                    newPanX = -(sitePixelExtents - w());
-                }
-                if(newPanY > 0) {
-                    newPanY = 0;
-                }
-                else if(newPanY < -(sitePixelExtents - h())) {
-                    newPanY = -(sitePixelExtents - h());
-                }
+                worldPanX -= (curMouseWorldX - panStartWorldX);
+                worldPanY -= (curMouseWorldY - panStartWorldY);
 
-                screenPanX =  newPanX;
-                screenPanY = newPanY;
-                panStartMouseX = curMouseX;
-                panStartMouseY = curMouseY;
+                // snap the pan position back to within site bounds
+                enforceSiteBounds();
+
+                panStartWorldX = curMouseWorldX;
+                panStartWorldY = curMouseWorldY;
+
+                redraw();
+                return 1;
             }
-            redraw();
         }
         else if(event == FL_MOUSEWHEEL) {
-            if(Fl::event_dy() > 0 && numGridCells < (siteMeterExtents * cellsPerMeter)) {
-                numGridCells += cellsPerMeter * 2;
+            // add or subtract pixels per cell (perform zooming)
+            // depending on the direction of the mouse scroll
+            float zoomAmount = ZOOM_PIXEL_AMOUNT * Fl::event_dy();
+
+            // Store the old world center, before zooming
+            // so that after we zoom, we can pan back to our old coordinate,
+            // and simulate zooming into the center of the screen
+            float oldCenterX = worldPanX + screenToWorld(w() / 2);
+            float oldCenterY = worldPanY + screenToWorld(h() / 2);
+
+            pixelsPerCell -= zoomAmount;
+
+            float newCenterX = worldPanX + screenToWorld(w() / 2);
+            float newCenterY = worldPanY + screenToWorld(h() / 2);
+
+            if(pixelsPerCell < MIN_PIXELS_PER_CELL) {
+                pixelsPerCell = MIN_PIXELS_PER_CELL;
             }
-            else if(numGridCells > cellsPerMeter * 2) {
-                numGridCells -= cellsPerMeter * 2;
+            else if(pixelsPerCell > MAX_PIXELS_PER_CELL) {
+                pixelsPerCell = MAX_PIXELS_PER_CELL;
+            }
+            else {
+                worldPanX -= newCenterX - oldCenterX;
+                worldPanY -= newCenterY - oldCenterY;
             }
 
-            pixelsPerCell = ((float)sitePixelExtents / (float)numGridCells);
-
+            enforceSiteBounds();
             redraw();
+
             return 1;
         }
     }
 
     // Redraw the screen to draw the distance line and text
     if(event == FL_MOVE) {
+        // Get the number of cells it takes to get from the edge of the screen to the mouse
+        // which is (cells per pixel) * mouse pixels
+        float mouseCellsX = (1.0 / pixelsPerCell) * curMouseX;
+        float mouseCellsY = (1.0 / pixelsPerCell) * curMouseY;
+
+        // Calculate how many meters it takes to cover this amount of cells
+        // (number of cells) * meters per cell
+        // then add the world pan value to get the absolute world position
+        float worldMouseX = mouseCellsX * (1.0 / CELLS_PER_METER) + worldPanX;
+        float worldMouseY = mouseCellsY * (1.0 / CELLS_PER_METER) + worldPanY;
+
+        // Subtract the location of the center of the site to get the distance
+        float distX = worldMouseX - (siteMeterExtents / 2.0);
+        float distY = worldMouseY - (siteMeterExtents / 2.0);
+
+        curWorldDistance = sqrt((distX * distX) + (distY * distY));
+
         redraw();
         return 1;
     }
@@ -596,8 +660,8 @@ int SiteEditor::handle(int event) {
             return 1;
         }
         else if(key == ' ') {
-            screenPanX = -((sitePixelExtents / 2) - (w() / 2));
-            screenPanY = -((sitePixelExtents / 2) - (h() / 2));
+            // If you press space, reset focus back to center of site
+            panToWorldCenter();
             redraw();
             return 1;
         }
@@ -614,90 +678,87 @@ int SiteEditor::handle(int event) {
     return Fl_Window::handle(event);
 }
 
-void SiteEditor::drawGrid(float pixelsPerCell, int numCells) {
-    if(pixelsPerCell < 5) {
-        pixelsPerCell = 5;
-    }
-
+void SiteEditor::drawGrid() {
     char textBuffer[32];
     int textWidth, textHeight;
     fl_font(CUSTOM_FONT, 15);
 
-    // We want to draw the meter markers in distance away from DORI
-    // The number of gridlines specify the number of quarter meter indications
-    // Therefore our first number should be gridlines / 8
-    // And we should decrement by 1 for every two gridlines
-    // until we hit the middle line, then we increase again
-    int index = numCells / (cellsPerMeter * 2);
-    int diff = -1;
-
-    fl_color(FL_BLUE);
-
-    // horz lines
+    fl_color(FL_DARK1);
     fl_line_style(0, 1);
-    for(int i = 0; i < numCells - 1; i++) {
-        // don't draw off screen grid lines
-        if( (i * pixelsPerCell) > (-screenPanY) &&
-            (i * pixelsPerCell) < (-screenPanY) + h()) {
-            fl_line(screenPanX, screenPanY + (i * pixelsPerCell), sitePixelExtents, screenPanY + (i * pixelsPerCell));
+
+    float screenPanX = worldToScreen(worldPanX);
+    float screenPanY = worldToScreen(worldPanY);
+
+    // horizontal lines
+    for(int i = 0; i < numGridCells; i++) {
+        float offsetY = (pixelsPerCell * i) - screenPanY;
+        if(offsetY > 0 && offsetY < h()) {
+            fl_line(0, offsetY, w(), offsetY);
         }
     }
 
-    // vert lines
-    for(int i = 0; i < numCells - 1; i++) {
-        // don't draw off screen grid lines
-        if( (i * pixelsPerCell) > (-screenPanX) &&
-            (i * pixelsPerCell) < (-screenPanX) + w()) {
-            fl_line(screenPanX + (i * pixelsPerCell), screenPanY, screenPanX + (i * pixelsPerCell), sitePixelExtents);
+    // vertical lines
+    for(int i = 0; i < numGridCells; i++) {
+        float offsetX = (pixelsPerCell * i) - screenPanX;
+        if(offsetX > 0 && offsetX < w()) {
+            fl_line(offsetX, 0, offsetX, h());
         }
     }
 
-    // reset index
-    index = numCells / (cellsPerMeter * 2);
-    diff = -1;
+    int index = siteMeterExtents / 2;
+    int direction = -1;
 
-    // horizontal labels
-    fl_line_style(0, 1);
-    for(int i = 0; i < numCells - 1; i++) {
-        if((i % (int)cellsPerMeter == 0)) {
+    // horizontal meter labels
+    for(int i = 0; i < numGridCells; i++) {
+        if((i % (int)CELLS_PER_METER == 0)) {
             if(index == 0) {
-                diff = 1;
+                direction = 1;
             }
-            // don't draw labels that are off the screen
-            else if((i * pixelsPerCell) > (-screenPanY) &&
-                    ((i * pixelsPerCell) < (-screenPanY) + h())) {
+            else {
+                float offsetY = (pixelsPerCell * i) - screenPanY;
+
+                // Only draw labels that are on screen
+                // and give a textheight buffer so the horizontal labels don't
+                // collide with the vertical labels
                 sprintf(textBuffer, "%d", index);
                 fl_measure(textBuffer, textWidth, textHeight, 0);
-                fl_color(FL_BLUE);
-                fl_draw(textBuffer, w() - textWidth - 5, screenPanY + (i * pixelsPerCell) + (textHeight / 2.0));
+
+                if(offsetY > 0 && offsetY < h() - textHeight) {
+                    fl_color(FL_BLACK);
+                    fl_draw(textBuffer, w() - textWidth - 5, offsetY + (textHeight / 2.0));
+                }
             }
 
-            index += diff;
-
+            index += direction;
         }
     }
 
-    // reset index
-    index = numCells / (cellsPerMeter * 2);
-    diff = -1;
+    // reset index and direction
+    index = siteMeterExtents / 2;
+    direction = -1;
 
-    // vertical labels
-    fl_line_style(0, 1);
-    for(int i = 0; i < numCells - 1; i++) {
-        if((i % (int)cellsPerMeter == 0)) {
+    // vertical meter labels
+    for(int i = 0; i < numGridCells; i++) {
+        if((i % (int)CELLS_PER_METER == 0)) {
             if(index == 0) {
-                diff = 1;
+                direction = 1;
             }
-            // don't draw labels that are off the screen
-            else if((i * pixelsPerCell) > (-screenPanX) &&
-                    ((i * pixelsPerCell) < (-screenPanX) + h())) {
+            else {
+                float offsetX = (pixelsPerCell * i) - screenPanX;
+
+                // Only draw labels that are on screen
+                // and give a textwidth buffer so the horizontal labels don't
+                // collide with the vertical labels
                 sprintf(textBuffer, "%d", index);
                 fl_measure(textBuffer, textWidth, textHeight, 0);
-                fl_color(FL_BLUE);
-                fl_draw(textBuffer, screenPanX + (i * pixelsPerCell) - (textWidth / 2.0), h() - textHeight);
+
+                if(offsetX > 0 && offsetX < w() - textWidth) {
+                    fl_color(FL_BLACK);
+                    fl_draw(textBuffer, offsetX - (textWidth / 2.0) - 5, h() - textHeight - 5);
+                }
             }
 
-            index += diff;
+            index += direction;
         }
     }
 }
@@ -709,7 +770,7 @@ void SiteEditor::drawArcs() {
     float outsideAngle = -180.0 / 2.0;
     outsideAngle *= (M_PI / 180.0); // convert to radians
 
-    fl_color(FL_BLUE);
+    fl_color(GRID_COLOUR);
     fl_line_style(FL_SOLID, 2);
 
     int textHeight, textWidth;
@@ -717,16 +778,20 @@ void SiteEditor::drawArcs() {
 
     fl_font(CUSTOM_FONT, 15);
 
+    // approximate the circle as a square:
+    // we make the squares smaller by 75% to under approximate the circle
+    // so that we won't hide the arcs near the edge of the screen
+    float centerX = worldToScreen((siteMeterExtents / 2.0) - worldPanX);
+    float centerY = worldToScreen((siteMeterExtents / 2.0) - worldPanY);
+
     for(int i = 0; i < numArcs; i++) {
-        // Avoid drawing arcs that are off the screen
         // radius = (i+1) meters
         float radius = worldToScreen(((float)i+1.0) * 1.0);
 
-        // approximate the circle as a square:
-        int squareLeft = siteScreenCenterX() - radius;
-        int squareRight = siteScreenCenterX() + radius;
-        int squareTop = siteScreenCenterY() - radius;
-        int squareBottom = siteScreenCenterY() + radius;
+        int squareLeft = centerX - (radius * 0.75);
+        int squareRight = centerX + (radius * 0.75);
+        int squareTop = centerY - (radius * 0.75);
+        int squareBottom = centerY + (radius * 0.75);
 
         // Don't draw the circle if the screen is completely inside of it
         if(squareLeft < 0 &&
@@ -736,46 +801,73 @@ void SiteEditor::drawArcs() {
             continue;
         }
 
+        // Expand the square back to regular size to check if it's outside the screen
+        // If we leave it at the reduced 75%, then some rings are hidden when 
+        // we pan near the edge of the site
+        squareLeft = centerX - (radius * 1.00);
+        squareRight = centerX + (radius * 1.00);
+        squareTop = centerY - (radius * 1.00);
+        squareBottom = centerY + (radius * 1.00);
+
         // Don't draw the circle if it is completely outside of the screen
         if((squareRight < 0 && squareTop < 0) ||
            (squareLeft > w() && squareBottom > h())) {
             continue;
         }
 
-        fl_circle(siteScreenCenterX(), siteScreenCenterY(), radius);
+        fl_color(LABEL_COLOUR);
+        fl_circle(centerX, centerY, radius);
 
         sprintf(textBuffer, "%d", i+1);
         fl_measure(textBuffer, textWidth, textHeight, 0);
-        fl_draw(textBuffer, siteScreenCenterX() - (textWidth / 2.0), siteScreenCenterY() - radius - (textHeight / 2.0));
-        fl_draw(textBuffer, siteScreenCenterX() - radius - textWidth, siteScreenCenterY() - (textHeight / 2.0));
+
+        // top text
+        fl_draw(textBuffer, centerX - (textWidth / 2.0), centerY - radius - 2);
+
+        // left text
+        fl_draw(textBuffer, centerX - radius - textWidth, centerY);
+
+        // bottom text
+        fl_draw(textBuffer, centerX - (textWidth / 2.0), centerY + radius + textHeight);
+
+        // right text
+        fl_draw(textBuffer, centerX + radius + 2, centerY);
     }
 }
+
 
 void SiteEditor::drawDori() {
     // Draw dori based on the units of cells per meter, and pixels per cell
     // Basically we want to always draw DORI at 1 meter by 1 meter
     // So we offset the drawing half a meter away from the center
     // And set the wheels to be 1/4 of a meter on each side
-    int doriOffset = (cellsPerMeter * pixelsPerCell) / 2;
+    int doriOffset = (CELLS_PER_METER) / 2 * pixelsPerCell;
     int doriWheelWidth = (doriOffset / 2);
 
+    float doriX = worldToScreen((siteMeterExtents / 2.0) - worldPanX);
+    float doriY = worldToScreen((siteMeterExtents / 2.0) - worldPanY);
+
     // chassis
-    fl_draw_box(FL_FLAT_BOX, siteScreenCenterX() - doriOffset, siteScreenCenterY() - doriOffset, doriOffset * 2, doriOffset * 2, FL_BLUE);
+    fl_draw_box(FL_FLAT_BOX, doriX - doriOffset, doriY - doriOffset, doriOffset * 2, doriOffset * 2, FL_BLUE);
 
     // wheels
-    fl_draw_box(FL_FLAT_BOX, siteScreenCenterX() - doriOffset, siteScreenCenterY() - doriOffset, doriWheelWidth, doriOffset * 2, FL_BLACK);
-    fl_draw_box(FL_FLAT_BOX, siteScreenCenterX() + (doriOffset / 2), siteScreenCenterY() - doriOffset, doriWheelWidth, doriOffset * 2, FL_BLACK);
+    fl_draw_box(FL_FLAT_BOX, doriX - doriOffset, doriY - doriOffset, doriWheelWidth, doriOffset * 2, FL_BLACK);
+    fl_draw_box(FL_FLAT_BOX, doriX + (doriOffset / 2), doriY - doriOffset, doriWheelWidth, doriOffset * 2, FL_BLACK);
 }
 
 
-void SiteEditor::drawDistanceLine() {
-    // Drawing line to mouse cursor
+void SiteEditor::drawCrosshair() {
+    // Drawing crosshair to mouse cursor
     fl_line_style(FL_SOLID, 1);
-    fl_color(FL_BLACK);
-    fl_begin_loop();
-    fl_vertex(siteScreenCenterX(), siteScreenCenterY());
-    fl_vertex(curMouseX, curMouseY);
-    fl_end_loop();
+    fl_color(CROSSHAIR_COLOUR);
+
+    // horizontal lines
+    fl_line(0, curMouseY, curMouseX - 5, curMouseY);
+    fl_line(curMouseX + 5, curMouseY, w(), curMouseY);
+
+    // vertical lines
+    fl_line(curMouseX, 0, curMouseX, curMouseY - 5);
+    fl_line(curMouseX, h(), curMouseX, curMouseY + 5);
 }
 
 void SiteEditor::drawDistanceText() {
@@ -784,17 +876,7 @@ void SiteEditor::drawDistanceText() {
 
     fl_font(CUSTOM_FONT, 15);
 
-    // Count the number of grid cells away from the center I am in pixels:
-    float numCellsDistX = ((float)curMouseX - (float)(siteScreenCenterX())) / pixelsPerCell;
-    float numCellsDistY = ((float)curMouseY - (float)(siteScreenCenterY())) / pixelsPerCell;
-
-    // Now do (meters / cell) * cells, to get # of meters away
-    float worldGridCellDistX = (1.0 / cellsPerMeter) * numCellsDistX;
-    float worldGridCellDistY = (1.0 / cellsPerMeter) * numCellsDistY;
-
-    float worldDist = sqrt((worldGridCellDistX * worldGridCellDistX) + (worldGridCellDistY * worldGridCellDistY));
-
-    sprintf(textBuffer, "%.3fm", worldDist);
+    sprintf(textBuffer, "%.3fm", curWorldDistance);
     fl_measure(textBuffer, textWidth, textHeight, 0);
     fl_draw_box(FL_FLAT_BOX, 5.0, 5.0, textWidth, textHeight, FL_BLACK);
 
@@ -802,27 +884,14 @@ void SiteEditor::drawDistanceText() {
     fl_draw(textBuffer, 5.0, textHeight);
 }
 
-void SiteEditor::draw() {
-    fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), FL_DARK2);
-
-    drawDori();
-
-    if(showGrid) {
-        drawGrid(pixelsPerCell, numGridCells);
-    }
-
-    if(showArcs) {
-        drawArcs();
-    }
-
-    for(unsigned i = 0; i < siteObjects.size(); i++) {
-        siteObjects[i]->drawScreen(true, cellsPerMeter, pixelsPerCell, siteScreenCenterX(), siteScreenCenterY());
-    }
+void SiteEditor::drawSelectionState() {
+    // reset line style
+    fl_line_style(0);
 
     switch(curState) {
     case DRAWING:
         if(newSiteObject) {
-            newSiteObject->drawScreen(true, cellsPerMeter, pixelsPerCell, siteScreenCenterX(), siteScreenCenterY());
+            newSiteObject->drawScreen(true, CELLS_PER_METER, pixelsPerCell, worldPanX, worldPanY);
         }
         break;
     case SELECTING:
@@ -840,13 +909,33 @@ void SiteEditor::draw() {
     case WAITING:
         break;
     }
+}
 
-    fl_line_style(0);
+void SiteEditor::drawSiteObjects() {
+    for(unsigned i = 0; i < siteObjects.size(); i++) {
+        siteObjects[i]->drawScreen(true, CELLS_PER_METER, pixelsPerCell, worldPanX, worldPanY);
+    }
+}
 
-    drawDistanceLine();
+void SiteEditor::draw() {
+    fl_draw_box(FL_FLAT_BOX, 0, 0, w(), h(), FL_DARK2);
+
+    drawDori();
+
+    if(showGrid) {
+        drawGrid();
+    }
+
+    if(showArcs) {
+        drawArcs();
+    }
+
+    drawSiteObjects();
+
+    drawCrosshair();
     drawDistanceText();
 
-    // reset line style
-    fl_line_style(0);
+    // handles drawing of the new site object or object selection
+    drawSelectionState();
 }
 
