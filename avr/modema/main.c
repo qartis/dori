@@ -1,0 +1,144 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <avr/io.h>
+#include <avr/pgmspace.h>
+#include <avr/wdt.h>
+#include <avr/interrupt.h>
+#include <util/delay.h>
+
+#include "uart.h"
+#include "spi.h"
+#include "mcp2515.h"
+#include "time.h"
+#include "node.h"
+#include "sim900.h"
+#include "debug.h"
+
+#define streq(a,b) (strcmp(a,b) == 0)
+#define strstart(a,b) (strncmp(a,b,strlen(b)) == 0)
+
+uint8_t uart_irq(void)
+{
+    return 0;
+}
+
+ISR(USART_RX_vect)
+{
+    static char at_buf[64];
+    static uint8_t at_buf_len = 0;
+
+    static uint8_t tcp_rx_buf[64];
+    static uint8_t tcp_rx_buf_len = 0;
+
+    static uint8_t tcp_toread = 0;
+
+    char c;
+
+    c = UDR0;
+
+    /* if we're reading a tcp chunk */
+    if (tcp_toread > 0) {
+        tcp_rx_buf[tcp_rx_buf_len] = c;
+        tcp_rx_buf[tcp_rx_buf_len + 1] = '\0';
+        tcp_rx_buf_len++;
+        tcp_toread--;
+        if (tcp_toread == 0) {
+            printf("Received TCP chunk: '%s'\n", tcp_rx_buf);
+            tcp_rx_buf_len = 0;
+        }
+
+        return;
+    }
+
+    if (state == STATE_EXPECTING_PROMPT && at_buf[0] == '>') {
+        state = STATE_GOT_PROMPT;
+        at_buf_len = 0;
+        at_buf[0] = '\0';
+    } else if (c == '\r') {
+        if (streq(at_buf, "OK")) {
+            flag_ok = 1;
+            /* We don't care anymore */
+        } else if (streq(at_buf, "ERROR")) {
+            flag_error = 1;
+            /* We don't care anymore */
+        } else if (streq(at_buf, "STATE: IP INITIAL")) {
+            state = STATE_IP_INITIAL;
+        } else if (streq(at_buf, "STATE: IP START")) {
+            state = STATE_IP_START;
+        } else if (streq(at_buf, "STATE: IP GPRSACT")) {
+            state = STATE_IP_GPRSACT;
+        } else if (streq(at_buf, "STATE: IP STATUS")) {
+            state = STATE_IP_STATUS;
+        } else if (streq(at_buf, "STATE: IP PROCESSING")) {
+            state = STATE_IP_PROCESSING;
+        } else if (streq(at_buf, "0, CONNECT OK")) {
+            state = STATE_CONNECTED;
+        } else if (streq(at_buf, "0, CONNECT FAIL")) {
+            state = STATE_ERROR;
+        } else if (streq(at_buf, "0, SEND OK")) {
+            state = STATE_CONNECTED;
+        } else if (streq(at_buf, "0, CLOSE OK")) {
+            state = STATE_CLOSED;
+        } else if (streq(at_buf, "0, CLOSED")) {
+            printf("connection closed by peer\n");
+            state = STATE_CLOSED;
+        } else if (streq(at_buf, "NORMAL POWER DOWN")) {
+            state = STATE_POWEROFF;
+        } else if (strstart(at_buf, "+CME ERROR:")) {
+            state = STATE_ERROR;
+        } else if (streq(at_buf, "SHUT OK")) {
+            state = STATE_CLOSED;
+        } else if (strstart(at_buf,"+RECEIVE,0,")) {
+            uint8_t len = atoi(at_buf + strlen("+RECEIVE,0,"));
+            printf("TCP: Going to read %d bytes\n", len);
+            tcp_toread = len;
+
+            /* modem just sent +RECEIVE,0,%d\r\n. we must chomp the \n */
+        } else if (streq(at_buf, "RING")) {
+            printf("ringing!\n");
+            slow_write("ATH\r", strlen("ATH\r"));
+            _delay_ms(1500);
+            /* trigger remote connect() */
+        }
+
+        at_buf_len = 0;
+        at_buf[0] = '\0';
+    } else if (c != '\n' && c != '\0') {
+        at_buf[at_buf_len] = c;
+        at_buf[at_buf_len + 1] = '\0';
+        at_buf_len++;
+    }
+}
+
+uint8_t periodic_irq(void)
+{
+    /* send a heartbeat to let modemb know we're alive */
+#if 0
+    rc = mcp2515_send(TYPE_value_periodic, ID_modemb, 3, buf);
+    if (rc != 0) {
+        return rc;
+    }
+#endif
+
+    return 0;
+}
+
+uint8_t can_irq(void)
+{
+    switch (packet.type) {
+    default:
+        break;
+    }
+
+    return 0;
+}
+
+void main(void)
+{
+    NODE_INIT();
+    debug_init();
+
+    NODE_MAIN();
+}
