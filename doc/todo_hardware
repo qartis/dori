@@ -1,1 +1,4 @@
-* AT Command buffer, 8 slots of 8 bytes that we reference individually
+AT Command buffer, 8 slots of 8 bytes that we reference individually
+fix GSM modem's broken sim card slot
+debug 23K256 hardware: fried chip? high spi capacitance?
+fix node cpu #4: problem communicating with mcp2515?
