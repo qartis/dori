@@ -1,5 +1,5 @@
 #PROG_DEVICE = /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A4007hkl-if00-port0
-PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A20008Dd-if00-port0
+PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A4007hkl-if00-port0
 PROG_TYPE = stk500v2
 GCC_PART ?= atmega88
 DUDE_PART ?= m88
@@ -44,6 +44,10 @@ clean:; rm -f $(OBJS) main.elf main.hex main.map
 
 load: main.hex
 	avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -e -U flash:w:main.hex
+
+read:
+	avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -U flash:r:chipdata.hex:i
+	avr-objcopy -j .sec1 --rename-section .sec1=.text chipdata.hex -B avr4 -O elf32-avr chipdata.elf
 
 rdfuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -v -q
 
