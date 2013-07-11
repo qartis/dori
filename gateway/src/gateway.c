@@ -11,6 +11,7 @@
 #include <netinet/tcp.h>
 #include <time.h>
 #include "candefs.h"
+#include "command.h"
 #include <signal.h>
 
 #define MAX 1024
@@ -50,6 +51,12 @@ static int tkfd;
 static int shellfd;
 static int siteid;
 
+typedef enum {
+    DISCONNECTED,
+    CONNECTED,
+    FILE_TRANSFER
+} shell_state;
+
 void error(const char *str)
 {
     perror(str);
@@ -63,7 +70,7 @@ void dberror(sqlite3 *db)
 
 int strprefix(const char *a, const char *b)
 {
-    return strncmp(a, b, strlen(b));
+    return !strncmp(a, b, strlen(b));
 }
 
 client* find_client(int fd)
@@ -220,6 +227,63 @@ void process_dori_msg(dori_msg msg) {
     }
 }
 
+void process_file_transfer(void *data, char *argv[]) {
+    int node_index = 1;
+    int filename_index = 2;
+    printf("called process file transfer\n");
+
+    printf("Requesting file '%s' from node '%s'\n",  argv[filename_index], argv[node_index]);
+
+    // TODO create message that DORI will understand
+
+    // 0. make a shell wrapper that tells gateway that shell is alive
+    // 1. send file transfer init message to DORI
+    // 2. wait for DORI's response, which will have
+    // the length of the file (TOTAL_BYTES)
+    // 3. send CTS
+    // 4. while NUM_BYTES < TOTAL_BYTES
+    //    receive up to 8 byte chunks
+    //    send them to shell
+    // 5.
+
+    /*
+
+    */
+}
+
+int process_shell_msg(client *c, char *msg) {
+    printf("msg: %s\n", msg);
+    if(strprefix(msg, "GET")) {
+        char buf[128];
+        strcpy(buf, msg);
+
+        int num_args = 0;
+
+        char *command = strtok(buf, " ");
+
+        char *node_id = strtok(NULL, " ");
+        if(node_id != NULL) num_args++;
+
+        char *filename = strtok(NULL, " ");
+        if(filename != NULL) num_args++;
+
+        char *argv[] = {command, node_id, filename};
+
+        int i;
+
+        for(i = 0; i < total_shell_commands; i++) {
+            if(commands[i].args == num_args)
+            {
+                commands[i].func(&commands[i], argv);
+                return 1;
+            }
+            else {
+                printf("Invalid number of arguments for command %s. Expected %d, got %d.\n", command, commands[i].args, num_args);
+            }
+        }
+
+    }
+}
 
 int main()
 {
@@ -392,7 +456,7 @@ int main()
                             buf[rc] = '\0';
 
                         if(c->type == SHELL) {
-                            printf("shell wrote: %s\n", buf);
+                            process_shell_msg(c, buf);
                         } else if(c->type == TK) {
                             printf("tk wrote: %s\n", buf);
                         }

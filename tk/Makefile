@@ -11,6 +11,11 @@ OBJS = $(patsubst src/%,obj/%,$(SRCS))
 vpath %.cpp ./src
 vpath %.h ./include
 
+all: send tk
+
+send: $(SRCDIR)/send.c
+	$(CC) $< -I../shared/include/ -o send $(LDFLAGS)
+
 tk: $(OBJS) $(INCLUDES) obj
 	$(CXX) $(CXXFLAGS) $(OBJS) -o tk $(LDFLAGS)
 
