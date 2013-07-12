@@ -6,11 +6,12 @@
 #include <avr/pgmspace.h>
 
 #include "uart.h"
+#include "irq.h"
 #include "mcp2515.h"
 
 #define ICRNL
 #define ONLCR
-#define ECHO
+//#define ECHO
 //#define COOKED_STDIO
 
 #ifdef UBRR0H
@@ -46,10 +47,10 @@ ISR(USART_RXC_vect)
     uint8_t data = UDR;
 
     uart_ring[ring_in] = data;
+    ring_in = (ring_in + 1) % UART_BUF_SIZE;
 
     if (data == '\r')
         data = '\n';
-
 
     /* if the buffer contains a full line */
     if (data == '\n') {
@@ -58,12 +59,16 @@ ISR(USART_RXC_vect)
         }
         irq_signal |= IRQ_UART;
     }
-    /* is this wait needed? hopefully not */
-    while (!(UCSRA & (1<<UDRE))){ }
+
+resend:
     /* echo the char */
+    while (!(UCSRA & (1<<UDRE))) {};
     UDR = data;
 
-    ring_in = (ring_in + 1) % UART_BUF_SIZE;
+    if (data == '\n') {
+        data = '\r';
+        goto resend;
+    }
 }
 #endif
 
