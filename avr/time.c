@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "time.h"
-#include "mcp2515.h"
+#include "irq.h"
 
 volatile uint32_t now;
 volatile uint32_t periodic_prev;
