@@ -8,6 +8,8 @@
 #include <util/delay.h>
 
 #include "sd.h"
+#include "irq.h"
+#include "sram.h"
 #include "fat.h"
 #include "uart.h"
 #include "spi.h"
@@ -23,6 +25,8 @@
 uint8_t cur_log;
 uint32_t tmp_write_pos;
 uint32_t log_write_pos;
+
+uint8_t tree(uint8_t dest);
 
 uint8_t find_free_log_after(uint8_t start)
 {
@@ -179,35 +183,61 @@ uint8_t uart_irq(void)
 {
     char buf[512];
     uint8_t rc;
+    uint16_t i;
     
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
 
     printf_P(PSTR("got '%s'\n"), buf);
 
-    if (strcmp(buf, "read") == 0) {
-        rc = pf_open("tmp");
-        printf("open: %d\n", rc);
+    if (strcmp_P(buf, PSTR("sd read")) == 0) {
         uint16_t rd = -1;
         uint16_t total_rd = 0;
+
+        rc = pf_open("tmp");
+        printf("open: %d\n", rc);
         while (rd != 0){
         	rc = pf_read(buf+total_rd, 1, &rd);
         	if (rc)
         		break;
         	total_rd += rd;
         }
-        uint16_t i;
-        for(i=0;i<total_rd;i++){
+        for (i = 0; i < total_rd; i++) {
             printf("%x ", buf[i]);
         }
+        printf("\n");
+    } else if (strcmp_P(buf, PSTR("tree")) == 0) {
+        uint8_t dest = 0x03;
+        rc = tree(dest);
+        printf("tree: %d\n", rc);
+    } else if (strcmp_P(buf, PSTR("sram read")) == 0) {
+        sram_write(0x1330, 0x00);
+        sram_write(0x1331, 0x01);
+        sram_write(0x1332, 0x02);
+        sram_write(0x1333, 0x03);
+        sram_write(0x1334, 0x04);
+        sram_write(0x1335, 0x05);
+        sram_write(0x1336, 0x06);
+        sram_write(0x1337, 0x07);
+
+
+        sram_read_begin(0x1330);
+        for (i = 0; i < 16; i++) {
+            uint8_t val = sram_read_byte();
+            printf("0x%x: 0x%x\n", 0x1330 + i, val);
+        }
+        sram_read_end();
+        printf("\n"); 
     }
+
+    PROMPT;
 
     return 0;
 }
 
 uint8_t periodic_irq(void)
 {
-    puts("tick");
+    //puts("tick");
 
     return 0;
 }
@@ -405,7 +435,7 @@ uint8_t cat(uint8_t dest, const char *filename)
     return 0;
 }
 
-uint8_t ls(uint8_t dest)
+uint8_t tree(uint8_t dest)
 {
     uint8_t rc;
     FILINFO fno;
@@ -454,9 +484,9 @@ uint8_t ls(uint8_t dest)
             break;
         }
 
-        unsigned char *ptr = buf;
+        uint8_t *ptr = buf;
         while (buflen >= 8) {
-            //rc = mcp2515_xfer(TYPE_file_listing, dest, 8, ptr);
+            rc = mcp2515_xfer(TYPE_file_tree, dest, 8, ptr);
             if (rc) {
                 printf_P(PSTR("xfer: failed (%d)\n"), rc);
                 return 3;
@@ -471,7 +501,7 @@ uint8_t ls(uint8_t dest)
     }
 
     printf_P(PSTR("sending last chunk\n"));
-    //rc = mcp2515_xfer(TYPE_file_listing, dest, buflen, buf);
+    rc = mcp2515_xfer(TYPE_file_tree, dest, buflen, buf);
     if (rc) {
         printf_P(PSTR("xfer: failed\n"));
         return 4;
@@ -482,10 +512,13 @@ uint8_t ls(uint8_t dest)
 
 void main(void)
 {
-    NODE_INIT();
+    /* clear up the SPI bus for the mcp2515 */
+    spi_init();
+    sd_hw_init();
+    sram_hw_init();
+    sram_init();
 
-    /* SD SPI CS */
-    DDRD |= (1 << PORTD7);
+    NODE_INIT();
 
     rc = fat_init();
     if (rc) {
@@ -497,6 +530,8 @@ void main(void)
 
     /* we start searching from log AFTER this one, which is num 0 */
     cur_log = find_free_log_after(NUM_LOGS - 1);
+
+    sram_init();
 
     sei();
 

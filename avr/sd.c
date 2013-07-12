@@ -5,6 +5,9 @@
 #include "sd.h"
 #include "spi.h"
 
+#define SD_DESELECT() PORTD |=  (1 << PORTD7)
+#define SD_SELECT()   PORTD &= ~(1 << PORTD7)
+
 /* Definitions for MMC/SDC command */
 #define CMD0    (0x40+0)    /* GO_IDLE_STATE */
 #define CMD1    (0x40+1)    /* SEND_OP_COND (MMC) */
@@ -29,10 +32,14 @@
 
 static uint8_t CardType;
 
+void sd_hw_init(void)
+{
+    DDRD |= (1 << PORTD7);
+    SD_DESELECT();
+}
+
 void sd_init(void)
 {
-    DDRC |= (1 << PORTC5);
-    SD_DESELECT();
     spi_medium();
 }
 

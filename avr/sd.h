@@ -10,6 +10,7 @@ typedef enum {
 /*---------------------------------------*/
 /* Prototypes for disk control functions */
 
+void sd_hw_init(void);
 void sd_init(void);
 uint8_t disk_initialize (void);
 disk_result_t disk_readp (uint8_t *, uint32_t, uint16_t, uint16_t);
@@ -24,7 +25,4 @@ disk_result_t disk_writep (const uint8_t *, uint32_t);
 #define CT_SD2              0x04    /* SD ver 2 */
 #define CT_SDC              (CT_SD1|CT_SD2) /* SD */
 #define CT_BLOCK            0x08    /* Block addressing */
-
-#define SD_DESELECT() PORTD |=  (1 << PORTD7)
-#define SD_SELECT()   PORTD &= ~(1 << PORTD7)
 
