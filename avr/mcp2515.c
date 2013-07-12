@@ -1,4 +1,5 @@
 #include <avr/io.h>
+#include <util/atomic.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
@@ -9,6 +10,7 @@
 #include "spi.h"
 #include "time.h"
 #include "uart.h"
+#include "irq.h"
 
 #define MCP2515_PORT PORTB
 #define MCP2515_CS PORTB2
@@ -18,7 +20,6 @@
 volatile uint8_t mcp2515_busy;
 volatile struct mcp2515_packet_t packet;
 volatile uint8_t stfu;
-volatile uint8_t irq_signal;
 
 volatile enum XFER_STATE xfer_state;
 
@@ -127,7 +128,7 @@ uint8_t mcp2515_init(void)
     uint8_t retry = 10;
     while ((read_register(MCP_REGISTER_CANSTAT) & 0xe0) != 0b00000000 && --retry){};
     if (retry == 0) {
-        printf_P(PSTR("canstat: %x\n"), read_register(MCP_REGISTER_CANSTAT));
+        //printf_P(PSTR("canstat: %x\n"), read_register(MCP_REGISTER_CANSTAT));
         return 1;
     }
 
@@ -158,7 +159,7 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data)
         return 1;
     }
 
-    cli();
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
     load_tx0(type, id, len, (const uint8_t *)data);
     mcp2515_busy = 1;
 
@@ -166,7 +167,7 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data)
     mcp2515_select();
     spi_write(MCP_COMMAND_RTS_TX0);
     mcp2515_unselect();
-    sei();
+}
 
     return 0;
 }
@@ -245,14 +246,14 @@ void read_packet(uint8_t regnum)
                                 (uint32_t)packet.data[1] << 16 |
                                 (uint32_t)packet.data[2] << 8  |
                                 (uint32_t)packet.data[3] << 0;
-            printf_P(PSTR("mcp time=%lu\n"), new_time);
+            //printf_P(PSTR("mcp time=%lu\n"), new_time);
             time_set(new_time);
         } else if (packet.type == TYPE_set_interval && packet.id == MY_ID) {
             periodic_prev = now;
             periodic_interval =  (uint16_t)packet.data[0] << 8 |
                                  (uint16_t)packet.data[1] << 0;
 
-            printf_P(PSTR("mcp period=%u\n"), periodic_interval);
+            //printf_P(PSTR("mcp period=%u\n"), periodic_interval);
         } else if (packet.type == TYPE_sos_reboot && packet.id == MY_ID) {
             cli();
             wdt_enable(WDTO_15MS);
@@ -288,14 +289,14 @@ ISR(PCINT0_vect)
     }
 
     if (canintf & MCP_INTERRUPT_ERRI) {
-        printf_P(PSTR("mcp err %x\n"), read_register(MCP_REGISTER_EFLG));
+        //printf_P(PSTR("mcp err %x\n"), read_register(MCP_REGISTER_EFLG));
         modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_ERRI, 0x00);
         modify_register(MCP_REGISTER_EFLG, 0xff, 0x00);
         canintf &= ~(MCP_INTERRUPT_ERRI);
     }
 
     if (canintf) {
-        printf_P(PSTR("mcp err intf %x\n"), canintf);
+        //printf_P(PSTR("mcp err intf %x\n"), canintf);
         modify_register(MCP_REGISTER_CANINTF, 0xff, 0x00);
     }
 }

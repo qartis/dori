@@ -11,6 +11,7 @@
     X(file_read, 0x10) \
     X(file_write, 0x11) \
     X(file_error, 0x12) \
+    X(file_tree, 0x13) \
 \
     X(sensor_error, 0x13) \
 \
@@ -30,6 +31,15 @@
     X(xfer_cts, 0x80) \
     X(xfer_chunk, 0x81) \
     X(xfer_cancel, 0x82) \
+\
+    X(modema_at_0, 0x90) \
+    X(modema_at_1, 0x91) \
+    X(modema_at_2, 0x92) \
+    X(modema_at_3, 0x93) \
+    X(modema_at_4, 0x94) \
+    X(modema_at_5, 0x95) \
+    X(modema_at_6, 0x96) \
+    X(modema_at_7, 0x97) \
 \
     X(invalid, 0xff) \
 
@@ -85,12 +95,6 @@ struct mcp2515_packet_t {
     uint8_t unread;
 };
 
-enum {
-    IRQ_CAN   = (1 << 0),
-    IRQ_TIMER = (1 << 1),
-    IRQ_UART  = (1 << 2),
-};
-
 enum XFER_STATE {
     XFER_CHUNK_SENT,
     XFER_GOT_CTS,
@@ -101,7 +105,6 @@ enum XFER_STATE {
 extern volatile enum XFER_STATE xfer_state;
 
 extern volatile uint8_t mcp2515_busy;
-extern volatile uint8_t irq_signal;
 extern volatile struct mcp2515_packet_t packet;
 
 #ifdef CAN_TOPHALF
