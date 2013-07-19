@@ -1,6 +1,6 @@
 IDIR=../shared/include
 CC=gcc
-CFLAGS=-Wall -Wextra -I$(IDIR)
+CFLAGS=-g -Wall -Wextra -I$(IDIR)
 LDFLAGS=-lsqlite3
 SRCDIR=./src
 

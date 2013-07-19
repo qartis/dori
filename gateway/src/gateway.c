@@ -13,12 +13,16 @@
 #include "candefs.h"
 #include "command.h"
 #include <signal.h>
+#include <ctype.h>
 
 #define MAX 1024
 #define DORIPORT 53
 #define TKPORT 1337
 #define SHELLPORT 1338
 #define BUFLEN 4096
+
+// DORI debug lets us type in ascii into (netcat) to pretend to be DORI
+#define DORI_DEBUG 1
 
 sqlite3 *db;
 fd_set master;
@@ -35,11 +39,13 @@ typedef struct {
 } client;
 
 
-typedef struct {
-    unsigned char type;
-    unsigned char id;
-    unsigned char data[10];
-} dori_msg;
+/* CAN message
+   typedef struct {
+   unsigned char type;
+   unsigned char id;
+   unsigned char data[8];
+   } dori_msg;
+   */
 
 char *msg_ids[] = { "any", "ping", "pong", "laser", "gps", "temp", "time", "log", "invalid" };
 
@@ -51,11 +57,19 @@ static int tkfd;
 static int shellfd;
 static int siteid;
 
+static int file_xfer_recv_bytes;
+static int file_xfer_total_bytes;
+static int file_xfer_len_bytes;
+
 typedef enum {
     DISCONNECTED,
     CONNECTED,
     FILE_TRANSFER
-} shell_state;
+} ShellState;
+
+
+static ShellState shell_state = DISCONNECTED;
+static client *active_shell_client;
 
 void error(const char *str)
 {
@@ -78,8 +92,10 @@ client* find_client(int fd)
     client* c = NULL;
     int i;
 
-    for(i = 0; i < nclients; i++) {
-        if(clients[i].fd == fd) {
+    for(i = 0; i < nclients; i++)
+    {
+        if(clients[i].fd == fd)
+        {
             return &clients[i];
         }
     }
@@ -93,8 +109,10 @@ void remove_client(int fd)
 
     close(fd);
 
-    for (i = 0; i < nclients; i++) {
-        if (clients[i].fd == fd) {
+    for (i = 0; i < nclients; i++)
+    {
+        if (clients[i].fd == fd)
+        {
             memmove(&clients[i], &clients[i + 1],
                     (nclients - i - 1) * sizeof(clients[0]));
             nclients--;
@@ -112,9 +130,11 @@ ssize_t safe_write(int fd, const char *buf, size_t count)
     size_t wroteb;
 
     wroteb = 0;
-    while (wroteb < count) {
+    while (wroteb < count)
+    {
         rc = send(fd, buf + wroteb, count - wroteb, MSG_NOSIGNAL);
-        if (rc < 1) {
+        if (rc < 1)
+        {
             remove_client(fd);
             printf("err 1: client disconnected during write\n");
             break;
@@ -147,9 +167,11 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
     int *fd = arg;
     int i;
 
-    for (i = 0; i < ncols; i++) {
+    for (i = 0; i < ncols; i++)
+    {
         printfd(*fd, "%s", cols[i]);
-        if(send(*fd, "", 1, MSG_NOSIGNAL) < 1) {
+        if(send(*fd, "", 1, MSG_NOSIGNAL) < 1)
+        {
             printf("err 2: client disconnected during write\n");
             remove_client(*fd);
             return -1;
@@ -163,28 +185,112 @@ int site_cb(void *arg, int ncols, char **cols, char **rows)
 {
     (void)rows;
     (void)arg;
-    if(ncols == 1 && cols[0] != '\0') {
+    if(ncols == 1 && cols[0] != '\0')
+    {
         siteid = atoi(cols[0]);
     }
     return 0;
 }
 
 
-void exec_query(char *query) {
+void exec_query(char *query)
+{
     int rc = sqlite3_exec(db, query, NULL, NULL, NULL);
-    if (rc != SQLITE_OK) {
+    if (rc != SQLITE_OK)
+    {
         printf("sqlite error: %s\n", sqlite3_errmsg(db));
     }
 }
 
 
-void process_dori_msg(dori_msg msg) {
-    printf("DORI sent msg:\n");
+void process_dori_msg(int target_dorifd, char *buf, int len)
+{
+    switch(shell_state)
+    {
+    case DISCONNECTED:
+        break;
+    case CONNECTED:
+        break;
+    case FILE_TRANSFER:
+        {
+            if(active_shell_client == NULL)
+            {
+                printf("Error communicating with active Shell\n");
+                return;
+            }
+
+#if DORI_DEBUG
+            int k;
+            for(k = 0; k < len; k++) {
+                if(buf[k] == '\n' || buf[k] == '\r')
+                {
+                    len = k;
+                    break;
+                }
+            }
+#endif
+
+            if(file_xfer_len_bytes < 4)
+            {
+#if DORI_DEBUG
+                file_xfer_len_bytes = 4;
+                file_xfer_total_bytes = atoi(buf);
+                write(active_shell_client->fd, buf, len);
+                len = 0;
+#else
+                int i;
+                for(i = 0; i < len && file_xfer_len_bytes < 4; i++)
+                {
+                    // DORI will send a 4 byte file length
+                    // most significant byte first
+
+                    printf("file_xfer_total_bytes: %x << (8 * (3 - %d))\n", buf[i], file_xfer_len_bytes);
+                    file_xfer_total_bytes += (buf[i] << (8 * (3 - file_xfer_len_bytes)));
+                    file_xfer_len_bytes++;
+                    write(active_shell_client->fd, &buf[i], 1);
+                }
+
+                // Subtract out the bytes that we used for the file length
+                len -= i;
+#endif
+            }
+
+            if(len >= 0)
+            {
+                file_xfer_recv_bytes += len;
+                printf("\rReceived %d / %d bytes", file_xfer_recv_bytes, file_xfer_total_bytes);
+                fflush(stdout);
+
+                // send bytes to shell
+                write(active_shell_client->fd, buf, len);
+
+                if(file_xfer_recv_bytes >= file_xfer_total_bytes)
+                {
+                    shell_state = CONNECTED;
+                    printf("\nFile successfully received\n");
+                }
+                else if(file_xfer_recv_bytes % 8 == 0)
+                {
+                    printf("\nSent CTS\n");
+                    write(target_dorifd, "CTS", strlen("CTS"));
+                    // send CTS, even when recv_bytes == 0
+                    // this will be our CTS to start the transfer
+                }
+            }
+            break;
+        }
+    default:
+        printf("Error: in an invalid shell state\n");
+        return;
+    }
+
+#if 0 /* CAN Frame Processing */
     printf("type: %u\n", msg.type);
     printf("id: %u\n", msg.id);
     int i;
     printf("data: ");
-    for(i = 9; i >= 0; i--) {
+    for(i = 9; i >= 0; i--)
+    {
         printf("%u\n", msg.data[i]);
     }
 
@@ -192,7 +298,8 @@ void process_dori_msg(dori_msg msg) {
 
     char buf[256];
 
-    switch(msg.id) {
+    switch(msg.id)
+    {
     case ID_LASER:
         {
             int a = (msg.data[0] & 0xFF) | ((msg.data[1] & 0xFF) << 8);
@@ -225,64 +332,73 @@ void process_dori_msg(dori_msg msg) {
         siteid++;
         break;
     }
+#endif
 }
 
-void process_file_transfer(void *data, char *argv[]) {
-    int node_index = 1;
-    int filename_index = 2;
-    printf("called process file transfer\n");
+void process_file_transfer(void *data, char *args[])
+{
+    (void)data;
+    int node_index = 0;
+    int filename_index = 1;
+    printf("Requesting file '%s' from node '%s'\n",  args[filename_index], args[node_index]);
 
-    printf("Requesting file '%s' from node '%s'\n",  argv[filename_index], argv[node_index]);
-
-    // TODO create message that DORI will understand
-
-    // 0. make a shell wrapper that tells gateway that shell is alive
-    // 1. send file transfer init message to DORI
-    // 2. wait for DORI's response, which will have
-    // the length of the file (TOTAL_BYTES)
-    // 3. send CTS
-    // 4. while NUM_BYTES < TOTAL_BYTES
-    //    receive up to 8 byte chunks
-    //    send them to shell
-    // 5.
-
-    /*
-
-    */
+    shell_state = FILE_TRANSFER;
+    file_xfer_recv_bytes = 0;
+    file_xfer_total_bytes = 0;
+    file_xfer_len_bytes = 0;
 }
 
-int process_shell_msg(client *c, char *msg) {
+int process_shell_msg(client *c, char *msg)
+{
+    (void)c;
     printf("msg: %s\n", msg);
-    if(strprefix(msg, "GET")) {
-        char buf[128];
-        strcpy(buf, msg);
+    char buf[128];
+    strcpy(buf, msg);
 
-        int num_args = 0;
-
-        char *command = strtok(buf, " ");
-
-        char *node_id = strtok(NULL, " ");
-        if(node_id != NULL) num_args++;
-
-        char *filename = strtok(NULL, " ");
-        if(filename != NULL) num_args++;
-
-        char *argv[] = {command, node_id, filename};
-
-        int i;
-
-        for(i = 0; i < total_shell_commands; i++) {
-            if(commands[i].args == num_args)
-            {
-                commands[i].func(&commands[i], argv);
-                return 1;
-            }
-            else {
-                printf("Invalid number of arguments for command %s. Expected %d, got %d.\n", command, commands[i].args, num_args);
-            }
-        }
-
+    char *cmd = strtok(buf, " ");
+    if(cmd == NULL)
+    {
+        return -1;
     }
+
+    char *num_args_str = strtok(NULL, " ");
+    if(num_args_str == NULL)
+    {
+        return -1;
+    }
+
+    int num_args = atoi(num_args_str);
+    if(num_args < 0)
+    {
+        return -1;
+    }
+
+    // allocate the args we need
+    char **args = malloc(num_args);
+    int i;
+    for(i = 0; i < num_args; i++)
+    {
+        char *arg = strtok(NULL, " ");
+        if(arg == NULL)
+        {
+            break;
+        }
+        args[i] = strdup(arg);
+    }
+
+    // take the actual number of arguments we parsed out
+    int argc = i;
+    int result = run_command(cmd, argc, args);
+
+    // Free as many args as we allocated
+    int j;
+    for(j = 0; j < argc; j++)
+    {
+        free(args[j]);
+    }
+    free(args);
+
+    return result;
 }
 
 int main()
@@ -297,7 +413,8 @@ int main()
 
     sqlite3_open("data/db", &db);
 
-    if(db) {
+    if(db)
+    {
         sqlite3_exec(db, "select max(site) from records;", site_cb, NULL, NULL);
     }
 
@@ -364,32 +481,39 @@ int main()
     maxfd = tkfd > dorifd ? tkfd : dorifd;
     maxfd = shellfd > maxfd ?  shellfd : maxfd;
 
-    for (;;) {
+    for (;;)
+    {
         readfds = master;
 
         rc = select(maxfd + 1, &readfds, NULL, NULL, NULL);
         if (rc == -1)
             error("select");
 
-        if(FD_ISSET(0, &readfds)) {
+        if(FD_ISSET(0, &readfds))
+        {
             rc = read(0, buf, sizeof(buf));
             buf[rc] = '\0';
 
             int i;
-            for(i = 0; i < nclients; i++) {
-                if(clients[i].type == DORI) {
+            for(i = 0; i < nclients; i++)
+            {
+                if(clients[i].type == DORI)
+                {
                     write(clients[i].fd, buf, strlen(buf));
                     break;
                 }
             }
         }
         // for server connections
-        for (fd = 1; fd <= maxfd; fd++) {
-            if (!FD_ISSET(fd, &readfds)) {
+        for (fd = 1; fd <= maxfd; fd++)
+        {
+            if (!FD_ISSET(fd, &readfds))
+            {
                 continue;
             }
 
-            if (fd == tkfd || fd == dorifd || fd == shellfd) {
+            if (fd == tkfd || fd == dorifd || fd == shellfd)
+            {
                 len = sizeof(clientaddr);
                 newfd = accept(fd, (struct sockaddr *)&clientaddr, &len);
                 clients[nclients].fd = newfd;
@@ -397,7 +521,8 @@ int main()
                 if (newfd > maxfd)
                     maxfd = newfd;
 
-                if(fd == tkfd) {
+                if(fd == tkfd)
+                {
                     printf("new tk\n");
                     rc = read(newfd, buf, sizeof(buf));
                     buf[rc] = '\0';
@@ -413,41 +538,68 @@ int main()
                        send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
                        send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
                        send(newfd, "", 1, MSG_NOSIGNAL) < 1   ||
-                       send(newfd, "", 1, MSG_NOSIGNAL) < 1) {
+                       send(newfd, "", 1, MSG_NOSIGNAL) < 1)
+                    {
                         printf("err 3: client disconnected during write\n");
                         remove_client(fd);
                     }
                 }
-                else if(fd == shellfd) {
+                else if(fd == shellfd)
+                {
                     clients[nclients].type = SHELL;
+                    active_shell_client = &clients[nclients];
+                    file_xfer_recv_bytes = 0;
+                    file_xfer_total_bytes = 0;
+                    file_xfer_len_bytes = 0;
                     printf("Shell connected\n");
                 }
-                else if(fd == dorifd) {
-                    clients[nclients].type = DORI;
+                else if(fd == dorifd)
+                {
                     printf("DORI connection established\n");
+                    clients[nclients].type = DORI;
                 }
 
                 nclients++;
                 FD_SET(newfd, &master);
 
             } else {
+                client *c = find_client(fd);
                 rc = read(fd, buf, sizeof(buf));
-                if (rc == 0 || (rc < 0 && errno == ECONNRESET)) {
+                if (rc == 0 || (rc < 0 && errno == ECONNRESET))
+                {
+                    if(c->type == DORI)
+                    {
+                        // if DORI disconnects, then update shell's state
+                        if(shell_state > CONNECTED)
+                        {
+                            shell_state = CONNECTED;
+                        }
+                        printf("DORI disconnected\n");
+                    }
+                    else if(c->type == SHELL)
+                    {
+                        if(active_shell_client && active_shell_client == c)
+                        {
+                            active_shell_client = NULL;
+                            printf("Active ");
+                        }
+                        printf("shell disconnected\n");
+                    }
                     remove_client(fd);
-                    printf("client died\n");
-                } else if (rc < 0) {
+
+                } else if (rc < 0)
+                {
                     error("read");
                 } else {
-                    client *c = find_client(fd);
 
-                    if(c == NULL) {
+                    if(c == NULL)
+                    {
                         printf("couldn't find client!\n");
                         continue;
                     }
-                    if(c->type == DORI) {
-                        dori_msg msg = { 0 };
-                        memcpy((void*)&msg, buf, rc);
-                        process_dori_msg(msg);
+                    if(c->type == DORI)
+                    {
+                        process_dori_msg(fd, buf, rc);
                     }
                     else {
                         if(buf[rc-1] == '\n')
@@ -455,9 +607,14 @@ int main()
                         else
                             buf[rc] = '\0';
 
-                        if(c->type == SHELL) {
-                            process_shell_msg(c, buf);
-                        } else if(c->type == TK) {
+                        if(c->type == SHELL)
+                        {
+                            if(process_shell_msg(c, buf) < 0)
+                            {
+                                printf("Error processing shell command\n");
+                            }
+                        } else if(c->type == TK)
+                        {
                             printf("tk wrote: %s\n", buf);
                         }
                     }

@@ -14,55 +14,90 @@
 
 #define BUFLEN 4096
 
+// DORI debug lets us type in ascii into (netcat) to pretend to be DORI
+#define DORI_DEBUG 1
+
 const char *gateway_address = "localhost";
 const int gateway_port = 1338;
 static int gatewayfd;
 
-int strequal(const char *a, const char *b)
+void process_file_transfer(void *data, char *args[])
 {
-    return !strcmp(a, b);
-}
-
-void process_file_transfer(void *data, char *argv[])
-{
-    (void)data;
-    int command_index = 1;
-    int node_index = 2;
-    int filename_index = 3;
-    printf("Requesting file '%s' from node '%s'\n", argv[filename_index], argv[node_index]);
+    command *cmd = (command *)data;
+    int node_index = 0;
+    int filename_index = 1;
+    printf("Requesting file '%s' from node '%s'\n", args[filename_index], args[node_index]);
 
     char buf[128];
-    sprintf(buf, "%s %s %s\n", argv[command_index], argv[node_index], argv[filename_index]);
-    send(gatewayfd, buf, strlen(buf), 0);
+    sprintf(buf, "%s %d %s %s\n", cmd->name, cmd->args, args[node_index], args[filename_index]);
+    int bytes = write(gatewayfd, buf, strlen(buf));
 
-    // TODO: save gateway's 
-}
-
-int process_command(int argc, char *argv[])
-{
-    // GET [NODE ID] [BUFFER INDEX]
-    int i;
-    int command_index = 1;
-
-    for(i = 0; i < total_shell_commands; i++)
+    if(bytes < 0)
     {
-        if(strequal(argv[command_index], commands[i].name))
-        {
-            // Subtract 2 here:
-            // 1 for the command (aka GET)
-            // 1 for first command line arg (executable filename)
-            if(commands[i].args == argc - 2)
-            {
-                commands[i].func(&commands[i], argv);
-                return 1;
-            }
-            else {
-                printf("Invalid number of arguments for command %s. Expected %d, got %d.\n", argv[command_index], commands[i].args, argc - 1);
-            }
-        }
+        perror("process_file_transfer()");
+        exit(-1);
     }
 
-    return 0;
+    FILE *f;
+
+    f = fopen(args[filename_index], "w");
+
+    if(f == NULL)
+    {
+        printf("Error creating file %s\n", args[filename_index]);
+        exit(-1);
+    }
+
+    int bytes_received = 0;
+    int total_bytes = 0;
+    int length_bytes_received = 0;
+
+    do
+    {
+        bytes = read(gatewayfd, buf, sizeof(buf));
+        if(bytes < 0)
+        {
+            perror("process_file_transfer()");
+            exit(-1);
+        }
+        else if(bytes == 0)
+        {
+            printf("Connection to Gateway closed\n");
+            break;
+        }
+
+        // 4 bytes for file length, transferred first
+        if(length_bytes_received < 4)
+        {
+#if DORI_DEBUG
+            buf[bytes] = '\0';
+            total_bytes = atoi(buf);
+            bytes = 0;
+            length_bytes_received = 4;
+#else
+            int i;
+            for(i = 0; i < bytes && i < 4; i++)
+            {
+                total_bytes += (buf[i] << (8 * (3 - length_bytes_received)));
+                length_bytes_received++;
+            }
+            // Subtract out the bytes that we used for the file length
+            bytes -= i;
+#endif
+        }
+
+
+        if(bytes >= 0)
+        {
+            bytes_received += bytes;
+            printf("\rReceived %d / %d bytes", bytes_received, total_bytes);
+            fflush(stdout);
+            fprintf(f, buf, bytes);
+        }
+    } while(bytes_received < total_bytes);
+
+    fclose(f);
+    printf("\nSuccessfully received '%s' from '%s'\n", args[filename_index], args[node_index]);
 }
 
 int main(int argc, char *argv[])
@@ -102,11 +137,13 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    /*
-       1) Shell initiates a file transfer request ->  2) Shell blocks while it waits for the content to be received
-       */
+    // subtract 2
+    // 1 for first binary filename
+    // 1 for command name
+    int true_argc = argc - 2;
+    int command_index = 1;
 
-    if(!process_command(argc, argv))
+    if(run_command(argv[command_index], true_argc, &argv[2]) < 0)
     {
         printf("Failed to process command: %s\n", argv[1]);
         exit(-1);
