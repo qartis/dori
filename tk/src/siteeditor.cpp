@@ -10,10 +10,13 @@
 #include <limits.h>
 #include <sqlite3.h>
 #include <algorithm>
+#include <string>
+#include <sstream>
 #include "siteobject.h"
 #include "lineobject.h"
 #include "rectobject.h"
 #include "circleobject.h"
+#include "polyobject.h"
 #include "colorchooser.h"
 #include "toolbar.h"
 #include "siteeditor.h"
@@ -25,6 +28,8 @@
 #define MIN_PIXELS_PER_CELL 16
 #define MAX_PIXELS_PER_CELL 320
 #define ZOOM_PIXEL_AMOUNT 4
+
+#define SITE_ID 1
 
 #define BG_COLOUR FL_DARK2
 #define GRID_COLOUR FL_DARK1
@@ -73,6 +78,9 @@ int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     case CIRCLE:
         obj = new CircleObject;
         break;
+    case POLY:
+        obj = new PolyObject;
+        break;
     default:
         fprintf(stderr, "ERROR: undefined object type\n");
     }
@@ -93,13 +101,13 @@ static void setColorCallback(void *data, float r, float g, float b) {
     for(unsigned i = 0; i < siteeditor->selectedObjects.size(); i++) {
         siteeditor->selectedObjects[i]->setRGB(r * 255.0, g * 255.0, b * 255.0);
 
-        char data[512];
-        char query[512];
+        std::ostringstream ss;
 
-        siteeditor->selectedObjects[i]->toString(data);
-        sprintf(query, "UPDATE objects SET data = \"%s\" WHERE rowid = %d", data, siteeditor->selectedObjects[i]->id);
+        ss << "UPDATE objects SET data = \"";
+        ss << siteeditor->selectedObjects[i]->toString();
+        ss << "\" WHERE rowid = " << siteeditor->selectedObjects[i]->id;
 
-        int rc = sqlite3_exec(siteeditor->db, query, NULL, NULL, NULL);
+        int rc = sqlite3_exec(siteeditor->db, ss.str().c_str(), NULL, NULL, NULL);
         if(SQLITE_OK != rc) {
             fprintf(stderr, "Couldn't update object entry in db\n");
         }
@@ -113,6 +121,7 @@ static void setColorCallback(void *data, float r, float g, float b) {
 static void clickedObjTypeCallback(void *data) {
     SiteEditor *siteeditor = (SiteEditor*)data;
     siteeditor->clearSelectedObjects();
+    siteeditor->setCurState(SiteEditor::WAITING);
 }
 
 SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxWindowWidth(w), maxWindowLength(h), panStartWorldX(0), panStartWorldY(0), showArcs(false), showGrid(true), curWorldDistance(0.0) {
@@ -195,6 +204,7 @@ SiteObject* SiteEditor::findClosestObject(int mouseX, int mouseY, int maxDistanc
 
         square = (diffX * diffX) + (diffY * diffY);
 
+
         if(square < maxDistanceMeters && square < minSquare) {
             minSquare = square;
             closest = dataset[i];
@@ -266,56 +276,29 @@ void SiteEditor::loadSiteObjects(const char * db_name) {
     redraw();
 }
 
-void SiteEditor::createNewObject(SiteObjectType type, float mouseX, float mouseY) {
+void SiteEditor::createNewObject(SiteObjectType type, float mouseWorldX, float mouseWorldY) {
+
+    float mouseDistX = mouseWorldX - (siteMeterExtents / 2.0);
+    float mouseDistY = (siteMeterExtents / 2.0) - mouseWorldY;
+
     if(type == RECT) {
         newSiteObject = new RectObject;
     }
     else if(type == LINE) {
         newSiteObject = new LineObject;
-
     }
     else if(type == CIRCLE) {
         newSiteObject = new CircleObject;
     }
-
-    float mouseDistX = mouseX - (siteMeterExtents / 2.0);
-    float mouseDistY = (siteMeterExtents / 2.0) - mouseY;
-
-    newSiteObject->worldOffsetX = mouseDistX;
-    newSiteObject->worldOffsetY = mouseDistY;
-}
-
-void SiteEditor::sizeObject(SiteObjectType type, SiteObject *object, int clickedX, int clickedY, int curX, int curY) {
-    int mouseDistX = curX - clickedX;
-    int mouseDistY = clickedY - curY;
-
-    if(type == RECT) {
-        RectObject *newRectObject = (RectObject*)object;
-
-        newRectObject->worldWidth  = screenToWorld(mouseDistX);
-        newRectObject->worldLength = screenToWorld(mouseDistY);
+    else if(type == POLY) {
+        newSiteObject = new PolyObject;
     }
-    else if(type == LINE) {
-        LineObject *newLineObject = (LineObject*)object;
 
-        newLineObject->worldWidth  = screenToWorld(mouseDistX);
-        newLineObject->worldLength = screenToWorld(mouseDistY);
-    }
-    else if(type == CIRCLE) {
-        CircleObject *newCircleObject = (CircleObject*)object;
+    float r = toolbar->colorChooser->r() * 255.0;
+    float g = toolbar->colorChooser->g() * 255.0;
+    float b = toolbar->colorChooser->b() * 255.0;
 
-        int maxMouseDist;
-
-        // Take the max mouse distance as the radius
-        if(mouseDistX > mouseDistY) {
-            maxMouseDist = mouseDistX;
-        }
-        else {
-            maxMouseDist = mouseDistY;
-        }
-
-        newCircleObject->worldRadius = screenToWorld(maxMouseDist);
-    }
+    newSiteObject->init(mouseDistX, mouseDistY, r, g, b);
 }
 
 void SiteEditor::clearSelectedObjects() {
@@ -359,13 +342,13 @@ void SiteEditor::commitSelectedObjectsToDatabase() {
     for(unsigned i = 0; i < selectedObjects.size(); i++) {
         selectedObjects[i]->unselect();
 
-        char data[512];
-        char query[512];
+        std::ostringstream ss;
 
-        selectedObjects[i]->toString(data);
-        sprintf(query, "UPDATE objects SET data = \"%s\" WHERE rowid = %d", data, selectedObjects[i]->id);
+        ss << "UPDATE objects SET data = \"";
+        ss << selectedObjects[i]->toString();
+        ss << "\" WHERE rowid = " << selectedObjects[i]->id;
 
-        int rc = sqlite3_exec(db, query, NULL, NULL, NULL);
+        int rc = sqlite3_exec(db, ss.str().c_str(), NULL, NULL, NULL);
         if(SQLITE_OK != rc) {
             fprintf(stderr, "Couldn't update object entry in db\n");
         }
@@ -374,6 +357,26 @@ void SiteEditor::commitSelectedObjectsToDatabase() {
     }
 
     endDatabaseTransaction();
+}
+
+void SiteEditor::processNewSiteObject() {
+    if(newSiteObject == NULL)
+        return;
+
+    std::ostringstream ss;
+
+    ss << "INSERT INTO objects (siteid, type, data) VALUES (";
+    ss << SITE_ID << ", " << newSiteObject->type << ", ";
+    ss << "\"" << newSiteObject->toString() << "\");";
+
+    int rc = sqlite3_exec(db, ss.str().c_str(), NULL, NULL, NULL);
+    if(SQLITE_OK != rc) {
+        fprintf(stderr, "Couldn't insert object entry into db\n");
+    }
+
+    sqlite_int64 rowid = sqlite3_last_insert_rowid(db);
+    newSiteObject->id = rowid;
+    siteObjects.push_back(newSiteObject);
 }
 
 void SiteEditor::resize(int X, int Y, int W, int H) {
@@ -418,7 +421,6 @@ int SiteEditor::handle(int event) {
 
                 if(toolbar->curSelectedObjType == UNDEFINED) {
                     SiteObject* curSelectedObject = findClosestObject(curMouseX, curMouseY, SELECTION_DISTANCE_PIXELS, siteObjects);
-
                     if(curSelectedObject == NULL) {
                         clearSelectedObjects();
                         curState = SELECTING;
@@ -436,44 +438,48 @@ int SiteEditor::handle(int event) {
                     }
                     return 1;
                 }
-                else { // if we're drawing
-                    clearSelectedObjects();
-                    curState = DRAWING;
+                else {
+                    // if cur selected object is not undefined
+                    // either we're starting a drawing, finishing a drawing
+                    // or adding to a polygon drawing
 
-                    float curMouseWorldX = worldPanX + screenToWorld(curMouseX);
-                    float curMouseWorldY = worldPanY + screenToWorld(curMouseY);
+                    // Starting to draw a site object
+                    if(curState == WAITING) {
+                        float curMouseWorldX = worldPanX + screenToWorld(curMouseX);
+                        float curMouseWorldY = worldPanY + screenToWorld(curMouseY);
 
-                    createNewObject(toolbar->curSelectedObjType, curMouseWorldX, curMouseWorldY);
-
-                    if(newSiteObject) {
-                        newSiteObject->r = toolbar->colorChooser->r() * 255.0;
-                        newSiteObject->g = toolbar->colorChooser->g() * 255.0;
-                        newSiteObject->b = toolbar->colorChooser->b() * 255.0;
+                        createNewObject(toolbar->curSelectedObjType, curMouseWorldX, curMouseWorldY);
+                        curState = DRAWING;
                     }
+                    else if(curState == DRAWING) {
+                        // Confirm the size of the site object
+                        newSiteObject->confirm();
 
+                        // reset to WAITING state if we're not drawing a poly object
+                        if(toolbar->curSelectedObjType != POLY) {
+                            // add the new (not POLY type) site object to the database and list of site objects
+                            processNewSiteObject();
+                            newSiteObject = NULL;
+                            curState = WAITING;
+                            newSiteObject = NULL;
+                        }
+                    }
                     redraw();
                     return 1;
                 }
             }
             else if(event == FL_DRAG) {
-                if(curState == DRAWING) {
-                    sizeObject(toolbar->curSelectedObjType, newSiteObject, clickedMouseX, clickedMouseY, curMouseX, curMouseY);
-                    redraw();
-                    return 1;
-                }
-                else if(curState == SELECTED) {
+                // Move all selected objects
+                if(curState == SELECTED) {
                     int mouseDistX = curMouseX - clickedMouseX;
                     int mouseDistY = clickedMouseY - curMouseY;
 
                     for(unsigned i = 0; i < selectedObjects.size(); i++) {
-                        float originX = selectedObjects[i]->getWorldOffsetCenterX();
-                        float originY = selectedObjects[i]->getWorldOffsetCenterY();
+                        float mouseWorldDistX = screenToWorld(mouseDistX);
+                        float mouseWorldDistY = screenToWorld(mouseDistY);
 
-                        float offsetX = screenToWorld(mouseDistX);
-                        float offsetY = screenToWorld(mouseDistY);
-
-                        selectedObjects[i]->setWorldOffsetCenterX(originX + offsetX);
-                        selectedObjects[i]->setWorldOffsetCenterY(originY + offsetY);
+                        selectedObjects[i]->updateWorldOffsetCenterX(mouseWorldDistX);
+                        selectedObjects[i]->updateWorldOffsetCenterY(mouseWorldDistY);
 
                         clickedMouseX = curMouseX;
                         clickedMouseY = curMouseY;
@@ -482,7 +488,7 @@ int SiteEditor::handle(int event) {
                     redraw();
                     return 1;
                 }
-                else { // we're not drawing and we're not moving objects
+                else if(curState != DRAWING) {
                     // so we must be drawing a selection box
                     curState = SELECTING;
                     redraw();
@@ -490,33 +496,13 @@ int SiteEditor::handle(int event) {
                 }
             }
             else if(event == FL_RELEASE) {
-                if(curState == DRAWING) {
-                    curState = WAITING;
-                    redraw();
-
-                    char data[512];
-                    char query[512];
-                    newSiteObject->toString(data);
-
-                    sprintf(query, "INSERT INTO objects (siteid, type, data) VALUES (%d, %d, \"%s\");", 1, newSiteObject->type, data);
-                    int rc = sqlite3_exec(db, query, NULL, NULL, NULL);
-                    if(SQLITE_OK != rc) {
-                        fprintf(stderr, "Couldn't insert object entry into db\n");
-                    }
-
-                    sqlite_int64 rowid = sqlite3_last_insert_rowid(db);
-                    newSiteObject->id = rowid;
-                    siteObjects.push_back(newSiteObject);
-
-                    newSiteObject = NULL;
-                    return 1;
-                }
-                else if(curState == SELECTED) {
+                if(curState == SELECTED) {
                     commitSelectedObjectsToDatabase();
                     redraw();
                     return 1;
                 }
-                else { // done drawing the selection box
+                // done drawing the selection box
+                else if(curState == SELECTING) {
                     findObjectsInBoundingBox(clickedMouseX, clickedMouseY, curMouseX, curMouseY, siteObjects, selectedObjects);
                     if(selectedObjects.size() > 0) {
                         curState = SELECTED;
@@ -529,23 +515,13 @@ int SiteEditor::handle(int event) {
                 }
             }
         }
-        else if(Fl::event_button() == FL_MIDDLE_MOUSE) {
+        else if(Fl::event_button() == FL_RIGHT_MOUSE) {
             if(event == FL_PUSH) {
                 panStartWorldX = screenToWorld(curMouseX);
                 panStartWorldY = screenToWorld(curMouseY);
             }
             else if(event == FL_DRAG) {
-                float curMouseWorldX = screenToWorld(curMouseX);
-                float curMouseWorldY = screenToWorld(curMouseY);
-
-                worldPanX -= (curMouseWorldX - panStartWorldX);
-                worldPanY -= (curMouseWorldY - panStartWorldY);
-
-                // snap the pan position back to within site bounds
-                enforceSiteBounds();
-
-                panStartWorldX = curMouseWorldX;
-                panStartWorldY = curMouseWorldY;
+                handlePan();
 
                 redraw();
                 return 1;
@@ -604,6 +580,16 @@ int SiteEditor::handle(int event) {
 
         curWorldDistance = sqrt((distX * distX) + (distY * distY));
 
+        float worldAbsoluteMouseX = worldPanX + screenToWorld(curMouseX);
+        float worldAbsoluteMouseY = worldPanY + screenToWorld(curMouseY);
+
+        float worldAbsoluteClickedX = worldPanX + screenToWorld(clickedMouseX);
+        float worldAbsoluteClickedY = worldPanY + screenToWorld(clickedMouseY);
+
+        if(newSiteObject && curState == DRAWING) {
+            newSiteObject->updateSize(worldAbsoluteMouseX - worldAbsoluteClickedX, worldAbsoluteClickedY - worldAbsoluteMouseY);
+        }
+
         redraw();
         return 1;
     }
@@ -647,12 +633,34 @@ int SiteEditor::handle(int event) {
             return 1;
         }
         else if(key == FL_Escape) {
+            if(newSiteObject) {
+                newSiteObject->cancel();
+
+                if(toolbar->curSelectedObjType == POLY)
+                {
+                    if(((PolyObject*)newSiteObject)->numPoints() < 2)
+                    {
+                        delete newSiteObject;
+                        newSiteObject = NULL;
+                    }
+                    else
+                    {
+                        processNewSiteObject();
+                    }
+                }
+            }
+
+            newSiteObject = NULL;
             clearSelectedObjects();
             curState = WAITING;
             toolbar->curSelectedObjType = UNDEFINED;
+
+            //TODO: put this into a function in toolbar()
             toolbar->lineButton->value(0);
             toolbar->rectButton->value(0);
             toolbar->circleButton->value(0);
+            toolbar->polyButton->value(0);
+
             redraw();
             return 1;
         }
@@ -661,9 +669,14 @@ int SiteEditor::handle(int event) {
             curState = SELECTED;
             toolbar->curSelectedObjType = UNDEFINED;
             toolbar->curSelectedObjType = UNDEFINED;
+
+            //TODO: put this into a function in toolbar()
             toolbar->lineButton->value(0);
             toolbar->rectButton->value(0);
             toolbar->circleButton->value(0);
+            toolbar->polyButton->value(0);
+            toolbar->circleButton->value(0);
+
             redraw();
             return 1;
         }
@@ -685,6 +698,22 @@ int SiteEditor::handle(int event) {
 
     return Fl_Window::handle(event);
 }
+
+void SiteEditor::handlePan() {
+    float curMouseWorldX = screenToWorld(curMouseX);
+    float curMouseWorldY = screenToWorld(curMouseY);
+
+    worldPanX -= (curMouseWorldX - panStartWorldX);
+    worldPanY -= (curMouseWorldY - panStartWorldY);
+
+    // snap the pan position back to within site bounds
+    enforceSiteBounds();
+
+    panStartWorldX = curMouseWorldX;
+    panStartWorldY = curMouseWorldY;
+}
+
+
 
 void SiteEditor::drawGrid() {
     char textBuffer[32];
@@ -972,5 +1001,8 @@ void SiteEditor::draw() {
     drawSelectionState();
 
     drawDoriArrow();
+
+    //reset line style
+    fl_line_style(0, 1);
 }
 

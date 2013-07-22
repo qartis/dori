@@ -11,6 +11,8 @@
 #include <math.h>
 #include <limits.h>
 #include <sqlite3.h>
+#include <string>
+#include <sstream>
 #include "siteobject.h"
 #include "lineobject.h"
 #include "rectobject.h"

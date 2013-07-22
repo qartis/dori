@@ -11,6 +11,7 @@ public:
     Fl_Button *lineButton;
     Fl_Button *rectButton;
     Fl_Button *circleButton;
+    Fl_Button *polyButton;
     ColorChooser *colorChooser;
 
     SiteObjectType curSelectedObjType;

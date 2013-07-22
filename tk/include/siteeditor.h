@@ -26,6 +26,23 @@ public:
 
     void clearSelectedObjects();
 
+    typedef enum {
+        WAITING,
+        DRAWING,
+        SELECTED,
+        SELECTING,
+    } state;
+
+    void setCurState(state s)
+    {
+        curState = s;
+    }
+
+    state getCurState()
+    {
+        return curState;
+    }
+
 private:
 
     float scaledSelectionDistance();
@@ -49,7 +66,7 @@ private:
 
     void createNewObject(SiteObjectType type, float mouseX, float mouseY);
 
-    void sizeObject(SiteObjectType type, SiteObject *object, int clickedX, int clickedY, int curX, int curY);
+    void processNewSiteObject();
 
     void commitSelectedObjectsToDatabase();
 
@@ -61,12 +78,12 @@ private:
     float worldToScreen(float worldVal);
 
     float screenCenterWorldX();
-
     float screenCenterWorldY();
 
     bool isObjectSelected(SiteObject *obj);
 
     void panToWorldCenter();
+    void handlePan();
 
     int clickedMouseX;
     int clickedMouseY;
@@ -85,13 +102,6 @@ private:
     float scaleY;
 
     float curMouseOverElevation;
-
-    typedef enum {
-        WAITING,
-        DRAWING,
-        SELECTED,
-        SELECTING,
-    } state;
 
     state curState;
 

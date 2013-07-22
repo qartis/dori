@@ -1,9 +1,12 @@
 #include <stddef.h>
+#include <string>
+#include <sstream>
 #include "siteobject.h"
 #include "circleobject.h"
 #include <FL/Fl.H>
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
+#include <algorithm>
 
 CircleObject::CircleObject() : worldRadius(0.0) {
     type = CIRCLE;
@@ -11,8 +14,18 @@ CircleObject::CircleObject() : worldRadius(0.0) {
 
 CircleObject::~CircleObject() { };
 
+void CircleObject::init(float worldX, float worldY, float newR, float newG, float newB) {
+    worldOffsetX = worldX;
+    worldOffsetY = worldY;
+
+    r = newR;
+    g = newG;
+    b = newB;
+}
+
 void CircleObject::drawWorld() {
 }
+
 
 void CircleObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pixelsPerCell, float worldPanX, float worldPanY) {    // # cells = (cells / meter) * (worldOffset in meters)
     // # cells * pixelsPerCell = position in pixels
@@ -45,12 +58,12 @@ void CircleObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float p
     }
 }
 
-void CircleObject::setWorldOffsetCenterX(float offsetCenterX) {
-    worldOffsetX = offsetCenterX;
+void CircleObject::updateWorldOffsetCenterX(float offsetCenterX) {
+    worldOffsetX += offsetCenterX;
 }
 
-void CircleObject::setWorldOffsetCenterY(float offsetCenterY) {
-    worldOffsetY = offsetCenterY;
+void CircleObject::updateWorldOffsetCenterY(float offsetCenterY) {
+    worldOffsetY += offsetCenterY;
 }
 
 float CircleObject::getWorldOffsetCenterX() {
@@ -61,22 +74,31 @@ float CircleObject::getWorldOffsetCenterY() {
     return worldOffsetY;
 }
 
-void CircleObject::toString(char* output) {
-    if(output == NULL) {
-        fprintf(stderr, "output is NULL in serialize()\n");
-        return;
-    }
-    sprintf(output,
-           "%f %f "
-           "%f "
-           "%f %f "
-           "%u %u %u "
-           "%d ",
-           worldOffsetX, worldOffsetY,
-           worldRadius,
-           elevation, worldHeight,
-           r, g, b,
-           (int)type);
+
+
+// Resize the object based on world coordinates
+void CircleObject::updateSize(float worldDifferenceX, float worldDifferenceY) {
+    // set the radius to the max mouse difference
+    worldRadius = std::max(worldDifferenceX, worldDifferenceY);
+}
+
+void CircleObject::confirm() {
+    // nothing to do on confirmation
+}
+
+void CircleObject::cancel() {
+}
+
+std::string CircleObject::toString() {
+    std::ostringstream ss;
+
+    ss << worldOffsetX << " " << worldOffsetY << " ";
+    ss << worldRadius  << " ";
+    ss << elevation    << " " << worldHeight  << " ";
+
+    ss << r << " " << g << " " << b << " " << (int)type;
+
+    return ss.str();
 }
 
 void CircleObject::fromString(char* input) {

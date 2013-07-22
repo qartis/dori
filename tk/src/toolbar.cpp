@@ -3,6 +3,8 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Pixmap.H>
 #include <FL/Fl_Color_Chooser.H>
+#include <string>
+#include <sstream>
 #include "colorchooser.h"
 #include "siteobject.h"
 #include "toolbar.h"
@@ -95,7 +97,34 @@ static const char *circle_xpm[] = {
 
 static Fl_Pixmap circle_pixmap(circle_xpm);
 
+static const char *poly_xpm[] = {
+    "20 20 2 1",
+    "* black",
+    "# None",
+    "####################",
+    "#####**#############",
+    "#######**###########",
+    "#########**#########",
+    "###########**#######",
+    "#############**#####",
+    "#############**#####",
+    "###########**#######",
+    "#########**#########",
+    "#######**###########",
+    "#####**#############",
+    "###**###############",
+    "###**###############",
+    "#####**#############",
+    "#######**###########",
+    "#########**#########",
+    "###########**#######",
+    "#############**#####",
+    "####################",
+    "####################",
 
+};
+
+static Fl_Pixmap poly_pixmap(poly_xpm);
 
 static void button_cb(Fl_Widget *widget, void *data) {
     Toolbar *toolbar = (Toolbar *)data;
@@ -107,6 +136,9 @@ static void button_cb(Fl_Widget *widget, void *data) {
     }
     else if(widget == toolbar->circleButton) {
         toolbar->curSelectedObjType = CIRCLE;
+    }
+    else if(widget == toolbar->polyButton) {
+        toolbar->curSelectedObjType = POLY;
     }
 
     if(toolbar->user_data() && toolbar->clickedObjTypeCallback) {
@@ -130,6 +162,11 @@ Toolbar::Toolbar(int x, int y, int w, int h, const char *label) :
     circleButton->image(circle_pixmap);
     circleButton->type(FL_RADIO_BUTTON);
     circleButton->callback(button_cb, this);
+
+    polyButton = new Fl_Button(0, circleButton->y() + circleButton->h(), lineButton->w(), lineButton->h());
+    polyButton->image(poly_pixmap);
+    polyButton->type(FL_RADIO_BUTTON);
+    polyButton->callback(button_cb, this);
 
     colorChooser = new ColorChooser(lineButton->w(), 0, w - lineButton->w(), h);
     colorChooser->mode(0);

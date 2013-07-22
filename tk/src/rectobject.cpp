@@ -1,4 +1,6 @@
 #include <stddef.h>
+#include <string>
+#include <sstream>
 #include "siteobject.h"
 #include "rectobject.h"
 #include <FL/Fl.H>
@@ -10,6 +12,15 @@ RectObject::RectObject() : worldWidth(0.0), worldLength(0.0) {
 }
 
 RectObject::~RectObject() { };
+
+void RectObject::init(float worldX, float worldY, float newR, float newG, float newB) {
+    worldOffsetX = worldX;
+    worldOffsetY = worldY;
+
+    r = newR;
+    g = newG;
+    b = newB;
+}
 
 void RectObject::drawWorld() {
     /*
@@ -127,12 +138,12 @@ void RectObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pix
     }
 }
 
-void RectObject::setWorldOffsetCenterX(float offsetCenterX) {
-    worldOffsetX = offsetCenterX - (worldWidth / 2.0);
+void RectObject::updateWorldOffsetCenterX(float offsetCenterX) {
+    worldOffsetX += offsetCenterX;
 }
 
-void RectObject::setWorldOffsetCenterY(float offsetCenterY) {
-    worldOffsetY = offsetCenterY - (worldLength / 2.0);
+void RectObject::updateWorldOffsetCenterY(float offsetCenterY) {
+    worldOffsetY += offsetCenterY;
 }
 
 float RectObject::getWorldOffsetCenterX() {
@@ -143,22 +154,31 @@ float RectObject::getWorldOffsetCenterY() {
     return worldOffsetY + (worldLength / 2.0);
 }
 
-void RectObject::toString(char* output) {
-    if(output == NULL) {
-        fprintf(stderr, "output is NULL in serialize()\n");
-        return;
-    }
-    sprintf(output,
-           "%f %f "
-           "%f %f "
-           "%f %f "
-           "%u %u %u "
-           "%d ",
-           worldOffsetX, worldOffsetY,
-           worldWidth, worldLength,
-           elevation, worldHeight,
-           r, g, b,
-           (int)type);
+void RectObject::updateSize(float worldDifferenceX, float worldDifferenceY) {
+    worldWidth  = worldDifferenceX;
+    worldLength = worldDifferenceY;
+}
+
+
+void RectObject::confirm() {
+    // nothing to do on confirmation
+}
+
+void RectObject::cancel() {
+}
+
+
+
+std::string RectObject::toString() {
+    std::ostringstream ss;
+
+    ss << worldOffsetX << " " << worldOffsetY << " ";
+    ss << worldWidth   << " " << worldLength  << " ";
+    ss << elevation    << " " << worldHeight  << " ";
+
+    ss << r << " " << g << " " << b << " " << (int)type;
+
+    return ss.str();
 }
 
 void RectObject::fromString(char* input) {

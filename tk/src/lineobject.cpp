@@ -1,4 +1,6 @@
 #include <stddef.h>
+#include <string>
+#include <sstream>
 #include "siteobject.h"
 #include "lineobject.h"
 #include <FL/Fl.H>
@@ -10,6 +12,15 @@ LineObject::LineObject() : worldWidth(0.0), worldLength(0.0) {
 }
 
 LineObject::~LineObject() { };
+
+void LineObject::init(float worldX, float worldY, float newR, float newG, float newB) {
+    worldOffsetX = worldX;
+    worldOffsetY = worldY;
+
+    r = newR;
+    g = newG;
+    b = newB;
+}
 
 void LineObject::drawWorld() {
     /*
@@ -120,12 +131,12 @@ void LineObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pix
     }
 }
 
-void LineObject::setWorldOffsetCenterX(float offsetCenterX) {
-    worldOffsetX = offsetCenterX - (worldWidth / 2.0);
+void LineObject::updateWorldOffsetCenterX(float offsetCenterX) {
+    worldOffsetX += offsetCenterX;
 }
 
-void LineObject::setWorldOffsetCenterY(float offsetCenterY) {
-    worldOffsetY = offsetCenterY - (worldLength / 2.0);
+void LineObject::updateWorldOffsetCenterY(float offsetCenterY) {
+    worldOffsetY += offsetCenterY;
 }
 
 float LineObject::getWorldOffsetCenterX() {
@@ -136,22 +147,27 @@ float LineObject::getWorldOffsetCenterY() {
     return worldOffsetY + (worldLength / 2.0);
 }
 
-void LineObject::toString(char* output) {
-    if(output == NULL) {
-        fprintf(stderr, "output is NULL in serialize()\n");
-        return;
-    }
-    sprintf(output,
-           "%f %f "
-           "%f %f "
-           "%f %f "
-           "%u %u %u "
-           "%d ",
-           worldOffsetX, worldOffsetY,
-           worldWidth, worldLength,
-           elevation, worldHeight,
-           r, g, b,
-           (int)type);
+void LineObject::updateSize(float worldDifferenceX, float worldDifferenceY) {
+    worldWidth  = worldDifferenceX;
+    worldLength = worldDifferenceY;
+}
+
+void LineObject::confirm() {
+}
+
+void LineObject::cancel() {
+}
+
+std::string LineObject::toString() {
+    std::ostringstream ss;
+
+    ss << worldOffsetX << " " << worldOffsetY << " ";
+    ss << worldWidth   << " " << worldLength  << " ";
+    ss << elevation    << " " << worldHeight  << " ";
+
+    ss << r << " " << g << " " << b << " " << type;
+
+    return ss.str();
 }
 
 void LineObject::fromString(char* input) {

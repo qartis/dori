@@ -1,3 +1,5 @@
+#include <string>
+#include <sstream>
 #include "siteobject.h"
 
 SiteObject::SiteObject() {
