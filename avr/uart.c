@@ -31,10 +31,12 @@
 #define URSEL URSEL0
 #endif
 
+#ifndef DEBUG
 static FILE mystdout = FDEV_SETUP_STREAM(
     (int (*)(char,FILE*))uart_putchar, 
     (int (*)(FILE*))uart_getchar,
     _FDEV_SETUP_RW);
+#endif
 
 /* must be 2^n */
 static volatile uint8_t uart_ring[UART_BUF_SIZE];
@@ -79,10 +81,11 @@ void uart_init(uint16_t ubrr)
 
     UCSRB = (1 << RXEN) | (1 << TXEN) | (1 << RXCIE);
 
+#ifndef DEBUG
     stdout = &mystdout;
     stdin = &mystdout;
+#endif
 }
-
 
 extern volatile uint8_t timeout_counter;
 int getc_timeout(uint8_t sec) {
@@ -98,7 +101,7 @@ int getc_timeout(uint8_t sec) {
     ring_out = (ring_out + 1) % UART_BUF_SIZE;
 
 #ifdef ECHO
-    putchar(c);
+    uart_putchar(c);
 #endif
 
     return (int)c;
@@ -205,9 +208,9 @@ char *getline(char *s, int bufsize, FILE *f, volatile uint8_t *signal)
         case 127:  /* delete */
             if (p > s){
                 *p-- = '\0';
-                putchar('\b');
-                putchar(' ');
-                putchar('\b');
+                uart_putchar('\b');
+                uart_putchar(' ');
+                uart_putchar('\b');
             }
             break;
         
@@ -249,9 +252,9 @@ char *fgets(char *s, int bufsize, FILE *f)
         case 127:  /* delete */
             if (p > s){
                 *p-- = '\0';
-                putchar('\b');
-                putchar(' ');
-                putchar('\b');
+                uart_putchar('\b');
+                uart_putchar(' ');
+                uart_putchar('\b');
             }
             break;
 
@@ -280,7 +283,7 @@ void printu(uint16_t num)
     uint8_t i = 4;
 
     if (num == 0) {
-        putchar('0');
+        uart_putchar('0');
         return;
     }
 
@@ -293,7 +296,7 @@ void printu(uint16_t num)
     i++;
 
     do {
-        putchar(buf[i]);
+        uart_putchar(buf[i]);
     } while (++i < sizeof(buf));
 }
 
@@ -302,7 +305,7 @@ void prints(int16_t num)
     if (num > 0) {
         printu(num);
     } else {
-        putchar('-');
+        uart_putchar('-');
         printu(-num);
     }
 }
@@ -329,7 +332,7 @@ void print_P(const char * PROGMEM s)
 void printx(uint16_t num)
 {
     if (!num) {
-        putchar('0');
+        uart_putchar('0');
         return;
     }
     char buf[4];
@@ -338,13 +341,13 @@ void printx(uint16_t num)
         buf[i] = "0123456789abcdef"[num % 16];
 
     for(; ++i<sizeof(buf);)
-        putchar(buf[i]);
+        uart_putchar(buf[i]);
 }
 
 void print32(uint32_t num)
 {
     if (!num) {
-        putchar('0');
+        uart_putchar('0');
         return;
     }
     char buf[10];
@@ -353,13 +356,13 @@ void print32(uint32_t num)
         buf[i] = (num % 10) + '0';
 
     for(; ++i<sizeof(buf);)
-        putchar(buf[i]);
+        uart_putchar(buf[i]);
 }
 
 void printb(uint16_t number, uint8_t base)
 {
     if (!number) {
-        putchar('0');
+        uart_putchar('0');
         return;
     }
     char buf[5];
@@ -368,18 +371,6 @@ void printb(uint16_t number, uint8_t base)
         buf[i] = "0123456789abcdef"[number % base];
 
     while (++i < sizeof(buf))
-        putchar(buf[i]);
+        uart_putchar(buf[i]);
 }
 #endif
-
-int puts(const char *str)
-{
-    do {
-        putchar(*str);
-        str++;
-    } while (*str);
-
-    uart_putchar('\n');
-
-    return 0;
-}

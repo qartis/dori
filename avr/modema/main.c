@@ -15,6 +15,7 @@
 #include "node.h"
 #include "sim900.h"
 #include "debug.h"
+#include "irq.h"
 
 #define streq(a,b) (strcmp(a,b) == 0)
 #define strstart(a,b) (strncmp(a,b,strlen(b)) == 0)
@@ -24,8 +25,40 @@ uint8_t uart_irq(void)
     return 0;
 }
 
+uint8_t user_irq(void)
+{
+    uint8_t rc;
+
+    printf("connecting\n");
+    rc = TCPConnect();
+    if (rc)
+        printf("connect: %d\n", rc);
+    return 0;
+}
+
+uint8_t debug_irq(void)
+{
+    char buf[64];
+    fgets(buf, sizeof(buf), stdin);
+    buf[strlen(buf)-1] = '\0';
+    printf("got '%s'\n", buf);
+
+    if (streq(buf, "c")) {
+        irq_signal |= IRQ_USER;
+    } else {
+        print(buf);
+        uart_putchar('\r');
+    }
+
+    _delay_ms(500);
+    PROMPT;
+
+    return 0;
+}
+
 ISR(USART_RX_vect)
 {
+    char c;
     static char at_buf[64];
     static uint8_t at_buf_len = 0;
 
@@ -34,12 +67,12 @@ ISR(USART_RX_vect)
 
     static uint8_t tcp_toread = 0;
 
-    char c;
 
     c = UDR0;
 
     /* if we're reading a tcp chunk */
     if (tcp_toread > 0) {
+        putchar('X');
         tcp_rx_buf[tcp_rx_buf_len] = c;
         tcp_rx_buf[tcp_rx_buf_len + 1] = '\0';
         tcp_rx_buf_len++;
@@ -52,11 +85,15 @@ ISR(USART_RX_vect)
         return;
     }
 
+
     if (state == STATE_EXPECTING_PROMPT && at_buf[0] == '>') {
         state = STATE_GOT_PROMPT;
         at_buf_len = 0;
         at_buf[0] = '\0';
     } else if (c == '\r') {
+        //puts(at_buf);
+        //putchar('\r');
+        //putchar('\n');
         if (streq(at_buf, "OK")) {
             flag_ok = 1;
             /* We don't care anymore */
@@ -97,18 +134,24 @@ ISR(USART_RX_vect)
 
             /* modem just sent +RECEIVE,0,%d\r\n. we must chomp the \n */
         } else if (streq(at_buf, "RING")) {
-            printf("ringing!\n");
+            putchar('@');
             slow_write("ATH\r", strlen("ATH\r"));
             _delay_ms(1500);
             /* trigger remote connect() */
+            irq_signal |= IRQ_USER;
         }
 
         at_buf_len = 0;
         at_buf[0] = '\0';
     } else if (c != '\n' && c != '\0') {
-        at_buf[at_buf_len] = c;
-        at_buf[at_buf_len + 1] = '\0';
-        at_buf_len++;
+        if (at_buf_len < sizeof(at_buf) - 5) {
+            at_buf[at_buf_len] = c;
+            at_buf[at_buf_len + 1] = '\0';
+            at_buf_len++;
+        } else {
+            putchar('X');
+            putchar('X');
+        }
     }
 }
 
@@ -138,7 +181,8 @@ uint8_t can_irq(void)
 void main(void)
 {
     NODE_INIT();
-    debug_init();
+
+    sei();
 
     NODE_MAIN();
 }

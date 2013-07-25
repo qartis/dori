@@ -7,13 +7,18 @@
 #define DEBUG_INIT
 #endif
 
+#ifndef UART_BAUD
+#define UART_BAUD 38400
+#endif
+
 #define PROMPT \
-    printf_P(PSTR("\n" XSTR(MY_ID) "> "));
+    putchar('>');
+//    printf_P(PSTR("\n" XSTR(MY_ID) "> "));
 
 #define NODE_INIT() \
     uint8_t rc; \
     wdt_disable(); \
-    uart_init(BAUD(38400)); \
+    uart_init(BAUD(UART_BAUD)); \
     DEBUG_INIT; \
     time_init(); \
     spi_init(); \
@@ -33,29 +38,6 @@ reinit: \
 \
     rc = 0;
 
-
-
-#define NODE_MAIN() \
-    PROMPT \
-\
-    for (;;) { \
-        while (irq_signal == 0) {}; \
-\
-        CHECK_IRQS; \
-    }
-
-#ifdef DEBUG
-#define CHECK_IRQS \
-        CHECK_CAN; \
-        CHECK_TIMER; \
-        CHECK_UART; \
-        CHECK_DEBUG;
-#else
-#define CHECK_IRQS \
-        CHECK_CAN; \
-        CHECK_TIMER; \
-        CHECK_UART;
-#endif
 
 #define CHECK_CAN \
         if (irq_signal & IRQ_CAN) { \
@@ -87,6 +69,7 @@ reinit: \
             goto reinit;\
         }
 
+#ifdef DEBUG
 #define CHECK_DEBUG \
         if (irq_signal & IRQ_DEBUG) { \
             rc = debug_irq(); \
@@ -96,3 +79,34 @@ reinit: \
             puts_P(PSTR("$$4"));\
             goto reinit;\
         }
+#else
+#define CHECK_DEBUG
+#endif
+
+#ifdef USER_IRQ
+#define CHECK_USER \
+        if (irq_signal & IRQ_USER) { \
+            rc = user_irq(); \
+            irq_signal &= ~IRQ_USER; \
+        } \
+        if (rc) {\
+            puts_P(PSTR("$$5"));\
+            goto reinit;\
+        }
+#else
+#define CHECK_USER
+#endif
+
+
+#define NODE_MAIN() \
+    PROMPT \
+\
+    for (;;) { \
+        while (irq_signal == 0) {}; \
+\
+        CHECK_CAN; \
+        CHECK_TIMER; \
+        CHECK_UART; \
+        CHECK_DEBUG; \
+        CHECK_USER; \
+    }

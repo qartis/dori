@@ -1,5 +1,3 @@
 void debug_init(void);
-int debug_getchar(void);
-int debug_putchar(char c);
-
-
+uint8_t debug_getchar(void);
+void debug_putchar(char c);
