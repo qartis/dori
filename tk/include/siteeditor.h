@@ -62,7 +62,13 @@ private:
     void drawSiteObjects();
 
     void drawDistanceText();
-    void drawDoriArrow();
+    void drawArrow();
+    void calculateArrowScreenPosition(float centerX,
+                                float centerY,
+                                float doriX,
+                                float doriY,
+                                float& arrowX,
+                                float& arrowY);
 
     void createNewObject(SiteObjectType type, float mouseX, float mouseY);
 
@@ -130,4 +136,7 @@ private:
     bool showGrid;
 
     float curWorldDistance;
+
+    float arrowScreenX;
+    float arrowScreenY;
 };
