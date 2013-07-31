@@ -28,6 +28,7 @@
 #define MIN_PIXELS_PER_CELL 16
 #define MAX_PIXELS_PER_CELL 320
 #define ZOOM_PIXEL_AMOUNT 4
+#define ARROW_SCREEN_OFFSET 15.0f
 
 #define SITE_ID 1
 
@@ -527,6 +528,7 @@ int SiteEditor::handle(int event) {
                 panStartWorldY = screenToWorld(curMouseY);
             }
             else if(event == FL_DRAG) {
+                handlePan();
 
                 calculateArrowScreenPosition(centerX,
                                              centerY,
@@ -535,7 +537,12 @@ int SiteEditor::handle(int event) {
                                              arrowScreenX,
                                              arrowScreenY);
 
-                handlePan();
+                arrowAngleDegrees = calculateArrowAngleDegrees(arrowScreenX,
+                                                               arrowScreenY,
+                                                               centerX,
+                                                               centerY,
+                                                               doriX,
+                                                               doriY);
 
                 redraw();
                 return 1;
@@ -707,6 +714,21 @@ int SiteEditor::handle(int event) {
         else if(key == ' ') {
             // If you press space, reset focus back to center of site
             panToWorldCenter();
+
+            calculateArrowScreenPosition(centerX,
+                                         centerY,
+                                         doriX,
+                                         doriY,
+                                         arrowScreenX,
+                                         arrowScreenY);
+
+            arrowAngleDegrees = calculateArrowAngleDegrees(arrowScreenX,
+                                                           arrowScreenY,
+                                                           centerX,
+                                                           centerY,
+                                                           doriX,
+                                                           doriY);
+
             redraw();
             return 1;
         }
@@ -978,21 +1000,23 @@ void SiteEditor::drawSiteObjects() {
     }
 }
 
-// Draw an arrow that points to DORI's location (center of the site)
-void SiteEditor::drawArrow() {
-    // Now calculate the intersection points between the line
+// Draw an arrow that points to DORI's location (currently the center of the site)
+void SiteEditor::drawArrow(float arrowScreenX, float arrowScreenY, float arrowAngleDegrees) {
+    // Calculate the intersection points between the line
     // and the 4 lines of the screen
     // We do this to determine where to place the arrow that points to DORI
 
-    if(arrowScreenX >= 0.0 && arrowScreenX >= 0.0) {
-        fl_circle(arrowScreenX, arrowScreenY, 5);
+
+    // If arrow coordinates aren't set, then there's no arrow to draw
+    if(arrowScreenX < 0 || arrowScreenY < 0)
+    {
+        return;
     }
 
-    /*
     fl_push_matrix();
 
-    fl_translate(x, y);
-    fl_rotate(angle * 180.0 / M_PI);
+    fl_translate(arrowScreenX, arrowScreenY);
+    fl_rotate(arrowAngleDegrees);
 
     fl_line_style(0, 5);
     fl_color(FL_BLACK);
@@ -1004,16 +1028,34 @@ void SiteEditor::drawArrow() {
     fl_end_line();
 
     fl_pop_matrix();
-    */
 }
 
-void SiteEditor::calculateArrowScreenPosition(float centerX, float centerY, float doriX, float doriY, float& arrowX, float& arrowY) {
-    // Distance to DORI from the center
+float SiteEditor::calculateArrowAngleDegrees(float arrowX, float arrowY, float centerX, float centerY, float doriX, float doriY) {
+    if(arrowX == -1 || arrowY == -1) {
+        return -1;
+    }
+
     float distanceX = doriX - centerX;
     float distanceY = centerY - doriY;
 
+    return atan2(distanceY, distanceX) * (180.0 / M_PI);
+}
+
+void SiteEditor::calculateArrowScreenPosition(float centerX, float centerY, float doriX, float doriY, float& arrowX, float& arrowY) {
     float screenWidthWorld = screenToWorld(w());
     float screenHeightWorld = screenToWorld(h());
+
+    // fail fast if DORI is on screen
+    if((doriX >= worldPanX && doriX <= worldPanX + screenWidthWorld) &&
+       (doriY >= worldPanY && doriY <= worldPanY + screenHeightWorld))
+    {
+        arrowX = arrowY = -1;
+        return;
+    }
+
+    // Distance to DORI from the center
+    float distanceX = doriX - centerX;
+    float distanceY = centerY - doriY;
 
     // Points that represent the line from the center of the screen to DORI
     float x0 = centerX;
@@ -1025,6 +1067,8 @@ void SiteEditor::calculateArrowScreenPosition(float centerX, float centerY, floa
     float slope = (y1  - y0) / (x1 - x0);
     float constant = y0 - (slope * x0);
 
+    // Then calculate the intersects between that line and the four
+    // lines that make up the screen
     float rightIntersectX = worldPanX + screenWidthWorld;
     float rightIntersectY = (slope * rightIntersectX) + constant;
 
@@ -1032,8 +1076,9 @@ void SiteEditor::calculateArrowScreenPosition(float centerX, float centerY, floa
        rightIntersectY > worldPanY &&
        rightIntersectY < worldPanY + screenHeightWorld)
     {
-        arrowX = worldToScreen(rightIntersectX - worldPanX) - 5;
-        arrowY = worldToScreen(rightIntersectY - worldPanY);
+        // For each arrow X and Y, clamp the arrow within the bounds of the screen by some offset
+        arrowX = std::min(worldToScreen(rightIntersectX - worldPanX), w() - ARROW_SCREEN_OFFSET);
+        arrowY = std::min(worldToScreen(rightIntersectY - worldPanY), h() - ARROW_SCREEN_OFFSET);
         return;
     }
 
@@ -1044,8 +1089,8 @@ void SiteEditor::calculateArrowScreenPosition(float centerX, float centerY, floa
        leftIntersectY > worldPanY  &&
        leftIntersectY < worldPanY + screenHeightWorld)
     {
-        arrowX = worldToScreen(leftIntersectX - worldPanX) + 5;
-        arrowY = worldToScreen(leftIntersectY - worldPanY);
+        arrowX = std::max(worldToScreen(leftIntersectX - worldPanX), ARROW_SCREEN_OFFSET);
+        arrowY = std::max(worldToScreen(leftIntersectY - worldPanY), ARROW_SCREEN_OFFSET);
         return;
     }
 
@@ -1056,8 +1101,8 @@ void SiteEditor::calculateArrowScreenPosition(float centerX, float centerY, floa
        topIntersectX > worldPanX  &&
        topIntersectX < worldPanX + screenWidthWorld)
     {
-        arrowX = worldToScreen(topIntersectX - worldPanX);
-        arrowY = worldToScreen(topIntersectY - worldPanY) + 5;
+        arrowX = std::max(worldToScreen(topIntersectX - worldPanX), ARROW_SCREEN_OFFSET);
+        arrowY = std::max(worldToScreen(topIntersectY - worldPanY), ARROW_SCREEN_OFFSET);
         return;
     }
 
@@ -1068,12 +1113,10 @@ void SiteEditor::calculateArrowScreenPosition(float centerX, float centerY, floa
        bottomIntersectX > worldPanX  &&
        bottomIntersectX < worldPanX + screenWidthWorld)
     {
-        arrowX = worldToScreen(bottomIntersectX - worldPanX);
-        arrowY = worldToScreen(bottomIntersectY - worldPanY) - 5;
+        arrowX = std::min(worldToScreen(bottomIntersectX - worldPanX), w() - ARROW_SCREEN_OFFSET);
+        arrowY = std::min(worldToScreen(bottomIntersectY - worldPanY), h() - ARROW_SCREEN_OFFSET);
         return;
     }
-
-    arrowX = arrowY = -1;
 }
 
 void SiteEditor::draw() {
@@ -1097,7 +1140,7 @@ void SiteEditor::draw() {
     // handles drawing of the new site object or object selection
     drawSelectionState();
 
-    drawArrow();
+    drawArrow(arrowScreenX, arrowScreenY, arrowAngleDegrees);
 
     //reset line style
     fl_line_style(0, 1);

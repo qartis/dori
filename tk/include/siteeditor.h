@@ -62,13 +62,21 @@ private:
     void drawSiteObjects();
 
     void drawDistanceText();
-    void drawArrow();
+    void drawArrow(float arrowScreenX, float arrowScreenY, float arrowAngleDegrees);
+
     void calculateArrowScreenPosition(float centerX,
                                 float centerY,
                                 float doriX,
                                 float doriY,
                                 float& arrowX,
                                 float& arrowY);
+
+    float calculateArrowAngleDegrees(float arrowScreenX,
+                                     float arrowScreenY,
+                                     float centerX,
+                                     float centerY,
+                                     float doriX,
+                                     float doriY);
 
     void createNewObject(SiteObjectType type, float mouseX, float mouseY);
 
@@ -139,4 +147,6 @@ private:
 
     float arrowScreenX;
     float arrowScreenY;
+
+    float arrowAngleDegrees;
 };
