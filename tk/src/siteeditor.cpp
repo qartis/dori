@@ -584,6 +584,12 @@ int SiteEditor::handle(int event) {
                                          arrowScreenX,
                                          arrowScreenY);
 
+            arrowAngleDegrees = calculateArrowAngleDegrees(arrowScreenX,
+                                                           arrowScreenY,
+                                                           centerX,
+                                                           centerY,
+                                                           doriX,
+                                                           doriY);
 
             redraw();
 
