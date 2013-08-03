@@ -40,7 +40,7 @@ void sd_hw_init(void)
 
 void sd_init(void)
 {
-    spi_medium();
+    spi_low();
 }
 
 uint8_t send_cmd (
