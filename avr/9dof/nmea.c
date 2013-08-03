@@ -130,7 +130,7 @@ void parse_coord(const char *str)
     //printf("position %ld %ld\n", cur_lat, cur_lon);
 }
 
-void parse_nmea(char *buf)
+uint8_t parse_nmea(char *buf)
 {
     uint8_t i;
     struct tm tm;
@@ -138,7 +138,7 @@ void parse_nmea(char *buf)
     if (strstart(buf,"$GPRMC")){
         if (!checksum(buf)){
             puts_P(PSTR("nmea err"));
-            return;
+            return 0;
         }
         for (i = 0; i < 2; i++) {
             while (*buf != ',') buf++; /* go to next comma */
@@ -146,7 +146,7 @@ void parse_nmea(char *buf)
         }
         if (*buf == 'V'){
             /* invalid fix, ignore it */
-            return;
+            return 0;
         }
         buf += 2; /* this puts us at the start of the lat */
         parse_coord(buf);
@@ -154,7 +154,7 @@ void parse_nmea(char *buf)
         //$GPGSV,3,1,10,21,46,218,,27,50,041,,26,01,069,,22,31,316,*79
         if (!checksum(buf)){
             puts_P(PSTR("nmea xor"));
-            return;
+            return 0;
         }
         for(i=0;i<3;i++){
             while(*buf != ',') buf++; /* first comma */
@@ -166,12 +166,12 @@ void parse_nmea(char *buf)
         /*$GPZDA,hhmmss.ss,dd,mm,yyyy,xx,yy*CC */
         if (!checksum(buf)){
             puts_P(PSTR("nmea xor"));
-            return;
+            return 0;
         }
         buf += strlen("$GPZDA") + 1;
         if (buf[0] == ','){
             //invalid date fix
-            return;
+            return 0;
         }
         //printf("date fix: '%s'\n", buf);
         tm.tm_hour = parsedec2(buf);
@@ -190,6 +190,8 @@ void parse_nmea(char *buf)
         cur_time = mktime(&tm);
         //printf("time: %lu\n", cur_time);
     } else {
-        return;
+        return 1;
     }
+
+    return 0;
 }
