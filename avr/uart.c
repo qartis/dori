@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <avr/pgmspace.h>
+#include <util/atomic.h>
 
 #include "uart.h"
 #include "irq.h"
@@ -12,7 +13,6 @@
 #define ICRNL
 #define ONLCR
 //#define ECHO
-//#define COOKED_STDIO
 
 #ifdef UBRR0H
 #define UBRRH UBRR0H 
@@ -87,26 +87,6 @@ void uart_init(uint16_t ubrr)
 #endif
 }
 
-extern volatile uint8_t timeout_counter;
-int getc_timeout(uint8_t sec) {
-    uint8_t c;
-
-    while (ring_in == ring_out && timeout_counter < sec){ }
-
-    if (timeout_counter >= sec){
-        return EOF;
-    }
-
-    c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % UART_BUF_SIZE;
-
-#ifdef ECHO
-    uart_putchar(c);
-#endif
-
-    return (int)c;
-}
-
 int uart_getchar(void)
 {
    int c;
@@ -115,34 +95,6 @@ int uart_getchar(void)
 ignore:
 #endif
     while (ring_in == ring_out){ }
-
-    c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % UART_BUF_SIZE;
-
-    if (c == '\r'){
-#ifdef ICRNL
-        c = '\n';
-#else
-        goto ignore;
-#endif
-    }
-#ifdef ECHO
-    uart_putchar(c);
-#endif
-    return c;
-}
-
-int getc_wait(volatile uint8_t *signal)
-{
-   int c;
-
-#ifndef ICRNL
-ignore:
-#endif
-    while (ring_in == ring_out && *signal == 0){ }
-
-    if (*signal)
-        return EOF;
 
     c = uart_ring[ring_out];
     ring_out = (ring_out + 1) % UART_BUF_SIZE;
@@ -180,102 +132,6 @@ again:
 #endif
     return data;
 }
-
-char *getline(char *s, int bufsize, FILE *f, volatile uint8_t *signal)
-{
-    char *p;
-    int c;
-    uint8_t dummy_signal = 0;
-
-    if (signal == NULL)
-        signal = &dummy_signal;
-
-    p = s;
-
-    while ((p - s) < bufsize - 1) {
-        c = getc_wait(signal);
-        if (c == EOF)
-            return NULL;
-
-        if (c == 0x1b)
-            break;
-
-        switch (c) {
-        case EOF:
-            break;
-
-        case '\b': /* backspace */
-        case 127:  /* delete */
-            if (p > s){
-                *p-- = '\0';
-                uart_putchar('\b');
-                uart_putchar(' ');
-                uart_putchar('\b');
-            }
-            break;
-        
-        case '\r':
-        case '\n':
-            goto done;
-
-        default:
-            *p++ = c;
-            break;
-        }
-    }
-
-done:
-    *p = '\0';
-
-    return s;
-}
-
-#ifdef COOKED_STDIO
-char *fgets(char *s, int bufsize, FILE *f)
-{
-    char *p;
-    int c;
-
-    p = s;
-
-    for (p = s; p < s + bufsize-1;){
-        c = getchar();
-        if (c == 0x1b){
-            break;
-        }
-
-        switch (c){
-        case EOF:
-            break;
-
-        case '\b': /* backspace */
-        case 127:  /* delete */
-            if (p > s){
-                *p-- = '\0';
-                uart_putchar('\b');
-                uart_putchar(' ');
-                uart_putchar('\b');
-            }
-            break;
-
-        case '\r':
-            c = '\n';
-            /* fall through */
-
-        default:
-            *p++ = c;
-            break;
-        }
-
-        if (c == '\n'){
-            break;
-        }
-    }
-    *p = '\0';
-
-    return s;
-}
-#endif
 
 void printu(uint16_t num)
 {
@@ -327,50 +183,3 @@ void print_P(const char * PROGMEM s)
         s++;
     }
 }
-
-#if 0
-void printx(uint16_t num)
-{
-    if (!num) {
-        uart_putchar('0');
-        return;
-    }
-    char buf[4];
-    uint8_t i = 3;
-    for(; num ; i--, num /= 16)
-        buf[i] = "0123456789abcdef"[num % 16];
-
-    for(; ++i<sizeof(buf);)
-        uart_putchar(buf[i]);
-}
-
-void print32(uint32_t num)
-{
-    if (!num) {
-        uart_putchar('0');
-        return;
-    }
-    char buf[10];
-    uint8_t i = 9;
-    for(; num ; i--, num /= 10)
-        buf[i] = (num % 10) + '0';
-
-    for(; ++i<sizeof(buf);)
-        uart_putchar(buf[i]);
-}
-
-void printb(uint16_t number, uint8_t base)
-{
-    if (!number) {
-        uart_putchar('0');
-        return;
-    }
-    char buf[5];
-    uint8_t i = 4;
-    for(; number && i ; --i, number /= base)
-        buf[i] = "0123456789abcdef"[number % base];
-
-    while (++i < sizeof(buf))
-        uart_putchar(buf[i]);
-}
-#endif
