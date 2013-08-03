@@ -1,11 +1,6 @@
 #define _USE_READ   1   /* 1:Enable pf_read() */
-
 #define _USE_DIR    1   /* 1:Enable pf_opendir() and pf_readdir() */
-
-#define _USE_LSEEK  0   /* 1:Enable pf_lseek() */
-
 #define _USE_WRITE  1   /* 1:Enable pf_write() */
-
 #define _FS_FAT12   0   /* 1:Enable FAT12 support */
 
 
@@ -14,7 +9,7 @@
 
 /* File system object structure */
 
-typedef struct {
+struct FatFS {
     uint8_t  fs_type;    /* FAT sub type */
     uint8_t  flag;       /* File status flags */
     uint8_t  csize;      /* Number of sectors per cluster */
@@ -29,11 +24,9 @@ typedef struct {
     CLUST    org_clust;  /* File start cluster */
     CLUST    curr_clust; /* File current cluster */
     uint32_t dsect;      /* File current data sector */
-} FATFS;
+};
 
-
-extern FATFS fs;
-
+extern struct FatFS fs;
 
 /* Directory object structure */
 

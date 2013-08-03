@@ -61,7 +61,7 @@
 #define DIR_FileSize        28
 
 
-FATFS fs;
+struct FatFS fs;
 
 
 static CLUST get_fat (  /* 1:IO error, Else:Cluster status */
@@ -281,8 +281,6 @@ void get_fileinfo (     /* No return code */
     *p = 0;
 }
 
-
-
 static
 FRESULT follow_path (   /* FR_OK(0): successful, !=0: error code */
     DIR *dj,            /* Directory object to return last directory and found object */
@@ -428,14 +426,12 @@ FRESULT pf_open (
 }
 
 
-
 FRESULT pf_lseek (
     uint32_t ofs       /* File pointer from top of file */
 )
 {
     CLUST clst;
     uint32_t bcs, sect, ifptr;
-
 
     if (!(fs.flag & FA_OPENED))        /* Check if opened */
             return FR_NOT_OPENED;
@@ -507,11 +503,14 @@ FRESULT pf_read (
             if (!sect) goto fr_abort;
             fs.dsect = sect + cs;
         }
-        rcnt = (uint16_t)(512 - (fs.fptr % 512));       /* Get partial sector data from sector buffer */
+        /* Get partial sector data from sector buffer */
+        rcnt = (uint16_t)(512 - (fs.fptr % 512));
         if (rcnt > btr) rcnt = btr;
-        dr = disk_readp(!buff ? 0 : rbuff, fs.dsect, (uint16_t)(fs.fptr % 512), rcnt);
+        dr = disk_readp(!buff ? 0 : rbuff, fs.dsect,
+                (uint16_t)(fs.fptr % 512), rcnt);
         if (dr) goto fr_abort;
-        fs.fptr += rcnt; rbuff += rcnt;         /* Update pointers and counters */
+        /* Update pointers and counters */
+        fs.fptr += rcnt; rbuff += rcnt;
         btr -= rcnt; *br += rcnt;
     }
 
