@@ -1,6 +1,16 @@
 #define XSTR(X) STR(X)
 #define STR(X) #X
 
+uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
+
+void get_mcusr(void) __attribute__((section(".init3"), naked, used));
+void get_mcusr(void)
+{
+    mcusr_mirror = MCUSR;
+    MCUSR = 0;
+    wdt_disable();
+}
+
 #ifdef DEBUG
 #define DEBUG_INIT debug_init();
 #else
@@ -17,7 +27,6 @@
 
 #define NODE_INIT() \
     uint8_t rc; \
-    wdt_disable(); \
     uart_init(BAUD(UART_BAUD)); \
     DEBUG_INIT; \
     time_init(); \
@@ -25,6 +34,11 @@
 \
     _delay_ms(300); \
     puts_P(PSTR("\n" XSTR(MY_ID) " start: " XSTR(VERSION))); \
+    printf_P((mcusr_mirror & (1 << WDRF)) ? PSTR("wd") : PSTR("")); \
+    printf_P((mcusr_mirror & (1 << BORF)) ? PSTR("bo") : PSTR("")); \
+    printf_P((mcusr_mirror & (1 << EXTRF)) ? PSTR("ext") : PSTR("")); \
+    printf_P((mcusr_mirror & (1 << PORF)) ? PSTR("po") : PSTR("")); \
+    puts_P(PSTR(" reboot")); \
 \
 \
     goto reinit; \
@@ -50,9 +64,9 @@ reinit: \
         }
 
 #define CHECK_TIMER \
-        if (irq_signal & IRQ_TIMER) { \
+        if (irq_signal & IRQ_PERIODIC) { \
             rc = periodic_irq(); \
-            irq_signal &= ~IRQ_TIMER; \
+            irq_signal &= ~IRQ_PERIODIC; \
         } \
         if (rc) {\
             puts_P(PSTR("$$2"));\
