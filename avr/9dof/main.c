@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
@@ -15,14 +16,24 @@
 #include "mpu6050.h"
 #include "nunchuck.h"
 #include "nmea.h"
+#include "irq.h"
+#include "can.h"
+
+#define streq_P(a,b) (strcmp_P(a,b) == 0)
 
 uint8_t uart_irq(void)
 {
     char buf[UART_BUF_SIZE];
 
     fgets(buf, sizeof(buf), stdin);
+    buf[strlen(buf) - 1] = '\0';
 
-    parse_nmea(buf);
+    if (parse_nmea(buf))
+        return 0;
+
+    if (streq_P(buf, "read")) {
+        printf("read\n");
+    }
 
     return 0;
 }
@@ -117,14 +128,16 @@ uint8_t periodic_irq(void)
 
 uint8_t can_irq(void)
 {
-		  packet.unread = 0;
+    packet.unread = 0;
 
-          return 0;
+    return 0;
 }
 
 void main(void)
 {
     NODE_INIT();
+
+    sei();
 
     rc = hmc_init();
     if (rc) {
@@ -141,26 +154,7 @@ void main(void)
         puts_P(PSTR("nunch init"));
     }
 
-	 hmc_set_continuous();
+    hmc_set_continuous();
 
-    for (;;) {
-        printf_P(PSTR(XSTR(MY_ID) "> "));
-
-        while (irq_signal == 0) {};
-
-        if (irq_signal & IRQ_CAN) {
-            can_irq();
-            irq_signal &= ~IRQ_CAN;
-        }
-
-        if (irq_signal & IRQ_TIMER) {
-            periodic_irq();
-            irq_signal &= ~IRQ_TIMER;
-        }
-
-        if (irq_signal & IRQ_UART) {
-            uart_irq();
-            irq_signal &= ~IRQ_UART;
-        }
-    }
+    NODE_MAIN();
 }
