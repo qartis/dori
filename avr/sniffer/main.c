@@ -14,6 +14,7 @@
 #include "spi.h"
 #include "mcp2515.h"
 #include "node.h"
+#include "can.h"
 
 #define TOTAL_IDS 32
 // there are different squelch levels.  0 is no squelch, 1 is squelch until next command , 2 is squelch until unsquelched.
@@ -142,7 +143,7 @@ uint8_t uart_irq(void)
         if (squelch != 2){
             squelch = 0;  // so we can hear the reply.
         }
-        rc = mcp2515_send(type, id, i, sendbuf);
+        rc = mcp2515_send(type, id, sendbuf, i);
         _delay_ms(200);
         printf_P(PSTR("mcp2515_send: %d\n"), rc);
     } else if (strcmp(arg, "squelch") == 0){
@@ -221,14 +222,15 @@ TYPE_LIST(X)
 
 
     static PGM_P const id_names[] PROGMEM = {
-        [0 ... 128] = unknown_string,
+        [0 ... 64] = unknown_string,
 #define X(name, value) [value] = temp_id_ ##name,
 ID_LIST(X)
 #undef X
     };
 
     if (squelch == 0 && filter[packet.id] != 0){
-        printf_P(PSTR("[%lu:%02lu:%02lu] %S [%x] %S [%x] %db: "),now/3600,now/60,now % 60,
+        printf_P(PSTR("[%lu:%02lu:%02lu] %S [%x] %S [%x] %db: "),
+            now/3600, (now/60) % 60, now % 60,
             (PGM_P)pgm_read_word(&(type_names[packet.type])),
             packet.type,
             (PGM_P)pgm_read_word(&(id_names[packet.id])),
