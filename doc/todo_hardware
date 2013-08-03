@@ -12,3 +12,5 @@ current GSM bitrate is 6.6 bytes/sec. send 10 packets at a time to get better us
 modema needs to be powered from 4.5v otherwise its serial level dips too low. run its serial signals through a level converter?
 
 give modema node ability to hard reboot the sim900
+
+build power usage monitor
