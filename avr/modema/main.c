@@ -20,7 +20,7 @@
 #include "irq.h"
 
 #define streq_P(a,b) (strcmp_P(a, b) == 0)
-#define strstart_P(a,b) (strncmp_P(a, b, strlen_P(b)) == 0)
+#define strstart(a,b) (strncmp_P(a, PSTR(b), strlen(b)) == 0)
 
 uint8_t uart_irq(void)
 {
@@ -151,7 +151,7 @@ ISR(USART_RX_vect)
             flag_error = 1;
             /* We don't care anymore */
         } else if (streq_P(at_buf, PSTR("RING"))) {
-            slow_write("ATH\r", strlen_P(PSTR("ATH\r")));
+            slow_write("ATH\r", strlen("ATH\r"));
             _delay_ms(1400);
             /* trigger remote connect() */
             irq_signal |= IRQ_USER;
@@ -180,7 +180,7 @@ ISR(USART_RX_vect)
             state = STATE_POWEROFF;
         } else if (streq_P(at_buf, PSTR("+PDP: DEACT"))) {
             state = STATE_ERROR;
-        } else if (strstart_P(at_buf, PSTR("+CME ERROR:"))) {
+        } else if (strstart(at_buf, "+CME ERROR:")) {
             state = STATE_ERROR;
         } else if (streq_P(at_buf, PSTR("SHUT OK"))) {
             state = STATE_CLOSED;
@@ -198,8 +198,8 @@ ISR(USART_RX_vect)
         }
     }
     
-    if (c == ':' && strstart_P(at_buf, PSTR("+IPD,"))) {
-        uint8_t len = atoi(at_buf + strlen_P(PSTR("+IPD,")));
+    if (c == ':' && strstart(at_buf, "+IPD,")) {
+        uint8_t len = atoi(at_buf + strlen("+IPD,"));
         tcp_toread = len;
     }
 }
