@@ -8,7 +8,7 @@
 
 uint8_t nunchuck_init(void)
 {
-    if (i2c_start(NUNCHUCK_ADDR | I2C_WRITE)){
+    if (i2c_start(NUNCHUCK_ADDR | I2C_WRITE)) {
         return 1;
     }
     
@@ -24,7 +24,7 @@ uint8_t nunchuck_init(void)
 uint8_t nunchuck_read(struct nunchuck_t *n)
 {
     uint8_t buf[6];
-    uint8_t res;
+    uint8_t rc;
 
     i2c_start(NUNCHUCK_ADDR | I2C_WRITE);
     i2c_write(0x00);
@@ -34,10 +34,9 @@ uint8_t nunchuck_read(struct nunchuck_t *n)
     i2c_write(0x00);
     i2c_stop();
 
-    res = i2c_start(NUNCHUCK_ADDR | I2C_READ);
-    if (res){
+    rc = i2c_start(NUNCHUCK_ADDR | I2C_READ);
+    if (rc)
         return 1;
-    }
 
     buf[0] = i2c_read(I2C_ACK);
     buf[1] = i2c_read(I2C_ACK);

@@ -136,3 +136,10 @@ ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         goto again;
     }
 }
+
+void debug_flush(void)
+{
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        debug_buf_in = debug_buf_out;
+    }
+}
