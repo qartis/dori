@@ -14,27 +14,37 @@
 
 #define BUFLEN 4096
 
-// DORI debug lets us type in ascii into (netcat) to pretend to be DORI
-#define DORI_DEBUG 1
-
 const char *gateway_address = "localhost";
 const int gateway_port = 1338;
 static int gatewayfd;
 
-void process_file_transfer(void *data, char *args[])
+void process_file_transfer_request(void *data, char *args[])
 {
     command *cmd = (command *)data;
     int node_index = 0;
     int filename_index = 1;
     printf("Requesting file '%s' from node '%s'\n", args[filename_index], args[node_index]);
 
-    char buf[128];
+    char buf[BUFLEN];
     sprintf(buf, "%s %d %s %s\n", cmd->name, cmd->args, args[node_index], args[filename_index]);
     int bytes = write(gatewayfd, buf, strlen(buf));
 
     if(bytes < 0)
     {
-        perror("process_file_transfer()");
+        perror("process_file_transfer_request()");
+        exit(-1);
+    }
+
+    // hardcode file size to 100 for now
+    int file_size = 100;
+
+    /*
+    // Read the length of the file, if its -1 then there was an error
+    read(gatewayfd, &file_size, sizeof(file_size));
+    */
+
+    if(file_size < 0) {
+        printf("Error receiving file from DORI\n");
         exit(-1);
     }
 
@@ -48,12 +58,9 @@ void process_file_transfer(void *data, char *args[])
         exit(-1);
     }
 
-    int bytes_received = 0;
-    int total_bytes = 0;
-    int length_bytes_received = 0;
+    int total_recv_bytes = 0;
 
-    do
-    {
+    do {
         bytes = read(gatewayfd, buf, sizeof(buf));
         if(bytes < 0)
         {
@@ -63,38 +70,17 @@ void process_file_transfer(void *data, char *args[])
         else if(bytes == 0)
         {
             printf("Connection to Gateway closed\n");
-            break;
+            exit(-1);
         }
 
-        // 4 bytes for file length, transferred first
-        if(length_bytes_received < 4)
-        {
-#if DORI_DEBUG
-            buf[bytes] = '\0';
-            total_bytes = atoi(buf);
-            bytes = 0;
-            length_bytes_received = 4;
-#else
-            int i;
-            for(i = 0; i < bytes && i < 4; i++)
-            {
-                total_bytes += (buf[i] << (8 * (3 - length_bytes_received)));
-                length_bytes_received++;
-            }
-            // Subtract out the bytes that we used for the file length
-            bytes -= i;
-#endif
-        }
+        total_recv_bytes += bytes;
 
+        printf("received %d/%d bytes\n", total_recv_bytes, file_size);
 
-        if(bytes >= 0)
-        {
-            bytes_received += bytes;
-            printf("\rReceived %d / %d bytes", bytes_received, total_bytes);
-            fflush(stdout);
-            fprintf(f, buf, bytes);
-        }
-    } while(bytes_received < total_bytes);
+        fprintf(f, buf, bytes);
+
+    } while(total_recv_bytes < file_size);
+
 
     fclose(f);
     printf("\nSuccessfully received '%s' from '%s'\n", args[filename_index], args[node_index]);

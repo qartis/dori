@@ -1,6 +1,6 @@
-IDIR=../shared/include
+INCDIRS=../shared/include ../
 CC=gcc
-CFLAGS=-g -Wall -Wextra -I$(IDIR)
+CFLAGS=-g -Wall -Wextra $(foreach DIR,$(INCDIRS), -I$(DIR))
 LDFLAGS=-lsqlite3
 SRCDIR=./src
 

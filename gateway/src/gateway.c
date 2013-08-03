@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <time.h>
-#include "candefs.h"
+#include "can.h"
 #include "command.h"
 #include <signal.h>
 #include <ctype.h>
@@ -21,8 +21,12 @@
 #define SHELLPORT 1338
 #define BUFLEN 4096
 
-// DORI debug lets us type in ascii into (netcat) to pretend to be DORI
-#define DORI_DEBUG 1
+#define CAN_TYPE_IDX 0
+#define CAN_ID_IDX 1
+#define CAN_LEN_IDX 2
+#define CAN_HEADER_LEN 3
+
+#define LOGFILE_SIZE 100
 
 sqlite3 *db;
 fd_set master;
@@ -57,19 +61,20 @@ static int tkfd;
 static int shellfd;
 static int siteid;
 
-static int file_xfer_recv_bytes;
-static int file_xfer_total_bytes;
-static int file_xfer_len_bytes;
+static char doribuf[BUFLEN];
+
+static int doribuf_len;
 
 typedef enum {
     DISCONNECTED,
     CONNECTED,
     FILE_TRANSFER
-} ShellState;
+} shell_state;
 
 
-static ShellState shell_state = DISCONNECTED;
+static shell_state cur_shell_state = DISCONNECTED;
 static client *active_shell_client;
+static client *active_dori_client;
 
 void error(const char *str)
 {
@@ -203,149 +208,85 @@ void exec_query(char *query)
 }
 
 
-void process_dori_msg(int target_dorifd, char *buf, int len)
+void process_dori_bytes(char *buf, int len)
 {
-    switch(shell_state)
-    {
-    case DISCONNECTED:
-        break;
-    case CONNECTED:
-        break;
-    case FILE_TRANSFER:
-        {
-            if(active_shell_client == NULL)
-            {
-                printf("Error communicating with active Shell\n");
-                return;
+    memcpy(&doribuf[doribuf_len], buf, len);
+    doribuf_len += len;
+
+    while(doribuf_len > CAN_HEADER_LEN) {
+        // Extract the payload size from the CAN header
+        uint8_t datalen = doribuf[CAN_LEN_IDX];
+
+        if(doribuf_len >= CAN_HEADER_LEN + datalen) {
+            int i;
+            uint8_t type = doribuf[CAN_TYPE_IDX];
+
+            uint8_t id  = doribuf[CAN_ID_IDX];
+            char *data = malloc(sizeof(unsigned) * datalen);
+            memset(data, '\0', datalen);
+
+            for(i = 0; i < datalen; i++) {
+                data[datalen - 1 - i] = doribuf[CAN_HEADER_LEN + i];
             }
 
-#if DORI_DEBUG
-            int k;
-            for(k = 0; k < len; k++) {
-                if(buf[k] == '\n' || buf[k] == '\r')
+            switch(type) {
+            case TYPE_file_header:
                 {
-                    len = k;
+                    int file_size = LOGFILE_SIZE;
+                    if(active_shell_client) {
+                        write(active_shell_client->fd, &file_size, sizeof(file_size));
+                    }
                     break;
                 }
-            }
-#endif
-
-            if(file_xfer_len_bytes < 4)
-            {
-#if DORI_DEBUG
-                file_xfer_len_bytes = 4;
-                file_xfer_total_bytes = atoi(buf);
-                write(active_shell_client->fd, buf, len);
-                len = 0;
-#else
-                int i;
-                for(i = 0; i < len && file_xfer_len_bytes < 4; i++)
-                {
-                    // DORI will send a 4 byte file length
-                    // most significant byte first
-
-                    printf("file_xfer_total_bytes: %x << (8 * (3 - %d))\n", buf[i], file_xfer_len_bytes);
-                    file_xfer_total_bytes += (buf[i] << (8 * (3 - file_xfer_len_bytes)));
-                    file_xfer_len_bytes++;
-                    write(active_shell_client->fd, &buf[i], 1);
+            case TYPE_xfer_chunk:
+                printf("got a file chunk\n");
+                if(active_shell_client) {
+                    write(active_shell_client->fd, data, datalen);
+                    // don't need the CTS
+                    //write(active_dori_client->fd, "b\n", strlen("b\n"));
                 }
+                break;
+            case TYPE_file_error:
+                {
+                    int file_size = -1;
+                    printf("got a file error from ID %.2x\n", id);
+                    if(active_shell_client) {
+                        write(active_shell_client->fd, &file_size, sizeof(file_size));
+                    }
 
-                // Subtract out the bytes that we used for the file length
-                len -= i;
-#endif
+                    break;
+                }
+            default:
+                break;
             }
 
-            if(len >= 0)
-            {
-                file_xfer_recv_bytes += len;
-                printf("\rReceived %d / %d bytes", file_xfer_recv_bytes, file_xfer_total_bytes);
-                fflush(stdout);
+            doribuf_len -= (CAN_HEADER_LEN + datalen);
 
-                // send bytes to shell
-                write(active_shell_client->fd, buf, len);
+            memmove(doribuf, &doribuf[CAN_HEADER_LEN + datalen],
+                    (doribuf_len) * sizeof(char));
 
-                if(file_xfer_recv_bytes >= file_xfer_total_bytes)
-                {
-                    shell_state = CONNECTED;
-                    printf("\nFile successfully received\n");
-                }
-                else if(file_xfer_recv_bytes % 8 == 0)
-                {
-                    printf("\nSent CTS\n");
-                    write(target_dorifd, "CTS", strlen("CTS"));
-                    // send CTS, even when recv_bytes == 0
-                    // this will be our CTS to start the transfer
-                }
-            }
-            break;
+            free(data);
         }
-    default:
-        printf("Error: in an invalid shell state\n");
-        return;
     }
-
-#if 0 /* CAN Frame Processing */
-    printf("type: %u\n", msg.type);
-    printf("id: %u\n", msg.id);
-    int i;
-    printf("data: ");
-    for(i = 9; i >= 0; i--)
-    {
-        printf("%u\n", msg.data[i]);
-    }
-
-    printf("\n");
-
-    char buf[256];
-
-    switch(msg.id)
-    {
-    case ID_LASER:
-        {
-            int a = (msg.data[0] & 0xFF) | ((msg.data[1] & 0xFF) << 8);
-            int b = (msg.data[2] & 0xFF) | ((msg.data[3] & 0xFF) << 8);
-            int c = 0;
-
-            printf("laser angle: %d, dist: %d\n", a, b);
-            sprintf(buf, "INSERT INTO records (type, a, b, c, site) VALUES ('%s', %d, %d, %d, %d)", msg_ids[msg.id], a, b, c, siteid);
-            exec_query(buf);
-        }
-        break;
-    case ID_GPS:
-        break;
-    case ID_TEMP:
-        {
-            int a = (msg.data[0] & 0xFF) | ((msg.data[1] & 0xFF) << 8);
-            int b = 0;
-            int c = 0;
-
-            printf("temp: %d\n", a);
-            sprintf(buf, "INSERT INTO records (type, a, b, c, site) VALUES ('%s', %d, %d, %d, %d)", msg_ids[msg.id], a, b, c, siteid);
-            exec_query(buf);
-        }
-        break;
-    case ID_TIME:
-        break;
-    case ID_LOGGER:
-        break;
-    case ID_DRIVE:
-        siteid++;
-        break;
-    }
-#endif
 }
 
-void process_file_transfer(void *data, char *args[])
+void process_file_transfer_request(void *data, char *args[])
 {
     (void)data;
     int node_index = 0;
     int filename_index = 1;
     printf("Requesting file '%s' from node '%s'\n",  args[filename_index], args[node_index]);
 
-    shell_state = FILE_TRANSFER;
-    file_xfer_recv_bytes = 0;
-    file_xfer_total_bytes = 0;
-    file_xfer_len_bytes = 0;
+    cur_shell_state = FILE_TRANSFER;
+
+    // ignoring node id for now
+
+    if(active_dori_client) {
+        write(active_dori_client->fd, "a", strlen("a"));
+        write(active_dori_client->fd, args[filename_index], strlen(args[filename_index]));
+        write(active_dori_client->fd, "\n", strlen("\n"));
+    }
+
 }
 
 int process_shell_msg(client *c, char *msg)
@@ -548,15 +489,13 @@ int main()
                 {
                     clients[nclients].type = SHELL;
                     active_shell_client = &clients[nclients];
-                    file_xfer_recv_bytes = 0;
-                    file_xfer_total_bytes = 0;
-                    file_xfer_len_bytes = 0;
                     printf("Shell connected\n");
                 }
                 else if(fd == dorifd)
                 {
                     printf("DORI connection established\n");
                     clients[nclients].type = DORI;
+                    active_dori_client = &clients[nclients];
                 }
 
                 nclients++;
@@ -570,10 +509,11 @@ int main()
                     if(c->type == DORI)
                     {
                         // if DORI disconnects, then update shell's state
-                        if(shell_state > CONNECTED)
+                        if(cur_shell_state > CONNECTED)
                         {
-                            shell_state = CONNECTED;
+                            cur_shell_state = CONNECTED;
                         }
+                        active_dori_client = NULL;
                         printf("DORI disconnected\n");
                     }
                     else if(c->type == SHELL)
@@ -581,6 +521,7 @@ int main()
                         if(active_shell_client && active_shell_client == c)
                         {
                             active_shell_client = NULL;
+                            cur_shell_state = DISCONNECTED;
                             printf("Active ");
                         }
                         printf("shell disconnected\n");
@@ -599,7 +540,7 @@ int main()
                     }
                     if(c->type == DORI)
                     {
-                        process_dori_msg(fd, buf, rc);
+                        process_dori_bytes(buf, rc);
                     }
                     else {
                         if(buf[rc-1] == '\n')
