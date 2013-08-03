@@ -6,6 +6,7 @@
 #include <avr/wdt.h>
 #include <stdio.h>
 
+#include "can.h"
 #include "mcp2515.h"
 #include "spi.h"
 #include "time.h"
@@ -148,31 +149,31 @@ void mcp2515_reset(void)
 
 uint8_t mcp2515_send2(struct mcp2515_packet_t *p)
 {
-    return mcp2515_send(p->type, p->id,
-        p->len, p->data);
+    return mcp2515_send(p->type, p->id, p->data, p->len);
 }
 
-uint8_t mcp2515_send(uint8_t type, uint8_t id, uint8_t len, const void *data)
+uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
 {
     if (mcp2515_busy) {
         puts_P(PSTR("tx overrun"));
+        mcp2515_busy = 0;
         return 1;
     }
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    load_tx0(type, id, len, (const uint8_t *)data);
-    mcp2515_busy = 1;
+        load_tx0(type, id, (const uint8_t *)data, len);
+        mcp2515_busy = 1;
 
-    modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
-    mcp2515_select();
-    spi_write(MCP_COMMAND_RTS_TX0);
-    mcp2515_unselect();
-}
+        modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
+        mcp2515_select();
+        spi_write(MCP_COMMAND_RTS_TX0);
+        mcp2515_unselect();
+    }
 
     return 0;
 }
 
-void load_tx0(uint8_t type, uint8_t id, uint8_t len, const uint8_t *data)
+void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len)
 {
     uint8_t i;
 
@@ -200,8 +201,12 @@ void read_packet(uint8_t regnum)
     uint8_t i;
 
     if (packet.unread) {
-        puts_P(PSTR("CAN rx overrun"));
-        return;
+        printf_P(PSTR("CAN txovrn x%x"), packet.type);
+        /* if we don't return here, then there's a risk of
+           the CAN user-mode irq reading a corrupt packet.
+           this is disabled to allow important packets to
+           be processed while user mode is blocking */
+        /* return 0; */
     }
 
     mcp2515_select();
@@ -223,7 +228,7 @@ void read_packet(uint8_t regnum)
     packet.len = spi_recv() & 0x0f;
 
     if (packet.len > 8) {
-        puts_P(PSTR("mcp len!"));
+        printf_P(PSTR("mcp len %d!"), packet.len);
         packet.len = 8;
     }
 
@@ -239,26 +244,40 @@ void read_packet(uint8_t regnum)
 
     if (MY_ID == ID_any) {
         mcp2515_tophalf();
+    } else if (packet.type == TYPE_xfer_cancel && packet.id == MY_ID) {
+        puts_P(PSTR("ccl"));
+        xfer_state = XFER_CANCEL;
+    } else if (packet.type == TYPE_xfer_cts && packet.id == MY_ID) {
+        if (xfer_state == XFER_CHUNK_SENT) {
+            puts_P(PSTR("cts"));
+            xfer_state = XFER_GOT_CTS;
+        }
+    } else if (packet.type == TYPE_xfer_chunk) {
+        if (xfer_state == XFER_WAIT_CHUNK) {
+            puts_P(PSTR("xf_chk"));
+            //xfer_got_chunk();
+            /* finish this */
+            xfer_state = 0;
+        }
+    } else if (packet.type == TYPE_value_periodic && packet.id == ID_time) {
+        uint32_t new_time = (uint32_t)packet.data[0] << 24 |
+                            (uint32_t)packet.data[1] << 16 |
+                            (uint32_t)packet.data[2] << 8  |
+                            (uint32_t)packet.data[3] << 0;
+        //printf_P(PSTR("mcp time=%lu\n"), new_time);
+        time_set(new_time);
+    } else if (packet.type == TYPE_set_interval && packet.id == MY_ID) {
+        periodic_prev = now;
+        periodic_interval =  (uint16_t)packet.data[0] << 8 |
+                                (uint16_t)packet.data[1] << 0;
+
+        //printf_P(PSTR("mcp period=%u\n"), periodic_interval);
+    } else if (packet.type == TYPE_sos_reboot && packet.id == MY_ID) {
+        cli();
+        wdt_enable(WDTO_15MS);
+        for (;;) {};
     } else {
         mcp2515_tophalf();
-        if (packet.type == TYPE_value_periodic && packet.id == ID_time) {
-            uint32_t new_time = (uint32_t)packet.data[0] << 24 |
-                                (uint32_t)packet.data[1] << 16 |
-                                (uint32_t)packet.data[2] << 8  |
-                                (uint32_t)packet.data[3] << 0;
-            //printf_P(PSTR("mcp time=%lu\n"), new_time);
-            time_set(new_time);
-        } else if (packet.type == TYPE_set_interval && packet.id == MY_ID) {
-            periodic_prev = now;
-            periodic_interval =  (uint16_t)packet.data[0] << 8 |
-                                 (uint16_t)packet.data[1] << 0;
-
-            //printf_P(PSTR("mcp period=%u\n"), periodic_interval);
-        } else if (packet.type == TYPE_sos_reboot && packet.id == MY_ID) {
-            cli();
-            wdt_enable(WDTO_15MS);
-            for (;;) {};
-        }
     }
 }
 
@@ -267,6 +286,7 @@ ISR(PCINT0_vect)
     uint8_t canintf;
 
     canintf = read_register(MCP_REGISTER_CANINTF);
+    //printf("int! %x\n", canintf);
 
     canintf &= 0x7f;
 
@@ -311,13 +331,18 @@ uint8_t mcp2515_check_alive(void)
     return (rc == 0b00100111);
 }
 
-uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint8_t len, void *data)
+uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len)
 {
     uint8_t retry;
+    uint8_t rc;
 
     xfer_state = XFER_CHUNK_SENT;
 
-    mcp2515_send(type, dest, len, data);
+    rc = mcp2515_send(type, dest, data, len);
+    if (rc) {
+        puts_P(PSTR("xfsd er"));
+        return rc;
+    }
 
     retry = 255;
     while (xfer_state == XFER_CHUNK_SENT && --retry)
@@ -346,7 +371,7 @@ uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
     xfer_state = XFER_WAIT_CHUNK;
 
     puts_P(PSTR("sent CTS"));
-    mcp2515_send(TYPE_xfer_cts, sender_id, 0, NULL);
+    mcp2515_send(TYPE_xfer_cts, sender_id, NULL, 0);
 
     for (;;) {
         retry = 255;
@@ -376,7 +401,7 @@ uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
 
         xfer_state = XFER_WAIT_CHUNK;
 
-        mcp2515_send(TYPE_xfer_cts, sender_id, 0, NULL);
+        mcp2515_send(TYPE_xfer_cts, sender_id, NULL, 0);
 
         if (packet.len < 8) {
             /* we just sent our last (partial) chunk. success. */
