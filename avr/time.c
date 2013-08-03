@@ -12,11 +12,11 @@ volatile uint16_t periodic_interval;
 
 void periodic_tophalf(void)
 {
-    if (irq_signal & IRQ_TIMER) {
-        puts_P(PSTR("timer overrun!"));
+    if (irq_signal & IRQ_PERIODIC) {
+        puts_P(PSTR("timer!"));
     }
 
-    irq_signal |= IRQ_TIMER;
+    irq_signal |= IRQ_PERIODIC;
 }
 
 ISR(TIMER0_COMPA_vect)
