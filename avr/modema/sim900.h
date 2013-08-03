@@ -1,5 +1,5 @@
 enum state {
-    STATE_UNKNOWN,
+    STATE_UNKNOWN = 1,
     STATE_CLOSED,
     STATE_IP_INITIAL,
     STATE_IP_START,
@@ -23,4 +23,4 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count);
 uint8_t TCPConnect(void);
 uint8_t TCPDisconnect(void);
 
-void slow_write(const char *buf, uint16_t count);
+void slow_write(const void *buf, uint16_t count);
