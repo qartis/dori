@@ -10,7 +10,7 @@
     X(sos_stfu, 7) \
     X(sos_nostfu, 8) \
 \
-    X(file_read, 0x11) \
+    X(file_read, 0x10) \
     X(file_write, 0x11) \
     X(file_error, 0x12) \
     X(file_tree, 0x13) \
