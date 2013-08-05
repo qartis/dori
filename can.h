@@ -1,14 +1,16 @@
 #define TYPE_LIST(X) \
-    X(value_periodic, 0) \
-    X(value_explicit, 1) \
-    X(set_time, 2) \
-    X(set_interval, 3) \
-    X(sos_reboot, 4) \
-    X(sos_rx_overrun, 5) \
-    X(sos_stfu, 6) \
-    X(sos_nostfu, 7) \
+    X(nop, 0) \
 \
-    X(file_read, 0x10) \
+    X(value_periodic, 1) \
+    X(value_explicit, 2) \
+    X(set_time, 3) \
+    X(set_interval, 4) \
+    X(sos_reboot, 5) \
+    X(sos_rx_overrun, 6) \
+    X(sos_stfu, 7) \
+    X(sos_nostfu, 8) \
+\
+    X(file_read, 0x11) \
     X(file_write, 0x11) \
     X(file_error, 0x12) \
     X(file_tree, 0x13) \
