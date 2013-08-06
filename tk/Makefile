@@ -1,4 +1,4 @@
-INCDIRS = ../shared/include/ ./include/ ../multiarcball/include ../widgets/include
+INCDIRS = ../shared/include/ ./include/ ../multiarcball/include ../widgets/include ../
 #CXX=g++
 CXXFLAGS=-g -Wno-write-strings -Wall -Wextra $(foreach DIR,$(INCDIRS), -I$(DIR))
 LDFLAGS=-L../multiarcball -L../widgets `fltk-config --use-gl --cxxflags --ldflags` -lsqlite3 -lwidgets -lmultiarcball -lglut -lGLU -L/opt/X11/lib -lXcursor
