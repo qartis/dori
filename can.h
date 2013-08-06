@@ -14,12 +14,11 @@
     X(file_write, 0x11) \
     X(file_error, 0x12) \
     X(file_tree, 0x13) \
-    X(file_header, 0x14) \
+    X(dcim_read, 0x14) \
+    X(dcim_header, 0x15) \
 \
-    X(sensor_error, 0x13) \
-\
-\
-    X(file_checksum, 0x15) \
+    X(sensor_error, 0x1a) \
+    X(file_checksum, 0x1b) \
 \
 \
     X(get_arm, 0x20) \
@@ -35,16 +34,18 @@
     X(xfer_chunk, 0x81) \
     X(xfer_cancel, 0x82) \
 \
-    X(modema_at_0, 0x90) \
-    X(modema_at_1, 0x91) \
-    X(modema_at_2, 0x92) \
-    X(modema_at_3, 0x93) \
-    X(modema_at_4, 0x94) \
-    X(modema_at_5, 0x95) \
-    X(modema_at_6, 0x96) \
-    X(modema_at_7, 0x97) \
+    X(at_0_read, 0x90) \
+    X(at_1_read, 0x91) \
+    X(at_2_read, 0x92) \
+    X(at_3_read, 0x93) \
+    X(at_4_read, 0x94) \
+    X(at_5_read, 0x95) \
+    X(at_6_read, 0x96) \
+    X(at_7_read, 0x97) \
 \
     X(get_unread_logs, 0xa0) \
+\
+    X(format_error, 0xb0) \
 \
     X(invalid, 0xff) \
 
