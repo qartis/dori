@@ -34,14 +34,15 @@
     X(xfer_chunk, 0x81) \
     X(xfer_cancel, 0x82) \
 \
-    X(at_0_read, 0x90) \
-    X(at_1_read, 0x91) \
-    X(at_2_read, 0x92) \
-    X(at_3_read, 0x93) \
-    X(at_4_read, 0x94) \
-    X(at_5_read, 0x95) \
-    X(at_6_read, 0x96) \
-    X(at_7_read, 0x97) \
+    X(at_0_write, 0x90) \
+    X(at_1_write, 0x91) \
+    X(at_2_write, 0x92) \
+    X(at_3_write, 0x93) \
+    X(at_4_write, 0x94) \
+    X(at_5_write, 0x95) \
+    X(at_6_write, 0x96) \
+    X(at_7_write, 0x97) \
+    X(at_send,    0x98) \
 \
     X(get_unread_logs, 0xa0) \
 \
