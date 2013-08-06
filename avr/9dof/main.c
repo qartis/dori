@@ -71,7 +71,6 @@ uint8_t periodic_irq(void)
     }
 
     rc = nunchuck_read(&nunchuck);
-
     if (rc) {
         /* sensor error, reinit */
         return rc;
@@ -79,13 +78,14 @@ uint8_t periodic_irq(void)
 
     p.type = TYPE_value_periodic;
     p.id = ID_compass;
-    p.data[0] = (uint8_t)(mpu.x >> 8);
-    p.data[1] = (uint8_t)mpu.x;
-    p.data[2] = (uint8_t)(mpu.y >> 8);
-    p.data[3] = (uint8_t)mpu.y;
-    p.data[4] = (uint8_t)(mpu.z >> 8);
-    p.data[5] = (uint8_t)mpu.z;
+    p.data[0] = mpu.x >> 8;
+    p.data[1] = mpu.x;
+    p.data[2] = mpu.y >> 8;
+    p.data[3] = mpu.y;
+    p.data[4] = mpu.z >> 8;
+    p.data[5] = mpu.z;
     p.len = 6;
+
     rc = mcp2515_send2(&p);
     if (rc) {
         /* can error, attempt to transmit error, reinit */
@@ -95,12 +95,12 @@ uint8_t periodic_irq(void)
 	 _delay_ms(150);
 	 p.type = TYPE_value_periodic;
     p.id = ID_gyro;
-    p.data[0] = (uint8_t)(hmc.x >> 8);
-    p.data[1] = (uint8_t)hmc.x;
-    p.data[2] = (uint8_t)(hmc.y >> 8);
-    p.data[3] = (uint8_t)hmc.y;
-    p.data[4] = (uint8_t)(hmc.z >> 8);
-    p.data[5] = (uint8_t)hmc.z;
+    p.data[0] = hmc.x >> 8;
+    p.data[1] = hmc.x;
+    p.data[2] = hmc.y >> 8;
+    p.data[3] = hmc.y;
+    p.data[4] = hmc.z >> 8;
+    p.data[5] = hmc.z;
     p.len = 6;
     rc = mcp2515_send2(&p);
     if (rc) {
@@ -110,12 +110,12 @@ uint8_t periodic_irq(void)
 	 _delay_ms(150);
     p.type = TYPE_value_periodic;
     p.id = ID_accel;
-    p.data[0] = (uint8_t)(nunchuck.accel_x >> 8);
-    p.data[1] = (uint8_t)nunchuck.accel_x;
-    p.data[2] = (uint8_t)(nunchuck.accel_y >> 8);
-    p.data[3] = (uint8_t)nunchuck.accel_y;
-    p.data[4] = (uint8_t)(nunchuck.accel_z >> 8);
-    p.data[5] = (uint8_t)nunchuck.accel_z;
+    p.data[0] = nunchuck.accel_x >> 8;
+    p.data[1] = nunchuck.accel_x;
+    p.data[2] = nunchuck.accel_y >> 8;
+    p.data[3] = nunchuck.accel_y;
+    p.data[4] = nunchuck.accel_z >> 8;
+    p.data[5] = nunchuck.accel_z;
     p.len = 6;
     rc = mcp2515_send2(&p);
     if (rc) {
