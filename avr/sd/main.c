@@ -28,6 +28,12 @@ uint8_t cur_log;
 uint32_t tmp_write_pos;
 uint32_t log_write_pos;
 
+struct can_dcim {
+    uint16_t dir;
+    uint16_t dscf;
+    char ext[4];
+};
+
 uint8_t tree(uint8_t dest);
 
 uint8_t find_free_log_after(uint8_t start)
@@ -40,7 +46,7 @@ uint8_t find_free_log_after(uint8_t start)
 
     for (i = (start + 1) % NUM_LOGS; i != start; i = (i + 1) % NUM_LOGS) {
         printf_P(PSTR("log %d\n"), i);
-        snprintf(buf, sizeof(buf), "%d.LEN", i);
+        snprintf_P(buf, sizeof(buf), PSTR("%d.LEN"), i);
 
         rc = pf_open(buf);
         if (rc) { /* WTF */
@@ -79,7 +85,7 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
         }
     }
 
-    snprintf(buf, sizeof(buf), "%d.LOG", cur_log);
+    snprintf_P(buf, sizeof(buf), PSTR("%d.LOG"), cur_log);
     rc = pf_open(buf);
     if (rc) {
         puts_P(PSTR("er lg op"));
@@ -107,7 +113,7 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
 
     log_write_pos += page_buf_len;
 
-    snprintf(buf, sizeof(buf), "%d.LEN", cur_log);
+    snprintf_P(buf, sizeof(buf), PSTR("%d.LEN"), cur_log);
     rc = pf_open(buf);
     if (rc) {
         printf_P(PSTR("er3 %d\n"), rc);
@@ -137,11 +143,8 @@ uint8_t log_packet(void)
     /* we're in interrupt context */
     uint8_t i;
     uint8_t rc;
-    static uint8_t page_buf[1];
-    //static uint8_t page_buf[512];
+    static uint8_t page_buf[512];
     static uint16_t page_buf_len = 0;
-
-    return 0;
 
     /* if we have room to store in cache, then copy it and we're done */
     if (((uint16_t)page_buf_len + packet.len + 1 + 1 + 1)
@@ -187,25 +190,98 @@ void can_tophalf(void)
     }
 }
 
-void send_file(void)
+void dcim_read(void)
+{
+    uint8_t rc;
+    uint16_t rd;
+    char buf[strlen("/DCIM/113CANON/IMG_1954.JPG") + 5];
+    uint8_t i;
+
+    /* /DCIM/[xxx]CANON/IMG_[yyyy].ZZZ */
+
+    volatile struct can_dcim *dcim;
+
+    /* we don't require the sender to include
+        the terminating nul byte on the extension */
+#define DCIM_SIZE (sizeof(struct can_dcim) - 1)
+
+    if (packet.len < DCIM_SIZE) {
+        mcp2515_send(TYPE_format_error, ID_sd, NULL, 0);
+        return;
+    }
+
+    dcim = (volatile struct can_dcim *)&packet.data;
+    dcim->ext[3] = '\0';
+
+    snprintf(buf, sizeof(buf), "/DCIM/%03uCANON/IMG_%04u.%c%c%c",
+            dcim->dir, dcim->dscf,
+            dcim->ext[0], dcim->ext[1], dcim->ext[2]);
+
+    rc = pf_open(buf);
+    printf_P(PSTR("opn %s %d\n"), buf, rc);
+    if (rc) {
+        mcp2515_send(TYPE_file_error, ID_sd, buf, 8);
+        return;
+    }
+
+    rc = mcp2515_xfer(TYPE_dcim_header, ID_sd, &(fs.fsize), sizeof(fs.fsize));
+    printf_P(PSTR("xf %d\n"), rc);
+    if (rc) {
+        //puts_P(PSTR("xfer failed"));
+        return;
+    }
+
+    _delay_ms(200);
+
+    rd = 1;
+    while (rd != 0){
+        rc = pf_read(buf, 8, &rd);
+        if (rc) {
+            puts_P(PSTR("read er"));
+            mcp2515_send(TYPE_file_error, ID_sd, NULL, 0);
+            break;
+        }
+
+        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_sd, buf, rd);
+        printf_P(PSTR("xf %d\n"), rc);
+        if (rc) {
+            //puts_P(PSTR("xfer failed"));
+            break;
+        }
+    }
+
+    return;
+}
+
+void file_read(void)
 {
     uint8_t rc;
     uint16_t rd;
     char buf[8];
+    uint8_t i;
 
-    rc = pf_open("tmp");
-    printf_P(PSTR("opn %d\n"), rc);
+    for (i = 0; i < packet.len; i++)
+        buf[i] = packet.data[i];
+
+    buf[packet.len] = '\0';
+
+    rc = pf_open(buf);
+    printf_P(PSTR("open %s %d\n"), buf, rc);
     if (rc) {
-        mcp2515_send(TYPE_file_error, ID_sd, NULL, 0);
+        mcp2515_send(TYPE_file_error, ID_sd, buf, strlen(buf));
         return;
     }
 
+    /*
     rc = mcp2515_xfer(TYPE_file_header, ID_sd, &(fs.fsize), sizeof(fs.fsize));
     printf_P(PSTR("xf %d\n"), rc);
     if (rc) {
         //puts_P(PSTR("xfer failed"));
         return;
     }
+
+    _delay_ms(200);
+    */
 
     rd = 1;
     while (rd != 0){
@@ -237,7 +313,20 @@ uint8_t uart_irq(void)
     buf[strlen(buf) - 1] = '\0';
 
     if (strcmp_P(buf, PSTR("sd read")) == 0) {
-        send_file();
+        packet.data[0] = 't';
+        packet.data[1] = 'm';
+        packet.data[2] = 'p';
+        packet.len = 3;
+        file_read();
+    } else if (strcmp_P(buf, PSTR("dcim")) == 0) {
+        volatile struct can_dcim *dcim = (volatile void *)&packet.data;
+        dcim->dir = 113;
+        dcim->dscf = 1234;
+        dcim->ext[0] = 'J';
+        dcim->ext[1] = 'P';
+        dcim->ext[2] = 'G';
+        packet.len = 2 + 2 + 3;
+        dcim_read();
     } else if (strcmp_P(buf, PSTR("tree")) == 0) {
         uint8_t dest = 0x03;
         rc = tree(dest);
@@ -283,7 +372,10 @@ uint8_t can_irq(void)
 
     switch (packet.type) {
     case TYPE_file_read:
-        send_file();
+        file_read();
+        break;
+    case TYPE_dcim_read:
+        dcim_read();
         break;
     case TYPE_file_write:
         break;
@@ -470,7 +562,7 @@ uint8_t tree(uint8_t dest)
                 buf[buflen++] = '/';
                 putchar('/');
             } else {
-                rc = snprintf((char *)buf + buflen, sizeof(buf) - buflen, " [%ld]", fno.fsize);
+                rc = snprintf_P((char *)buf + buflen, sizeof(buf) - buflen, PSTR(" [%ld]"), fno.fsize);
                 buflen += rc;
                 printf_P(PSTR(" [%ld]"), fno.fsize);
             }

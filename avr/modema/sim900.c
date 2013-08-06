@@ -77,14 +77,12 @@ void sendATCommand(const char * PROGMEM fmt, ...)
 
 uint8_t TCPDisconnect(void)
 {
-    uint8_t rc;
-
     state = STATE_UNKNOWN;
 
     sendATCommand(PSTR("AT+CIPCLOSE"));
 //    wait_for_state(STATE_CLOSED);
 
-    state = STATE_UNKNOWN;
+//    state = STATE_UNKNOWN;
 
     sendATCommand(PSTR("AT+CIPSHUT"));
 //    wait_for_state(STATE_CLOSED);
@@ -118,9 +116,9 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
     rc = wait_for_state(STATE_CONNECTED);
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {
-        printf_P(PSTR("Sending failed\n"));
+        puts_P(PSTR("send err"));
     } else {
-        printf_P(PSTR("Sending succeeded\n"));
+        puts_P(PSTR("send ok"));
     }
 
     return rc;
@@ -139,77 +137,76 @@ uint8_t TCPConnect(void)
     sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_INITIAL);
     if (rc != 0) {
-        printf_P(PSTR("failed to get IP state INITIAL\n"));
+        puts_P(PSTR("err: INITIAL"));
         /* dispatch a MODEM_ERROR CAN packet and try to continue */
         return rc;
     }
 
-    printf_P(PSTR("state: IP INITIAL\n"));
+    puts_P(PSTR("state: IP INITIAL"));
 
     sendATCommand(PSTR("AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\""));
 
     sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_START);
     if (rc != 0) {
-        printf_P(PSTR("failed to get IP state START\n"));
+        puts_P(PSTR("err: START"));
         /* dispatch a MODEM_ERROR CAN packet and try to continue */
         return rc;
     }
 
-    printf_P(PSTR("state: IP START\n"));
+    puts_P(PSTR("state: IP START"));
 
     /* This command takes a little while */
+    flag_ok = 0;
     sendATCommand(PSTR("AT+CIICR"));
-    //_delay_ms(2000);
+    wait_for_ok();
 
-    _delay_ms(500);
-    sendATCommand(PSTR("AT+CIPSTATUS"));
     _delay_ms(500);
     sendATCommand(PSTR("AT+CIPSTATUS"));
     wait_for_state(STATE_IP_GPRSACT);
-    rc = wait_for_state(STATE_IP_GPRSACT);
+    _delay_ms(500);
+    sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_GPRSACT);
     if (rc != 0) {
-        printf_P(PSTR("Failed to get IP state GPRSACT\n"));
+        puts_P(PSTR("err: GPRSACT"));
         /* dispatch a MODEM_ERROR CAN packet and try to continue */
         return rc;
     }
 
-    printf_P(PSTR("state: IP GPRSACT\n"));
+    puts_P(PSTR("state: IP GPRSACT"));
 
     /* attach to GPRS network, display IP address */
     sendATCommand(PSTR("AT+CIFSR"));
-    wait_for_ok();
+    _delay_ms(1500);
 
     sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_STATUS);
     if (rc != 0) {
-        printf_P(PSTR("Failed to get IP state STATUS\n"));
+        puts_P(PSTR("err: STATUS"));
         /* dispatch a MODEM_ERROR CAN packet and try to continue */
         return rc;
     }
 
-    printf_P(PSTR("state: IP STATUS\n"));
+    puts_P(PSTR("state: IP STATUS"));
 
     sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"69.172.149.225\",\"53\""));
 
-    sendATCommand(PSTR("AT+CIPSTATUS"));
     _delay_ms(500);
     sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {
         if (state == STATE_IP_PROCESSING) {
-            printf_P(PSTR("connect: timeout\n"));
+            puts_P(PSTR("conn: timeout"));
             /* don't cancel the attempt. it might succeed later */
         } else {
-            printf_P(PSTR("connect: connection refused\n"));
+            puts_P(PSTR("conn: refused"));
         }
 
         /* dispatch a MODEM_ERROR CAN packet and try to continue */
         return rc;
     }
 
-    printf_P(PSTR("state: CONNECTED\n"));
+    puts_P(PSTR("state: CONNECTED"));
 
     return 0; 
 }

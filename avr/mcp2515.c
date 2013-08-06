@@ -201,7 +201,7 @@ void read_packet(uint8_t regnum)
     uint8_t i;
 
     if (packet.unread) {
-        printf_P(PSTR("CAN txovrn x%x"), packet.type);
+        //printf_P(PSTR("CAN txovrn x%x"), packet.type);
         /* if we don't return here, then there's a risk of
            the CAN user-mode irq reading a corrupt packet.
            this is disabled to allow important packets to
@@ -276,9 +276,9 @@ void read_packet(uint8_t regnum)
         cli();
         wdt_enable(WDTO_15MS);
         for (;;) {};
-    } else {
-        mcp2515_tophalf();
     }
+
+    mcp2515_tophalf();
 }
 
 ISR(PCINT0_vect)
@@ -309,9 +309,16 @@ ISR(PCINT0_vect)
     }
 
     if (canintf & MCP_INTERRUPT_ERRI) {
-        //printf_P(PSTR("mcp err %x\n"), read_register(MCP_REGISTER_EFLG));
-        modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_ERRI, 0x00);
-        modify_register(MCP_REGISTER_EFLG, 0xff, 0x00);
+        uint8_t eflg = read_register(MCP_REGISTER_EFLG);
+ //       printf_P(PSTR("eflg%x\n"), eflg);
+        /* TEC > 96 */
+        if (eflg & 0b00000100) {
+            write_register(MCP_REGISTER_TEC, 0);
+        }
+
+        write_register(MCP_REGISTER_CANINTF, 0);
+        write_register(MCP_REGISTER_EFLG, 0);
+
         canintf &= ~(MCP_INTERRUPT_ERRI);
     }
 
@@ -346,7 +353,7 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len)
 
     retry = 255;
     while (xfer_state == XFER_CHUNK_SENT && --retry)
-        _delay_ms(40);
+        _delay_ms(400);
 
     if (retry == 0) {
         xfer_state = XFER_CANCEL;
