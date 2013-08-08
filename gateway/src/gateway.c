@@ -12,7 +12,6 @@
 #include <time.h>
 #include "can.h"
 #include "can_names.h"
-#include "command.h"
 
 #define MAX 1024
 #define DORIPORT 53
@@ -28,7 +27,7 @@
 #define LOGFILE_SIZE 100
 
 static int file_number;
-FILE *dcim_file;
+FILE *incoming_file;
 
 sqlite3 *db;
 fd_set master;
@@ -207,53 +206,49 @@ void process_dori_bytes(char *buf, int len)
         uint8_t type = doribuf[CAN_TYPE_IDX];
         uint8_t id = doribuf[CAN_ID_IDX];
 
-        printf("Frame: %s [%x] %s [%x] %d [", type_names[type], type,
+        printf("Dori sent Frame: %s [%02x] %s [%02x] %d [", type_names[type], type,
                id_names[id], id, data_len);
 
         int i;
 
         for (i = 0; i < data_len; i++) {
-            printf(" %x ", doribuf[CAN_HEADER_LEN + i]);
+            printf(" %02x ", doribuf[CAN_HEADER_LEN + i]);
         }
 
         printf("]\n");
 
         switch (type) {
+        case TYPE_file_header:
+            {
+                char filename[256];
+                memcpy(filename, doribuf + CAN_HEADER_LEN, data_len);
+                filename[data_len] = '\0';
+                incoming_file = fopen(filename, "w");
+                break;
+            }
         case TYPE_dcim_header:
             {
-                int file_size = LOGFILE_SIZE;
                 char filename[256];
                 sprintf(filename, "img_%d.jpg", file_number++);
-                dcim_file = fopen(filename, "w");
-                if (active_shell_client) {
-                    write(active_shell_client->fd, &file_size, sizeof(file_size));
-                }
+                incoming_file = fopen(filename, "w");
                 break;
             }
         case TYPE_xfer_chunk:
-            if (active_shell_client) {
-                write(active_shell_client->fd, doribuf + CAN_HEADER_LEN, data_len);
+            if(incoming_file != NULL) {
+                fwrite(doribuf + CAN_HEADER_LEN, data_len, 1, incoming_file);
+                fflush(incoming_file);
+                fflush(incoming_file);
+                fsync(fileno(incoming_file));
+                fsync(fileno(incoming_file));
             }
-
-            fwrite(doribuf + CAN_HEADER_LEN, data_len, 1, dcim_file);
-            fflush(dcim_file);
-            fflush(dcim_file);
-            fsync(fileno(dcim_file));
-            fsync(fileno(dcim_file));
-
             break;
-        case TYPE_file_error:
-            {
-                int file_size = -1;
-                printf("got a file error from ID %.2x\n", id);
-                if (active_shell_client) {
-                    write(active_shell_client->fd, &file_size, sizeof(file_size));
-                }
+        }
 
-                break;
-            }
-        default:
-            break;
+        if (active_shell_client) {
+            write(active_shell_client->fd, &type, sizeof(type));
+            write(active_shell_client->fd, &id, sizeof(id));
+            write(active_shell_client->fd, &data_len, sizeof(data_len));
+            write(active_shell_client->fd, doribuf + CAN_HEADER_LEN, data_len);
         }
 
         doribuf_len -= (CAN_HEADER_LEN + data_len);
@@ -301,87 +296,59 @@ void process_dcim_transfer_request(void *data, char *args[])
     }
 }
 
-int process_shell_bytes(char *buf, int len)
+void process_shell_bytes(char *buf, int len)
 {
-    int result = 0;
-
     memcpy(&shellbuf[shellbuf_len], buf, len);
     shellbuf_len += len;
 
-    unsigned char cmdbuf[128];
-    memcpy(cmdbuf, shellbuf, shellbuf_len);
-
+    printf("shellbuf_len: %d\n", shellbuf_len);
     // if the command that shell sends is unrecognized
     // we'll parse it as a CAN command
-    char *cmd = strtok((char *)cmdbuf, " ");
-    if (cmd == NULL || !has_command((char * )cmd)) {
-        if (shellbuf_len < CAN_HEADER_LEN) {
-            return 0;
-        }
-        // Extract the payload size from the CAN header
-        uint8_t data_len = shellbuf[CAN_LEN_IDX];
+    if (shellbuf_len < CAN_HEADER_LEN) {
+        return;
+    }
+    // Extract the payload size from the CAN header
+    uint8_t data_len = shellbuf[CAN_LEN_IDX];
 
-        // Break out if we don't have a full packet yet
-        if (shellbuf_len < CAN_HEADER_LEN + data_len) {
-            return 0;
-        }
+    printf("data_len: %d\n", data_len);
 
-        uint8_t type = shellbuf[CAN_TYPE_IDX];
-        uint8_t id = shellbuf[CAN_ID_IDX];
-
-        if (active_dori_client) {
-            printf("Sending frame: %s [%x] %s [%x] %d [", type_names[type], type,
-                   id_names[id], id, data_len);
-
-            int i;
-            for (i = 0; i < data_len; i++) {
-                printf(" %x ", shellbuf[CAN_HEADER_LEN + i]);
-            }
-
-            printf("]\n");
-
-            write(active_dori_client->fd, shellbuf, shellbuf_len);
-        }
-
-        shellbuf_len -= (CAN_HEADER_LEN + data_len);
-
-        memmove(shellbuf, &shellbuf[CAN_HEADER_LEN + data_len],
-                (shellbuf_len) * sizeof(char));
-    } else {
-        char *num_args_str = strtok(NULL, " ");
-        if (num_args_str == NULL) {
-            return -1;
-        }
-
-        int num_args = atoi(num_args_str);
-        if (num_args < 0) {
-            return -1;
-        }
-        // allocate the args we need
-        char **args = malloc(num_args);
-        int i;
-        for (i = 0; i < num_args; i++) {
-            char *arg = strtok(NULL, " ");
-            if (arg == NULL) {
-                break;
-            }
-            args[i] = strdup(arg);
-        }
-
-        // take the actual number of arguments we parsed out
-        int argc = i;
-
-        result = run_command(cmd, argc, args);
-
-        // Free as many args as we allocated
-        int j;
-        for (j = 0; j < argc; j++) {
-            free(args[j]);
-        }
-        free(args);
+    // Break out if we don't have a full packet yet
+    if (shellbuf_len < CAN_HEADER_LEN + data_len) {
+        return;
     }
 
-    return result;
+    uint8_t type = shellbuf[CAN_TYPE_IDX];
+    uint8_t id = shellbuf[CAN_ID_IDX];
+
+    printf("Shell sent frame: %s [%02x] %s [%02x] %d [", type_names[type], type,
+           id_names[id], id, data_len);
+
+    int i;
+
+    for (i = 0; i < data_len; i++) {
+        printf(" %02x ", shellbuf[CAN_HEADER_LEN + i]);
+    }
+
+    printf("]\n");
+
+    if (active_dori_client) {
+        printf("Sending frame: %s [%02x] %s [%02x] %d [", type_names[type], type,
+               id_names[id], id, data_len);
+
+        int i;
+        for (i = 0; i < data_len; i++) {
+            printf(" %02x ", shellbuf[CAN_HEADER_LEN + i]);
+        }
+
+        printf("]\n");
+
+        write(active_dori_client->fd, shellbuf, shellbuf_len);
+    }
+
+    shellbuf_len -= (CAN_HEADER_LEN + data_len);
+
+    memmove(shellbuf, &shellbuf[CAN_HEADER_LEN + data_len],
+            (shellbuf_len) * sizeof(char));
 }
 
 int main()
@@ -554,7 +521,7 @@ int main()
                     int j = 0;
 
                     for (j = 0; j < rc; j++) {
-                        printf("%x ", (unsigned char)buf[j]);
+                        printf("%02x ", (unsigned char)buf[j]);
                     }
 
                     printf("\n");
@@ -572,9 +539,7 @@ int main()
                             buf[rc] = '\0';
 
                         if (c->type == SHELL) {
-                            if (process_shell_bytes(buf, rc) < 0) {
-                                printf("Error processing shell command\n");
-                            }
+                            process_shell_bytes(buf, rc);
                         } else if (c->type == TK) {
                             printf("tk wrote: %s\n", buf);
                         }

@@ -5,7 +5,7 @@
 #include "../can.h"
 #include "../can_names.h"
 
-char readbyte(void)
+unsigned char readbyte(void)
 {
     int c;
 
@@ -46,6 +46,9 @@ int main(void)
 
     for (;;) {
         type = readbyte();
+
+        if(type == TYPE_nop) continue;
+
         id = readbyte();
         len = readbyte();
 
