@@ -33,7 +33,8 @@ uint8_t user_irq(void)
 {
     uint8_t rc;
 
-    printf("conn\n");
+    _delay_ms(500);
+    puts_P(PSTR("conn"));
     rc = TCPConnect();
     if (rc) {
         printf("conn: %d\n", rc);
@@ -42,7 +43,6 @@ uint8_t user_irq(void)
         return 0;
     }
 
-    //rc = mcp2515_send(TYPE_file_read, ID_sd, NULL, 0);
 
     return rc;
 }
@@ -61,7 +61,7 @@ uint8_t debug_irq(void)
         printf_P(PSTR("state: %d\n"), state);
     } else if (buf[0] == 'x' && buf[1] == '\0') {
         state = STATE_CONNECTED;
-        puts_P(PSTR("forced connect\n"));
+        puts_P(PSTR("conn!\n"));
     } else if (buf[0] == 'd' && buf[1] == '\0') {
         TCPDisconnect();
         state = STATE_CLOSED;
@@ -82,8 +82,6 @@ uint8_t debug_irq(void)
 
 void tcp_irq(uint8_t *buf, uint8_t len)
 {
-    /* TODO: need to buffer packets here and reassemble
-       when possible */
     uint8_t rc;
     uint8_t i;
     struct mcp2515_packet_t p;
@@ -95,7 +93,7 @@ void tcp_irq(uint8_t *buf, uint8_t len)
         len--;
     }
 
-    printf_P(PSTR("got TCP: '%s'\n"), buf);
+    //printf_P(PSTR("got TCP: '%s'\n"), buf);
 
     for (i = 0; i < len; i++) {
         tcp_buf[tcp_buf_len] = buf[i];
@@ -167,7 +165,6 @@ ISR(USART_RX_vect)
 
     /* if we're reading a tcp chunk */
     if (tcp_toread > 0) {
-        printf("%x,", c);
         //putchar(c);
         tcp_rx_buf[tcp_rx_buf_len] = c;
         tcp_rx_buf[tcp_rx_buf_len + 1] = '\0';
@@ -200,7 +197,7 @@ ISR(USART_RX_vect)
             /* We don't care anymore */
         } else if (streq_P(at_rx_buf, PSTR("RING"))) {
             slow_write("ATH\r", strlen("ATH\r"));
-            _delay_ms(1400);
+            if (state == STATE_CONNECTED) return;
             /* trigger remote connect() */
             irq_signal |= IRQ_USER;
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP INITIAL"))) {
@@ -320,6 +317,7 @@ uint8_t can_irq(void)
     uint8_t rc;
     uint8_t bufno;
     uint8_t i;
+    uint8_t *ptr;
 
     switch (packet.type) {
     case TYPE_at_0_write ... TYPE_at_7_write:
@@ -333,17 +331,21 @@ uint8_t can_irq(void)
         slow_write(at_tx_buf, strlen((const char *)at_tx_buf));
         slow_write("\r", 1);
         break;
+    
+    case TYPE_file_offer:
+        ptr = (uint8_t *)&packet.data;
+        rc = mcp2515_send(TYPE_file_read, packet.id, ptr, packet.len);
+        break;
 
     default:
         if (state == STATE_CONNECTED) {
+            if (packet.type == TYPE_value_periodic) break;
             rc = write_packet();
             if (rc) {
-                printf("sending failed\n");
+                puts_P(PSTR("sending failed"));
             } else {
                 rc = mcp2515_send(TYPE_xfer_cts, ID_sd, NULL, 0);
             }
-        } else {
-            puts_P(PSTR("not conn!"));
         }
         break;
     }

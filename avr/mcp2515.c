@@ -29,7 +29,7 @@ volatile mcp2515_type_t expecting_xfer_type;
 void mcp2515_tophalf(void)
 {
     if (irq_signal & IRQ_CAN) {
-        puts_P(PSTR("CAN overrun"));
+        //puts_P(PSTR("CAN overrun"));
     }
 
     irq_signal |= IRQ_CAN;
@@ -247,11 +247,13 @@ void read_packet(uint8_t regnum)
     } else if (packet.type == TYPE_xfer_cancel && packet.id == MY_ID) {
         puts_P(PSTR("ccl"));
         xfer_state = XFER_CANCEL;
+        return;
     } else if (packet.type == TYPE_xfer_cts && packet.id == MY_ID) {
         if (xfer_state == XFER_CHUNK_SENT) {
             puts_P(PSTR("cts"));
             xfer_state = XFER_GOT_CTS;
         }
+        return;
     } else if (packet.type == TYPE_xfer_chunk) {
         if (xfer_state == XFER_WAIT_CHUNK) {
             puts_P(PSTR("xf_chk"));
@@ -310,7 +312,8 @@ ISR(PCINT0_vect)
 
     if (canintf & MCP_INTERRUPT_ERRI) {
         uint8_t eflg = read_register(MCP_REGISTER_EFLG);
- //       printf_P(PSTR("eflg%x\n"), eflg);
+        printf_P(PSTR("eflg%x\n"), eflg);
+
         /* TEC > 96 */
         if (eflg & 0b00000100) {
             write_register(MCP_REGISTER_TEC, 0);
@@ -323,9 +326,11 @@ ISR(PCINT0_vect)
     }
 
     if (canintf) {
-        //printf_P(PSTR("mcp err intf %x\n"), canintf);
-        modify_register(MCP_REGISTER_CANINTF, 0xff, 0x00);
+   //     printf_P(PSTR("mcp err intf %x\n"), canintf);
     }
+
+    /* temporary fix: flush all received packets */
+    modify_register(MCP_REGISTER_CANINTF, 0xff, 0x00);
 }
 
 uint8_t mcp2515_check_alive(void)

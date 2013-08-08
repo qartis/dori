@@ -24,16 +24,6 @@
     X(sensor_error, 0x1a) \
     X(file_checksum, 0x1b) \
 \
-\
-    X(get_arm, 0x20) \
-    X(set_arm, 0x21) \
-\
-    X(get_output, 0x22) \
-    X(set_output, 0x23) \
-\
-    X(get_value, 0x24) \
-    X(set_value, 0x25) \
-\
     X(xfer_cts, 0x80) \
     X(xfer_chunk, 0x81) \
     X(xfer_cancel, 0x82) \

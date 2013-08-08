@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <avr/io.h>
-#include <avr/interrupt.h>
-#include <avr/pgmspace.h>
 #include <avr/wdt.h>
+#include <avr/pgmspace.h>
+#include <avr/interrupt.h>
 #include <util/atomic.h>
 #include <util/delay.h>
 
@@ -20,9 +20,9 @@
 #include "free_ram.h"
 #include "can.h"
 
-#define NUM_LOGS 64
+#define NUM_LOGS 4
 #define LOG_INVALID 0xff
-#define LOG_SIZE 100
+#define LOG_SIZE 512
 
 uint8_t cur_log;
 uint32_t tmp_write_pos;
@@ -36,26 +36,62 @@ struct can_dcim {
 
 uint8_t tree(uint8_t dest);
 
+void empty(void)
+{
+    char buf[8];
+    uint8_t rc;
+    uint8_t i;
+    uint32_t zero = 0;
+    uint16_t wrote;
+
+    for (i = 0; i < NUM_LOGS; i++) {
+        snprintf_P(buf, sizeof(buf), PSTR("%u.LEN"), i);
+
+        rc = pf_open(buf);
+        if (rc)
+            continue;
+
+        rc = pf_write(&zero, sizeof(zero), &wrote);
+        if (rc)
+            continue;
+
+        rc = pf_write(NULL, 0, &wrote);
+        if (rc)
+            continue;
+    }
+}
+
+volatile uint8_t offer_num;
+
+uint8_t user_irq(void)
+{
+    char buf[8];
+    snprintf_P(buf, sizeof(buf), PSTR("%u.LOG"), offer_num);
+    mcp2515_send(TYPE_file_offer, ID_sd, buf, strlen(buf));
+    puts_P(PSTR("yo"));
+    return 0;
+}
+
 uint8_t find_free_log_after(uint8_t start)
 {
     uint8_t i;
     uint8_t rc;
-    char buf[16];
+    char buf[8];
     uint16_t log_len;
     uint16_t discard;
 
     for (i = (start + 1) % NUM_LOGS; i != start; i = (i + 1) % NUM_LOGS) {
-        printf_P(PSTR("log %d\n"), i);
-        snprintf_P(buf, sizeof(buf), PSTR("%d.LEN"), i);
+        printf_P(PSTR("log %u\n"), i);
+        snprintf_P(buf, sizeof(buf), PSTR("%u.LEN"), i);
 
         rc = pf_open(buf);
-        if (rc) { /* WTF */
+        if (rc) {
             puts_P(PSTR("op er"));
             continue;
         }
 
         rc = pf_read(&log_len, sizeof(log_len), &discard);
-        if (rc) { /* WTF */
+        if (rc) {
             puts_P(PSTR("rd er"));
             continue;
         }
@@ -68,7 +104,7 @@ uint8_t find_free_log_after(uint8_t start)
     return LOG_INVALID;
 }
 
-uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
+uint8_t dump_page_buf(uint8_t *page_buf, uint16_t page_buf_len)
 {
     char buf[64];
     uint16_t wrote;
@@ -76,19 +112,22 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
 
     printf_P(PSTR("dmp pg bf %u %lu\n"), cur_log, log_write_pos);
 
-    if (((uint32_t)log_write_pos + page_buf_len) > LOG_SIZE) {
-        printf_P(PSTR("nxtlg @ %d\n"), cur_log);
+    if (((uint32_t)log_write_pos + page_buf_len) > (uint32_t)LOG_SIZE) {
+        offer_num = cur_log;
+        irq_signal |= IRQ_USER;
+        printf_P(PSTR("nxtlg @ %u\n"), cur_log);
         log_write_pos = 0;
         cur_log = find_free_log_after(cur_log);
         if (cur_log == LOG_INVALID) {
-            goto err;
+            reinit = 1;
+            return 1;
         }
     }
 
-    snprintf_P(buf, sizeof(buf), PSTR("%d.LOG"), cur_log);
+    snprintf_P(buf, sizeof(buf), PSTR("%u.LOG"), cur_log);
     rc = pf_open(buf);
     if (rc) {
-        puts_P(PSTR("er lg op"));
+        printf_P(PSTR("er lg op%u\n"), cur_log);
         goto err;
     }
 
@@ -99,7 +138,7 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
     }
 
     rc = pf_write(page_buf, page_buf_len, &wrote);
-    printf_P(PSTR("cb: pf_wr %d = '%u'\n"), page_buf_len, wrote);
+    printf_P(PSTR("cb: pf_wr %u = '%u'\n"), page_buf_len, wrote);
     if (rc || wrote != page_buf_len) {
         puts_P(PSTR("er1"));
         goto err;
@@ -111,12 +150,10 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
         goto err;
     }
 
-    log_write_pos += page_buf_len;
-
-    snprintf_P(buf, sizeof(buf), PSTR("%d.LEN"), cur_log);
+    snprintf_P(buf, sizeof(buf), PSTR("%u.LEN"), cur_log);
     rc = pf_open(buf);
     if (rc) {
-        printf_P(PSTR("er3 %d\n"), rc);
+        printf_P(PSTR("er3 %u\n"), rc);
         goto err;
     }
 
@@ -132,43 +169,45 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint8_t page_buf_len)
         goto err;
     }
 
+    log_write_pos += page_buf_len;
+
     return 0;
 
 err:
+    reinit = 1;
     return 1;
 }
 
 uint8_t log_packet(void)
 {
     /* we're in interrupt context */
-    uint8_t i;
+    uint16_t i;
     uint8_t rc;
     static uint8_t page_buf[512];
     static uint16_t page_buf_len = 0;
 
     /* if we have room to store in cache, then copy it and we're done */
-    if (((uint16_t)page_buf_len + packet.len + 1 + 1 + 1)
-            < sizeof(page_buf)) {
-        page_buf[page_buf_len++] = packet.type;
-        page_buf[page_buf_len++] = packet.id;
-        page_buf[page_buf_len++] = packet.len;
-
-        for (i = 0; i < packet.len; i++) {
-            page_buf[page_buf_len++] = packet.data[i];
+    if (((uint16_t)page_buf_len + packet.len + 1 + 1 + 1) >= 512) {
+        for (i = page_buf_len; i < sizeof(page_buf); i++) {
+            page_buf[i] = TYPE_nop;
         }
 
-        printf_P(PSTR("pg bf %d\n"), page_buf_len);
-				
-        return 0;
-    }
-
-    /* dump the page buf */
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        rc = dump_page_buf(page_buf, page_buf_len);
+        /* dump the page buf */
+        rc = dump_page_buf(page_buf, sizeof(page_buf));
         page_buf_len = 0;
     }
 
-    return rc;
+    page_buf[page_buf_len++] = packet.type;
+    page_buf[page_buf_len++] = packet.id;
+    page_buf[page_buf_len++] = packet.len;
+
+    for (i = 0; i < packet.len; i++) {
+        page_buf[page_buf_len++] = packet.data[i];
+    }
+
+    printf_P(PSTR("pg bf %u\n"), page_buf_len);
+
+    return 0;
 }
 
 void can_tophalf(void)
@@ -176,13 +215,10 @@ void can_tophalf(void)
     /* we're in interrupt context! */
     uint8_t rc;
 
-    return;
-
     /* don't log transfer chunks */
     if (packet.type == TYPE_xfer_chunk)
         return;
 
-    puts_P(PSTR("got pkg"));
     rc = log_packet();
 
     if (rc) {
@@ -195,7 +231,7 @@ void dcim_read(void)
     uint8_t rc;
     uint16_t rd;
     char buf[strlen("/DCIM/113CANON/IMG_1954.JPG") + 5];
-    uint8_t i;
+    uint8_t *ptr;
 
     /* /DCIM/[xxx]CANON/IMG_[yyyy].ZZZ */
 
@@ -213,19 +249,24 @@ void dcim_read(void)
     dcim = (volatile struct can_dcim *)&packet.data;
     dcim->ext[3] = '\0';
 
-    snprintf(buf, sizeof(buf), "/DCIM/%03uCANON/IMG_%04u.%c%c%c",
+    snprintf_P(buf, sizeof(buf), PSTR("/DCIM/%03uCANON/IMG_%04u.%c%c%c"),
             dcim->dir, dcim->dscf,
             dcim->ext[0], dcim->ext[1], dcim->ext[2]);
 
     rc = pf_open(buf);
-    printf_P(PSTR("opn %s %d\n"), buf, rc);
+    printf_P(PSTR("opn %s %u\n"), buf, rc);
     if (rc) {
         mcp2515_send(TYPE_file_error, ID_sd, buf, 8);
         return;
     }
 
-    rc = mcp2515_xfer(TYPE_dcim_header, ID_sd, &(fs.fsize), sizeof(fs.fsize));
-    printf_P(PSTR("xf %d\n"), rc);
+    ptr = (uint8_t *)&packet.data;
+    rc = mcp2515_xfer(TYPE_dcim_header, packet.id, ptr, packet.len);
+    if (rc)
+        return;
+
+    rc = mcp2515_xfer(TYPE_dcim_len, ID_sd, &(fs.fsize), sizeof(fs.fsize));
+    printf_P(PSTR("xf %u\n"), rc);
     if (rc) {
         //puts_P(PSTR("xfer failed"));
         return;
@@ -234,7 +275,7 @@ void dcim_read(void)
     _delay_ms(200);
 
     rd = 1;
-    while (rd != 0){
+    while (rd != 0) {
         rc = pf_read(buf, 8, &rd);
         if (rc) {
             puts_P(PSTR("read er"));
@@ -243,7 +284,7 @@ void dcim_read(void)
         }
 
         rc = mcp2515_xfer(TYPE_xfer_chunk, ID_sd, buf, rd);
-        printf_P(PSTR("xf %d\n"), rc);
+        printf_P(PSTR("xf %u\n"), rc);
         if (rc) {
             //puts_P(PSTR("xfer failed"));
             break;
@@ -266,25 +307,21 @@ void file_read(void)
     buf[packet.len] = '\0';
 
     rc = pf_open(buf);
-    printf_P(PSTR("open %s %d\n"), buf, rc);
+    printf_P(PSTR("open %s %u\n"), buf, rc);
     if (rc) {
         mcp2515_send(TYPE_file_error, ID_sd, buf, strlen(buf));
         return;
     }
 
-    /*
-    rc = mcp2515_xfer(TYPE_file_header, ID_sd, &(fs.fsize), sizeof(fs.fsize));
-    printf_P(PSTR("xf %d\n"), rc);
+    rc = mcp2515_xfer(TYPE_file_header, ID_sd, buf, packet.len);
+    printf_P(PSTR("header %u\n"), rc);
     if (rc) {
         //puts_P(PSTR("xfer failed"));
         return;
     }
 
-    _delay_ms(200);
-    */
-
     rd = 1;
-    while (rd != 0){
+    while (rd != 0) {
         rc = pf_read(buf, 8, &rd);
         if (rc) {
             puts_P(PSTR("read er"));
@@ -293,7 +330,7 @@ void file_read(void)
         }
 
         rc = mcp2515_xfer(TYPE_xfer_chunk, ID_sd, buf, rd);
-        printf_P(PSTR("xf %d\n"), rc);
+        printf_P(PSTR("xf %u\n"), rc);
         if (rc) {
             //puts_P(PSTR("xfer failed"));
             break;
@@ -307,12 +344,19 @@ uint8_t uart_irq(void)
 {
     char buf[512];
     uint8_t rc;
-    uint16_t i;
     
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
 
-    if (strcmp_P(buf, PSTR("sd read")) == 0) {
+    if (buf[0] == 'f' && buf[1] == '\0') {
+        printf_P(PSTR("%u/%u\n"), free_ram(), stack_space());
+    } else if (buf[0] == 'e' && buf[1] == '\0') {
+        cli();
+        empty();
+        sei();
+    } else if (buf[0] == '?' && buf[1] == '\0') {
+        printf_P(PSTR("wtf %x %x\n"), PCICR, PCMSK0);
+    } else if (buf[0] == 's' && buf[1] == 'd' && buf[2] == '\0') {
         packet.data[0] = 't';
         packet.data[1] = 'm';
         packet.data[2] = 'p';
@@ -327,10 +371,10 @@ uint8_t uart_irq(void)
         dcim->ext[2] = 'G';
         packet.len = 2 + 2 + 3;
         dcim_read();
-    } else if (strcmp_P(buf, PSTR("tree")) == 0) {
-        uint8_t dest = 0x03;
+    } else if (buf[0] == 't' && buf[1] == '\0') {
+        uint8_t dest = ID_any;
         rc = tree(dest);
-        printf_P(PSTR("tree %d\n"), rc);
+        printf_P(PSTR("tree %u\n"), rc);
     }
 
     PROMPT;
@@ -352,12 +396,12 @@ uint8_t fat_init(void)
     sd_init();
 
     rc = disk_initialize();
-    printf_P(PSTR("dsk %d\n"), rc);
+    printf_P(PSTR("dsk %u\n"), rc);
     if (rc)
         return rc;
 
     rc = pf_mount();
-    printf_P(PSTR("fs %d\n"), rc);
+    printf_P(PSTR("fs %u\n"), rc);
     if (rc)
         return rc;
 
@@ -377,6 +421,9 @@ uint8_t can_irq(void)
     case TYPE_dcim_read:
         dcim_read();
         break;
+    case TYPE_file_tree:
+        tree(ID_sd);
+        break;
     case TYPE_file_write:
         break;
     }
@@ -384,220 +431,85 @@ uint8_t can_irq(void)
     return 0;
 }
 
-uint8_t write_file_cb(void)
+uint8_t tree_send_entry(const char *buf)
 {
-    uint8_t i;
+    uint8_t i = strlen(buf);
+    uint8_t chunksize;
     uint8_t rc;
-    uint16_t wrote;
-    static uint8_t page_buf[512];
-    static uint16_t page_buf_len = 0;
 
-    struct mcp2515_packet_t p = packet;
+    while (i > 0) {
+        if (i > 8)
+            chunksize = 8;
+        else
+            chunksize = i;
 
-    return 0;
+        rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, buf, chunksize);
+        if (rc)
+            return 3;
 
-    cli();
-    if ((page_buf_len + packet.len) > sizeof(page_buf)
-        || p.len < 8) {
-        /* dump the page buf */
-
-        printf_P(PSTR("dmp %lu\n"), tmp_write_pos);
-
-        rc = pf_open("TMP");
-        if (rc) {
-            rc = 1;
-            puts_P(PSTR("TMP er"));
-            goto err;
-        }
-
-        //printf_P(PSTR("seek %lu\n"), tmp_write_pos);
-        rc = pf_lseek(tmp_write_pos);
-        if (rc) {
-            rc = 2;
-            puts_P(PSTR("sek er"));
-            goto err;
-        }
-
-        rc = pf_write(page_buf, page_buf_len, &wrote);
-        printf_P(PSTR("t wr %d = %u\n"), page_buf_len, wrote);
-        if (rc || wrote < page_buf_len) {
-            rc = 3;
-            printf_P(PSTR("tmp wr er\n"));
-            goto err;
-        }
-
-        if (p.len == 8) {
-            uint8_t page_free = sizeof(page_buf) - page_buf_len;
-
-            for (i = 0; i < packet.len; i++) {
-                if (i < page_free) {
-                    rc = pf_write(&p.data[i], 1, &wrote);
-                    if (rc || wrote < 1) {
-                        printf_P(PSTR("wr 1 er\n"));
-                        rc = 4;
-                        goto err;
-                    }
-                } else {
-                    page_buf[i - page_free] = p.data[i];
-                }
-            }
-
-            page_buf_len = packet.len - page_free;
-            tmp_write_pos += sizeof(page_buf);
-        } else {
-            rc = pf_write(p.data, p.len, &wrote);
-            if (rc || wrote < p.len) {
-                printf_P(PSTR("wr fi er\n"));
-                rc = 4;
-                goto err;
-            }
-            page_buf_len = 0;
-            tmp_write_pos = 0;
-        }
-
-        rc = pf_write(NULL, 0, &wrote);
-        if (rc) {
-            rc = 3;
-            printf_P(PSTR("tmp wr fini er\n"));
-            goto err;
-        }
-    } else {
-        for (i = 0; i < p.len; i++) {
-            page_buf[page_buf_len++] = p.data[i];
-        }
+        buf += chunksize;
+        i -= chunksize;
     }
-    sei();
-    return 0;
 
-err:
-    sei();
-    return rc;
+    return 0;
 }
 
-uint8_t write_file(uint8_t sender_id, uint32_t offset)
+uint8_t tree_send_path(const char *path)
 {
-    tmp_write_pos = offset;
+    FILINFO fno;
+    uint8_t rc;
+    DIR dir;
+    char buf[32];
 
-#if 0
-    rc = mcp2515_receive_xfer_wait(TYPE_file_contents, sender_id, write_file_cb);
-    if (rc) {
-        mcp2515_send(TYPE_file_error, MY_ID, &rc, sizeof(rc));
-        printf_P(PSTR("rx_xf_wt er\n"));
+    printf_P(PSTR("path %s\n"), path);
+
+    rc = pf_opendir(&dir, path);
+    if (rc)
         return rc;
-    }
-#endif
 
-    return 0;
-}
-
-uint8_t cat(uint8_t dest, const char *filename)
-{
-    uint8_t rc;
-    uint8_t done = 0;
-    char buf[64];
-    uint16_t buflen;
-
-
-    strcpy(buf, "/");
-    strcat(buf, filename);
-
-    rc = pf_open((const char *)filename);
-    if (rc) {
-        printf_P(PSTR("open er: %d\n"), rc);
-        return 1;
-    }
-
-    while (!done) {
-        rc = pf_read(buf, 8, &buflen);
+    for (;;) {
+        rc = pf_readdir(&dir, &fno);
         if (rc) {
-            printf_P(PSTR("read er: %d\n"), rc);
+            printf_P(PSTR("dir %u\n"), rc);
             return 2;
         }
 
-        printf_P(PSTR("readb %d\n"), buflen);
-
-        //rc = mcp2515_xfer(TYPE_file_contents, dest, buf, (uint8_t)buflen);
-        if (rc) {
-            printf_P(PSTR("xf er %d\n"), rc);
-            return 3;
+        if (!fno.fname[0]) {
+            printf("no fname\n");
+            break;
         }
 
-        if (buflen < 8)
-            done = 1;
+        if (fno.fattrib & AM_DIR) {
+            snprintf_P(buf, sizeof(buf), PSTR("%s/\n"), fno.fname);
+            tree_send_entry(buf);
+
+            snprintf_P(buf, sizeof(buf), PSTR("%s/%s"), path, fno.fname);
+
+            rc = tree_send_path(buf);
+            if (rc)
+                return rc;
+
+            mcp2515_send(TYPE_xfer_chunk, MY_ID, "\n", 1);
+        } else {
+            rc = snprintf_P(buf, sizeof(buf), PSTR("%s [%ld]\n"), fno.fname, fno.fsize);
+            tree_send_entry(buf);
+        }
     }
 
     return 0;
 }
+
 
 uint8_t tree(uint8_t dest)
 {
     uint8_t rc;
-    FILINFO fno;
-    uint8_t buf[64];
-    uint8_t buflen = 0;
-    uint8_t done = 0;
-    DIR dir;
 
-    rc = pf_opendir(&dir, "/");
-    if (rc)
-        return rc;
+    rc = tree_send_path("");
 
-    while (!done) {
-        while (buflen < 8) {
-            rc = pf_readdir(&dir, &fno);
-            if (rc) {
-                printf_P(PSTR("dir %d\n"), rc);
-                return 2;
-            }
-
-            if (!fno.fname[0]) {
-                done = 1;
-                break;
-            }
-
-            memcpy(buf + buflen, fno.fname, strlen(fno.fname));
-            buflen += strlen(fno.fname);
-            printf_P(PSTR("file %s\n"), fno.fname);
-            if (fno.fattrib & AM_DIR) {
-                buf[buflen++] = '/';
-                putchar('/');
-            } else {
-                rc = snprintf_P((char *)buf + buflen, sizeof(buf) - buflen, PSTR(" [%ld]"), fno.fsize);
-                buflen += rc;
-                printf_P(PSTR(" [%ld]"), fno.fsize);
-            }
-            buf[buflen++] = '\n';
-            putchar('\n');
-        }
-
-        buf[buflen] = '\0';
-
-        printf_P(PSTR("done w '%s'\n"), buf);
-
-        if (buflen == 0) {
-            break;
-        }
-
-        uint8_t *ptr = buf;
-        while (buflen >= 8) {
-            rc = mcp2515_xfer(TYPE_file_tree, dest, ptr, 8);
-            if (rc) {
-                printf_P(PSTR("xfer fail %d\n"), rc);
-                return 3;
-            }
-            ptr += 8;
-            buflen -= 8;
-        }
-
-        printf_P(PSTR("done snd\n"));
-
-        memmove(buf, ptr, buflen);
-    }
-
-    printf_P(PSTR("send last cnk\n"));
-    rc = mcp2515_xfer(TYPE_file_tree, dest, buf, buflen);
+    puts_P(PSTR("snd lst cnk"));
+    rc = mcp2515_xfer(TYPE_xfer_chunk, dest, NULL, 0);
     if (rc) {
-        printf_P(PSTR("xfer failed\n"));
+        puts_P(PSTR("xf fl"));
         return 4;
     }
 
@@ -627,12 +539,14 @@ void main(void)
     sei();
 
     if (cur_log == LOG_INVALID) {
-        /* the heck */
-        printf_P(PSTR("file err\n"));
-        mcp2515_send(TYPE_file_error, ID_sd, &rc, sizeof(rc));
+        /* disk full? */
+        puts_P(PSTR("fle err"));
+        mcp2515_send(TYPE_disk_full, ID_sd, &rc, sizeof(rc));
+        /*
         _delay_ms(1000);
         cli();
         goto reinit;
+        */
     }
 
     NODE_MAIN();
