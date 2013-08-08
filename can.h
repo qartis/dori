@@ -19,6 +19,7 @@
     X(file_header, 0x16) \
     X(disk_full, 0x17) \
     X(dcim_len, 0x18) \
+    X(file_offer, 0x19) \
 \
     X(sensor_error, 0x1a) \
     X(file_checksum, 0x1b) \
