@@ -16,6 +16,9 @@
     X(file_tree, 0x13) \
     X(dcim_read, 0x14) \
     X(dcim_header, 0x15) \
+    X(file_header, 0x16) \
+    X(disk_full, 0x17) \
+    X(dcim_len, 0x18) \
 \
     X(sensor_error, 0x1a) \
     X(file_checksum, 0x1b) \
