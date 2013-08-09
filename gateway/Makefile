@@ -4,9 +4,9 @@ CFLAGS=-g -Wall -Wextra $(foreach DIR,$(INCDIRS), -I$(DIR)) -Wno-override-init
 LDFLAGS=-lsqlite3
 SRCDIR=./src
 
-all: gateway.o
+all: gateway
 
-gateway.o: $(SRCDIR)/gateway.c
+gateway: $(SRCDIR)/gateway.c
 	$(CC) $(CFLAGS)  $(SRCDIR)/gateway.c -o gateway $(LDFLAGS)
 	sudo chown root:root gateway
 	sudo chmod +s gateway

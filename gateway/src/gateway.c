@@ -26,7 +26,6 @@
 
 #define LOGFILE_SIZE 100
 
-static int file_number;
 FILE *incoming_file;
 
 sqlite3 *db;
@@ -206,13 +205,15 @@ void process_dori_bytes(char *buf, int len)
         uint8_t type = doribuf[CAN_TYPE_IDX];
         uint8_t id = doribuf[CAN_ID_IDX];
 
+        unsigned char *data = doribuf + CAN_HEADER_LEN;
+
         printf("Dori sent Frame: %s [%02x] %s [%02x] %d [", type_names[type], type,
                id_names[id], id, data_len);
 
         int i;
 
         for (i = 0; i < data_len; i++) {
-            printf(" %02x ", doribuf[CAN_HEADER_LEN + i]);
+            printf(" %02x ", data[i]);
         }
 
         printf("]\n");
@@ -220,17 +221,40 @@ void process_dori_bytes(char *buf, int len)
         switch (type) {
         case TYPE_file_header:
             {
-                char filename[256];
-                memcpy(filename, doribuf + CAN_HEADER_LEN, data_len);
+                char filename[9];
+                memcpy(filename, data, data_len);
                 filename[data_len] = '\0';
-                incoming_file = fopen(filename, "w");
+
+                if(incoming_file) {
+                    fclose(incoming_file);
+                }
+
+                char file_path[128];
+                sprintf(file_path, "files/%s", filename);
+                incoming_file = fopen(file_path, "w");
                 break;
             }
         case TYPE_dcim_header:
             {
-                char filename[256];
-                sprintf(filename, "img_%d.jpg", file_number++);
-                incoming_file = fopen(filename, "w");
+                uint16_t folder = data[0] | (data[1] << 8);
+                uint16_t file = data[2] | (data[3] << 8);
+
+                int i;
+                char extension[9];
+                // Read the remaining data bytes
+                for(i = 0; i < len - 4; i++) {
+                    extension[i] = data[4 + i];
+                }
+                extension[i] = '\0';
+
+                char file_path[128];
+                sprintf(file_path, "DCIM/%dCANON/IMG_%d.%s", folder, file, extension);
+
+                if(incoming_file) {
+                    fclose(incoming_file);
+                }
+
+                incoming_file = fopen(file_path, "w");
                 break;
             }
         case TYPE_xfer_chunk:
@@ -258,50 +282,11 @@ void process_dori_bytes(char *buf, int len)
     }
 }
 
-void process_file_transfer_request(void *data, char *args[])
-{
-    (void)data;
-    int node_index = 0;
-    int filename_index = 1;
-    printf("Requesting file '%s' from node '%s'\n", args[filename_index],
-           args[node_index]);
-
-    char filename_len[128];
-
-    sprintf(filename_len, "%d", (int)strlen(args[filename_index]));
-
-    if (active_dori_client) {
-        write(active_dori_client->fd, filename_len, strlen(filename_len));
-        write(active_dori_client->fd, args[filename_index],
-              strlen(args[filename_index]));
-    }
-}
-
-
-void process_dcim_transfer_request(void *data, char *args[])
-{
-    (void)data;
-    int filename_index = 1;
-
-    char filename_len[128];
-
-    // [dcim_read] [sd] [data len] [71 00 D2 04 JPG]
-    // temporarily hardcoded
-    sprintf(filename_len, "%d", (int)strlen(args[filename_index]));
-    unsigned char tmp[] = { TYPE_dcim_read, ID_sd, 0x07, 0x71, 0x00, 0xD2, 0x04, 'J', 'P', 'G' };
-
-    if (active_dori_client) {
-        printf("sending DCIM request\n");
-        write(active_dori_client->fd, tmp, 10);
-    }
-}
-
 void process_shell_bytes(char *buf, int len)
 {
     memcpy(&shellbuf[shellbuf_len], buf, len);
     shellbuf_len += len;
 
-    printf("shellbuf_len: %d\n", shellbuf_len);
     // if the command that shell sends is unrecognized
     // we'll parse it as a CAN command
     if (shellbuf_len < CAN_HEADER_LEN) {
@@ -309,8 +294,6 @@ void process_shell_bytes(char *buf, int len)
     }
     // Extract the payload size from the CAN header
     uint8_t data_len = shellbuf[CAN_LEN_IDX];
-
-    printf("data_len: %d\n", data_len);
 
     // Break out if we don't have a full packet yet
     if (shellbuf_len < CAN_HEADER_LEN + data_len) {
