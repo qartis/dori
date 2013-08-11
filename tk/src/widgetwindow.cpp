@@ -41,6 +41,7 @@
 #include "colorchooser.h"
 #include "toolbar.h"
 #include "siteeditor.h"
+#include "siteeditorwindow.h"
 #include "viewport.h"
 #include "widgetwindow.h"
 #include "mainwindow.h"
@@ -89,7 +90,7 @@ static void spawnSiteEditor(Fl_Widget *widget, void *data) {
     (void)data;
     //WidgetWindow *window = (WidgetWindow*)data;
 
-    SiteEditor *siteEditor = new SiteEditor(0, 0, 700, 700, NULL);
+    SiteEditorWindow *siteEditor = new SiteEditorWindow(0, 0, 700, 700, NULL);
     //siteEditor->user_data(&window->table->rowdata);
 
     siteEditor->show();

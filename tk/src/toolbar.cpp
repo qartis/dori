@@ -1,7 +1,7 @@
 #include <FL/Fl.H>
-#include <FL/Fl_Window.H>
+#include <FL/Fl_Group.H>
 #include <FL/Fl_Button.H>
-#include <FL/Fl_Pixmap.H>
+#include <FL/fl_draw.H>
 #include <FL/Fl_Color_Chooser.H>
 #include <string>
 #include <sstream>
@@ -146,9 +146,8 @@ static void button_cb(Fl_Widget *widget, void *data) {
     }
 }
 
-Toolbar::Toolbar(int x, int y, int w, int h, const char *label) :
-  Fl_Window(x, y, w, h, label), lineButton(NULL), rectButton(NULL), circleButton(NULL), colorChooser(NULL), curSelectedObjType(UNDEFINED) {
-    lineButton = new Fl_Button(0, 0, w / 3, h / 3);
+Toolbar::Toolbar(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), lineButton(NULL), rectButton(NULL), circleButton(NULL), colorChooser(NULL), curSelectedObjType(UNDEFINED) {
+    lineButton = new Fl_Button(0, 0, w / 3, h / 4);
     lineButton->image(line_pixmap);
     lineButton->type(FL_RADIO_BUTTON);
     lineButton->callback(button_cb, this);
@@ -175,31 +174,15 @@ Toolbar::Toolbar(int x, int y, int w, int h, const char *label) :
     end();
 }
 
+void Toolbar::clearSelectedObjectType() {
+    curSelectedObjType = UNDEFINED;
+    lineButton->value(0);
+    rectButton->value(0);
+    circleButton->value(0);
+    polyButton->value(0);
+    circleButton->value(0);
+}
+
 int Toolbar::handle(int event) {
-    switch(event) {
-    case FL_KEYDOWN: {
-        int key = Fl::event_key();
-        if(key == (FL_F + 1)) {
-            if(!shown()) {
-                show();
-            }
-            else {
-                hide();
-            }
-            return 1;
-        }
-        else if(key == FL_Escape) {
-            curSelectedObjType = UNDEFINED;
-            lineButton->value(0);
-            rectButton->value(0);
-            circleButton->value(0);
-            return 1;
-        }
-        else {
-            return Fl_Window::handle(event);
-        }
-    }
-    default:
-        return Fl_Window::handle(event);
-    }
+    return Fl_Window::handle(event);
 }

@@ -1,7 +1,7 @@
 #include <FL/Fl.H>
 #include <FL/fl_draw.H>
 #include <FL/Fl_Double_Window.H>
-#include <FL/Fl_Widget.H>
+#include <FL/Fl_Window.H>
 #include <FL/Fl_Color_Chooser.H>
 #include <FL/gl.h>
 #include <math.h>
@@ -23,7 +23,7 @@
 #include <unistd.h>
 
 #define CUSTOM_FONT 69
-#define SELECTION_DISTANCE_PIXELS 20
+#define SELECTION_DISTANCE_PIXELS 13
 #define CELLS_PER_METER 4.0
 #define MIN_PIXELS_PER_CELL 16
 #define MAX_PIXELS_PER_CELL 320
@@ -94,7 +94,7 @@ int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
     return 0;
 }
 
-static void setColorCallback(void *data, float r, float g, float b) {
+void SiteEditor::setColorCallback(void *data, float r, float g, float b) {
     SiteEditor *siteeditor = (SiteEditor*)data;
 
     siteeditor->beginDatabaseTransaction();
@@ -119,26 +119,14 @@ static void setColorCallback(void *data, float r, float g, float b) {
     siteeditor->endDatabaseTransaction();
 }
 
-static void clickedObjTypeCallback(void *data) {
+void SiteEditor::clickedObjTypeCallback(void *data) {
     SiteEditor *siteeditor = (SiteEditor*)data;
     siteeditor->clearSelectedObjects();
-    siteeditor->setCurState(SiteEditor::WAITING);
+    siteeditor->curState = SiteEditor::WAITING;
 }
 
 SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxWindowWidth(w), maxWindowLength(h), panStartWorldX(0), panStartWorldY(0), showArcs(false), showGrid(true), curWorldDistance(0.0), arrowScreenX(-1), arrowScreenY(-1) {
     Fl::set_font(CUSTOM_FONT, "OCRB");
-    end();
-    toolbar = new Toolbar(x + w, y, 200, 200);
-
-    toolbar->colorChooser->user_data(this);
-    toolbar->colorChooser->setColorCallback = setColorCallback;
-
-    toolbar->user_data(this);
-    toolbar->clickedObjTypeCallback = clickedObjTypeCallback;
-
-    toolbar->show();
-
-
     loadSiteObjects("data/siteobjects.db");
 
     siteMeterExtents = SITE_METER_EXTENTS * 2; // 80m in all directions
@@ -151,6 +139,7 @@ SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Doubl
     numArcs = SITE_METER_EXTENTS;
 
     panToWorldCenter();
+    end();
 }
 
 SiteEditor::~SiteEditor() {
@@ -163,14 +152,14 @@ SiteEditor::~SiteEditor() {
 
 
 /*
-float SiteEditor::getAbsoluteWorldMouseX() {
-    worldPanX + screenToWorld(mouseX);
-}
+   float SiteEditor::getAbsoluteWorldMouseX() {
+   worldPanX + screenToWorld(mouseX);
+   }
 
-float SiteEditor::getAbsoluteWorldMouseY() {
-    worldPanY + screenToWorld(mouseY);
-}
-*/
+   float SiteEditor::getAbsoluteWorldMouseY() {
+   worldPanY + screenToWorld(mouseY);
+   }
+   */
 
 void SiteEditor::panToWorldCenter() {
     worldPanX = (siteMeterExtents / 2.0) - (screenToWorld(w()) / 2.0);
@@ -195,7 +184,7 @@ SiteObject* SiteEditor::findClosestObject(int mouseX, int mouseY, int maxDistanc
     float mouseOffsetY = (siteMeterExtents / 2.0) - mouseWorldY;
 
     for(unsigned i = 0; i < dataset.size(); i++) {
-       // distance of site object to center of site (in world coords)
+        // distance of site object to center of site (in world coords)
         float worldOffsetCenterX = dataset[i]->getWorldOffsetCenterX();
         float worldOffsetCenterY = dataset[i]->getWorldOffsetCenterY();
 
@@ -278,7 +267,6 @@ void SiteEditor::loadSiteObjects(const char * db_name) {
 }
 
 void SiteEditor::createNewObject(SiteObjectType type, float mouseWorldX, float mouseWorldY) {
-
     float mouseDistX = mouseWorldX - (siteMeterExtents / 2.0);
     float mouseDistY = (siteMeterExtents / 2.0) - mouseWorldY;
 
@@ -378,11 +366,13 @@ void SiteEditor::processNewSiteObject() {
     sqlite_int64 rowid = sqlite3_last_insert_rowid(db);
     newSiteObject->id = rowid;
     siteObjects.push_back(newSiteObject);
+    newSiteObject = NULL;
 }
 
 void SiteEditor::resize(int X, int Y, int W, int H) {
     Fl_Window::resize(X, Y, W, H);
     enforceSiteBounds();
+    calcArcInfo();
 }
 
 inline float SiteEditor::screenCenterWorldX() {
@@ -411,8 +401,11 @@ void SiteEditor::enforceSiteBounds() {
 }
 
 int SiteEditor::handle(int event) {
-    curMouseX = (Fl::event_x_root() - x());
-    curMouseY = (Fl::event_y_root() - y());
+    // only update the mouse position if we have focus
+    if(Fl::belowmouse() == this) {
+        curMouseX = Fl::event_x();
+        curMouseY = Fl::event_y();
+    }
 
     float centerX = screenCenterWorldX();
     float centerY = screenCenterWorldY();
@@ -420,335 +413,215 @@ int SiteEditor::handle(int event) {
     float doriX = (siteMeterExtents / 2.0);
     float doriY = (siteMeterExtents / 2.0);
 
-    if(Fl::event_button()) {
-        if(Fl::event_button() == FL_LEFT_MOUSE) {
-            if(event == FL_PUSH) {
-                clickedMouseX = curMouseX;
-                clickedMouseY = curMouseY;
+    if(event == FL_MOVE || event == FL_DRAG) {
+        handleMouseMovement(curMouseX, curMouseY);
+    }
 
-                if(toolbar->curSelectedObjType == UNDEFINED) {
-                    SiteObject* curSelectedObject = findClosestObject(curMouseX, curMouseY, SELECTION_DISTANCE_PIXELS, siteObjects);
-                    if(curSelectedObject == NULL) {
-                        clearSelectedObjects();
-                        curState = SELECTING;
-                    }
-                    else {
-                        // Check if the currently selected object is already in the list of selected objects
-                        // If it isn't, then this should be a new selection, so clear out the list */
-                        if(!isObjectSelected(curSelectedObject)) {
-                            clearSelectedObjects();
-                            selectedObjects.push_back(curSelectedObject);
-                            curSelectedObject->select();
-                            curState = SELECTED;
-                            redraw();
-                        }
-                    }
-                    return 1;
-                }
-                else {
-                    // if cur selected object is not undefined
-                    // either we're starting a drawing, finishing a drawing
-                    // or adding to a polygon drawing
-
-                    // Starting to draw a site object
-                    if(curState == WAITING) {
-                        float curMouseWorldX = worldPanX + screenToWorld(curMouseX);
-                        float curMouseWorldY = worldPanY + screenToWorld(curMouseY);
-
-                        createNewObject(toolbar->curSelectedObjType, curMouseWorldX, curMouseWorldY);
-                        curState = DRAWING;
-                    }
-                    else if(curState == DRAWING) {
-                        // Confirm the size of the site object
-                        newSiteObject->confirm();
-
-                        // reset to WAITING state if we're not drawing a poly object
-                        if(toolbar->curSelectedObjType != POLY) {
-                            // add the new (not POLY type) site object to the database and list of site objects
-                            processNewSiteObject();
-                            newSiteObject = NULL;
-                            curState = WAITING;
-                            newSiteObject = NULL;
-                        }
-                    }
-                    redraw();
-                    return 1;
-                }
-            }
-            else if(event == FL_DRAG) {
-                // Move all selected objects
-                if(curState == SELECTED) {
-                    int mouseDistX = curMouseX - clickedMouseX;
-                    int mouseDistY = clickedMouseY - curMouseY;
-
-                    for(unsigned i = 0; i < selectedObjects.size(); i++) {
-                        float mouseWorldDistX = screenToWorld(mouseDistX);
-                        float mouseWorldDistY = screenToWorld(mouseDistY);
-
-                        selectedObjects[i]->updateWorldOffsetCenterX(mouseWorldDistX);
-                        selectedObjects[i]->updateWorldOffsetCenterY(mouseWorldDistY);
-
-                        clickedMouseX = curMouseX;
-                        clickedMouseY = curMouseY;
-                    }
-
-                    redraw();
-                    return 1;
-                }
-                else if(curState != DRAWING) {
-                    // so we must be drawing a selection box
-                    curState = SELECTING;
-                    redraw();
-                    return 1;
-                }
-            }
-            else if(event == FL_RELEASE) {
-                if(curState == SELECTED) {
-                    commitSelectedObjectsToDatabase();
-                    redraw();
-                    return 1;
-                }
-                // done drawing the selection box
-                else if(curState == SELECTING) {
-                    findObjectsInBoundingBox(clickedMouseX, clickedMouseY, curMouseX, curMouseY, siteObjects, selectedObjects);
-                    if(selectedObjects.size() > 0) {
-                        curState = SELECTED;
-                    }
-                    else {
-                        curState = WAITING;
-                    }
-                    redraw();
-                    return 1;
-                }
-            }
+    if(Fl::belowmouse() == this &&
+       Fl::event_button() == FL_LEFT_MOUSE) {
+        if(handleLeftMouse(event, curMouseX, curMouseY, clickedMouseX, clickedMouseY)) {
+            return 1;
         }
-        else if(Fl::event_button() == FL_RIGHT_MOUSE || Fl::event_button() == FL_MIDDLE_MOUSE) {
-            if(event == FL_PUSH) {
-                panStartWorldX = screenToWorld(curMouseX);
-                panStartWorldY = screenToWorld(curMouseY);
+    }
+
+    if(Fl::event_button() == FL_RIGHT_MOUSE || Fl::event_button() == FL_MIDDLE_MOUSE) {
+        if(event == FL_PUSH) {
+            panStartWorldX = screenToWorld(curMouseX);
+            panStartWorldY = screenToWorld(curMouseY);
+            return 1;
+        }
+        else if(event == FL_DRAG) {
+            handlePan();
+
+            calcArrowScreenPosition(centerX,
+                                    centerY,
+                                    doriX,
+                                    doriY,
+                                    arrowScreenX,
+                                    arrowScreenY);
+
+            arrowAngleDegrees = calcArrowAngleDegrees(arrowScreenX,
+                                                      arrowScreenY,
+                                                      centerX,
+                                                      centerY,
+                                                      doriX,
+                                                      doriY);
+
+            redraw();
+            return 1;
+        }
+    }
+    else if(event == FL_MOUSEWHEEL) {
+        if(handleMouseWheel(centerX,
+                         centerY,
+                         doriX,
+                         doriY,
+                         arrowScreenX,
+                         arrowScreenY))
+        {
+            return 1;
+        }
+
+    }
+
+    // FL_SHORTCUT is used to sent keyboard events
+    // to widgets that don't have focus
+    if(event == FL_KEYDOWN || event == FL_SHORTCUT) {
+        int key = Fl::event_key();
+        if(handleKeyPress(key, centerX, centerY, doriX, doriY)) {
+            return 1;
+        }
+    }
+
+    return Fl_Double_Window::handle(event);
+}
+
+int SiteEditor::handleLeftMouse(int event,
+                                int curMouseX,
+                                int curMouseY,
+                                int& clickedMouseX,
+                                int& clickedMouseY)
+{
+    if(event == FL_PUSH) {
+        clickedMouseX = curMouseX;
+        clickedMouseY = curMouseY;
+
+        if(toolbar->curSelectedObjType == UNDEFINED) {
+            SiteObject* curSelectedObject = findClosestObject(curMouseX, curMouseY, SELECTION_DISTANCE_PIXELS, siteObjects);
+            if(curSelectedObject == NULL) {
+                clearSelectedObjects();
+                curState = SELECTING;
+                redraw();
             }
-            else if(event == FL_DRAG) {
-                handlePan();
+            else {
+                // Check if the currently selected object is already in the list of selected objects
+                // If it isn't, then this should be a new selection, so clear out the list */
+                if(!isObjectSelected(curSelectedObject)) {
+                    clearSelectedObjects();
+                    selectedObjects.push_back(curSelectedObject);
+                    curSelectedObject->select();
+                    curState = SELECTED;
+                    redraw();
+                }
+            }
 
-                calculateArrowScreenPosition(centerX,
-                                             centerY,
-                                             doriX,
-                                             doriY,
-                                             arrowScreenX,
-                                             arrowScreenY);
+            return 1;
+        }
+        else {
+            // if cur selected object is not undefined
+            // either we're starting a drawing, finishing a drawing
+            // or adding to a polygon drawing
 
-                arrowAngleDegrees = calculateArrowAngleDegrees(arrowScreenX,
-                                                               arrowScreenY,
-                                                               centerX,
-                                                               centerY,
-                                                               doriX,
-                                                               doriY);
+            // Starting to draw a site object
+            if(curState == WAITING) {
+                float curMouseWorldX = worldPanX + screenToWorld(curMouseX);
+                float curMouseWorldY = worldPanY + screenToWorld(curMouseY);
+
+                createNewObject(toolbar->curSelectedObjType, curMouseWorldX, curMouseWorldY);
+                curState = DRAWING;
+
+                redraw();
+                return 1;
+            }
+            else if(curState == DRAWING) {
+                // Finishing or adding to a drawing
+
+                // 'Confirm' the object
+                // For non poly objects, this will set the size of the object
+                // For poly, this will add the current mouse position to the list of points
+                newSiteObject->confirm();
+
+                // reset to WAITING state if we're not drawing a poly object
+                if(toolbar->curSelectedObjType != POLY) {
+                    // add the new (not POLY type) site object to the database and list of site objects
+                    processNewSiteObject();
+                    curState = WAITING;
+                }
 
                 redraw();
                 return 1;
             }
         }
-        else if(event == FL_MOUSEWHEEL) {
-            // add or subtract pixels per cell (perform zooming)
-            // depending on the direction of the mouse scroll
-            float zoomAmount = ZOOM_PIXEL_AMOUNT * Fl::event_dy();
+    }
+    else if(event == FL_DRAG) {
+        // Move all selected objects
+        if(curState == SELECTED) {
+            int mouseDistX = curMouseX - clickedMouseX;
+            int mouseDistY = clickedMouseY - curMouseY;
 
-            // Store the old world center, before zooming
-            // so that after we zoom, we can pan back to our old coordinate,
-            // and simulate zooming into the center of the screen
-            float oldCenterX = screenCenterWorldX();
-            float oldCenterY = screenCenterWorldY();
+            for(unsigned i = 0; i < selectedObjects.size(); i++) {
+                float mouseWorldDistX = screenToWorld(mouseDistX);
+                float mouseWorldDistY = screenToWorld(mouseDistY);
 
-            pixelsPerCell -= zoomAmount;
+                selectedObjects[i]->updateWorldOffsetCenterX(mouseWorldDistX);
+                selectedObjects[i]->updateWorldOffsetCenterY(mouseWorldDistY);
 
-            float newCenterX = screenCenterWorldX();
-            float newCenterY = screenCenterWorldY();
-
-            if(pixelsPerCell < MIN_PIXELS_PER_CELL) {
-                pixelsPerCell = MIN_PIXELS_PER_CELL;
+                clickedMouseX = curMouseX;
+                clickedMouseY = curMouseY;
             }
-            else if(pixelsPerCell > MAX_PIXELS_PER_CELL) {
-                pixelsPerCell = MAX_PIXELS_PER_CELL;
+
+            redraw();
+            return 1;
+        }
+        else if(curState != DRAWING) {
+            // so we must be drawing a selection box
+            curState = SELECTING;
+            redraw();
+            return 1;
+        }
+    }
+    else if(event == FL_RELEASE) {
+        if(curState == SELECTED) {
+            commitSelectedObjectsToDatabase();
+            redraw();
+            return 1;
+        }
+        // done drawing the selection box
+        else if(curState == SELECTING) {
+            findObjectsInBoundingBox(clickedMouseX, clickedMouseY, curMouseX, curMouseY, siteObjects, selectedObjects);
+            if(selectedObjects.size() > 0) {
+                curState = SELECTED;
             }
             else {
-                worldPanX -= newCenterX - oldCenterX;
-                worldPanY -= newCenterY - oldCenterY;
+                curState = WAITING;
             }
-
-            enforceSiteBounds();
-
-            calculateArrowScreenPosition(centerX,
-                                         centerY,
-                                         doriX,
-                                         doriY,
-                                         arrowScreenX,
-                                         arrowScreenY);
-
-            arrowAngleDegrees = calculateArrowAngleDegrees(arrowScreenX,
-                                                           arrowScreenY,
-                                                           centerX,
-                                                           centerY,
-                                                           doriX,
-                                                           doriY);
-
             redraw();
-
             return 1;
         }
     }
 
+    return 0;
+}
 
-    // Redraw the screen to draw the distance line and text
-    if(event == FL_MOVE) {
-        // Get the number of cells it takes to get from the edge of the screen to the mouse
-        // which is (cells per pixel) * mouse pixels
-        float mouseCellsX = (1.0 / pixelsPerCell) * curMouseX;
-        float mouseCellsY = (1.0 / pixelsPerCell) * curMouseY;
+void SiteEditor::handleMouseMovement(int curMouseX, int curMouseY) {
+    // Get the number of cells it takes to get from the edge of the screen to the mouse
+    // which is (cells per pixel) * mouse pixels
+    float mouseCellsX = (1.0 / pixelsPerCell) * curMouseX;
+    float mouseCellsY = (1.0 / pixelsPerCell) * curMouseY;
 
-        // Calculate how many meters it takes to cover this amount of cells
-        // (number of cells) * meters per cell
-        // then add the world pan value to get the absolute world position
-        float worldMouseX = mouseCellsX * (1.0 / CELLS_PER_METER) + worldPanX;
-        float worldMouseY = mouseCellsY * (1.0 / CELLS_PER_METER) + worldPanY;
+    // Calculate how many meters it takes to cover this amount of cells
+    // (number of cells) * meters per cell
+    // then add the world pan value to get the absolute world position
+    float worldMouseX = mouseCellsX * (1.0 / CELLS_PER_METER) + worldPanX;
+    float worldMouseY = mouseCellsY * (1.0 / CELLS_PER_METER) + worldPanY;
 
-        // Subtract the location of the center of the site to get the distance
-        float distX = worldMouseX - (siteMeterExtents / 2.0);
-        float distY = worldMouseY - (siteMeterExtents / 2.0);
+    // Subtract the location of the center of the site to get the distance
+    float distX = worldMouseX - (siteMeterExtents / 2.0);
+    float distY = worldMouseY - (siteMeterExtents / 2.0);
 
-        curWorldDistance = sqrt((distX * distX) + (distY * distY));
+    curWorldDistance = sqrt((distX * distX) + (distY * distY));
 
-        float worldAbsoluteMouseX = worldPanX + screenToWorld(curMouseX);
-        float worldAbsoluteMouseY = worldPanY + screenToWorld(curMouseY);
+    float worldAbsoluteMouseX = worldPanX + screenToWorld(curMouseX);
+    float worldAbsoluteMouseY = worldPanY + screenToWorld(curMouseY);
 
-        float worldAbsoluteClickedX = worldPanX + screenToWorld(clickedMouseX);
-        float worldAbsoluteClickedY = worldPanY + screenToWorld(clickedMouseY);
+    float worldAbsoluteClickedX = worldPanX + screenToWorld(clickedMouseX);
+    float worldAbsoluteClickedY = worldPanY + screenToWorld(clickedMouseY);
 
-        if(newSiteObject && curState == DRAWING) {
-            newSiteObject->updateSize(worldAbsoluteMouseX - worldAbsoluteClickedX, worldAbsoluteClickedY - worldAbsoluteMouseY);
-        }
-
-        redraw();
-        return 1;
+    if(newSiteObject && curState == DRAWING) {
+        newSiteObject->updateSize(worldAbsoluteMouseX - worldAbsoluteClickedX, worldAbsoluteClickedY - worldAbsoluteMouseY);
     }
 
-    if(event == FL_KEYDOWN) {
-        int key = Fl::event_key();
-
-        if(key == FL_Delete && curState == SELECTED) {
-            char query[512];
-            beginDatabaseTransaction();
-
-            // Loop through all selected objects, and remove
-            // all site objects with matching IDs
-            std::vector<SiteObject*>::iterator itSelected = selectedObjects.begin();
-            for(; itSelected != selectedObjects.end(); itSelected++) {
-                sprintf(query, "DELETE FROM objects WHERE rowid = %d;", (*itSelected)->id);
-                sqlite3_exec(db, query, NULL, NULL, NULL);
-
-                std::vector<SiteObject*>::iterator itAllObjects = siteObjects.begin();
-                for(; itAllObjects != siteObjects.end(); itAllObjects++) {
-                    if((*itAllObjects)->id == (*itSelected)->id) {
-                        itAllObjects = siteObjects.erase(itAllObjects);
-                        break;
-                    }
-                }
-            }
-            selectedObjects.clear();
-            curState = WAITING;
-            endDatabaseTransaction();
-            redraw();
-            return 1;
-        }
-        else if(key == (FL_F + 1)) {
-            if(!toolbar->shown()) {
-                toolbar->show();
-            }
-            else {
-                toolbar->hide();
-            }
-
-            return 1;
-        }
-        else if(key == FL_Escape) {
-            if(newSiteObject) {
-                newSiteObject->cancel();
-
-                if(toolbar->curSelectedObjType == POLY)
-                {
-                    if(((PolyObject*)newSiteObject)->numPoints() < 2)
-                    {
-                        delete newSiteObject;
-                        newSiteObject = NULL;
-                    }
-                    else
-                    {
-                        processNewSiteObject();
-                    }
-                }
-            }
-
-            newSiteObject = NULL;
-            clearSelectedObjects();
-            curState = WAITING;
-            toolbar->curSelectedObjType = UNDEFINED;
-
-            //TODO: put this into a function in toolbar()
-            toolbar->lineButton->value(0);
-            toolbar->rectButton->value(0);
-            toolbar->circleButton->value(0);
-            toolbar->polyButton->value(0);
-
-            redraw();
-            return 1;
-        }
-        else if(key == 'a' && Fl::event_ctrl()) {
-            selectAllObjects();
-            curState = SELECTED;
-            toolbar->curSelectedObjType = UNDEFINED;
-            toolbar->curSelectedObjType = UNDEFINED;
-
-            //TODO: put this into a function in toolbar()
-            toolbar->lineButton->value(0);
-            toolbar->rectButton->value(0);
-            toolbar->circleButton->value(0);
-            toolbar->polyButton->value(0);
-            toolbar->circleButton->value(0);
-
-            redraw();
-            return 1;
-        }
-        else if(key == ' ') {
-            // If you press space, reset focus back to center of site
-            panToWorldCenter();
-
-            calculateArrowScreenPosition(centerX,
-                                         centerY,
-                                         doriX,
-                                         doriY,
-                                         arrowScreenX,
-                                         arrowScreenY);
-
-            arrowAngleDegrees = calculateArrowAngleDegrees(arrowScreenX,
-                                                           arrowScreenY,
-                                                           centerX,
-                                                           centerY,
-                                                           doriX,
-                                                           doriY);
-
-            redraw();
-            return 1;
-        }
-        else if(key == 'a') {
-            showArcs = !showArcs;
-            redraw();
-        }
-        else if(key == 'g') {
-            showGrid = !showGrid;
-            redraw();
-        }
-    }
-
-    return Fl_Window::handle(event);
+    redraw();
 }
 
 void SiteEditor::handlePan() {
@@ -763,9 +636,157 @@ void SiteEditor::handlePan() {
 
     panStartWorldX = curMouseWorldX;
     panStartWorldY = curMouseWorldY;
+
+    calcArcInfo();
 }
 
+int SiteEditor::handleKeyPress(int key, int centerX, int centerY, int doriX, int doriY) {
+    if(key == FL_Delete && curState == SELECTED) {
+        char query[512];
+        beginDatabaseTransaction();
 
+        // Loop through all selected objects, and remove
+        // all site objects with matching IDs
+        std::vector<SiteObject*>::iterator itSelected = selectedObjects.begin();
+        for(; itSelected != selectedObjects.end(); itSelected++) {
+            sprintf(query, "DELETE FROM objects WHERE rowid = %d;", (*itSelected)->id);
+            sqlite3_exec(db, query, NULL, NULL, NULL);
+
+            std::vector<SiteObject*>::iterator itAllObjects = siteObjects.begin();
+            for(; itAllObjects != siteObjects.end(); itAllObjects++) {
+                if((*itAllObjects)->id == (*itSelected)->id) {
+                    itAllObjects = siteObjects.erase(itAllObjects);
+                    break;
+                }
+            }
+        }
+        selectedObjects.clear();
+        curState = WAITING;
+        endDatabaseTransaction();
+        redraw();
+
+        return 1;
+    }
+    else if(key == FL_Escape) {
+        if(newSiteObject) {
+            newSiteObject->cancel();
+
+            if(toolbar->curSelectedObjType == POLY &&
+               (((PolyObject*)newSiteObject)->numPoints() >= 2))
+            {
+                processNewSiteObject();
+            }
+            else {
+                delete newSiteObject;
+                newSiteObject = NULL;
+            }
+        }
+        else {
+            toolbar->clearSelectedObjectType();
+        }
+
+        clearSelectedObjects();
+        curState = WAITING;
+        redraw();
+        return 1;
+    }
+    else if(key == 'a' && Fl::event_ctrl()) {
+        selectAllObjects();
+        curState = SELECTED;
+        toolbar->clearSelectedObjectType();
+        redraw();
+        return 1;
+    }
+    else if(key == 'd') {
+        // If you press 'd', reset focus back to center of site
+        panToWorldCenter();
+
+        calcArrowScreenPosition(centerX,
+                                centerY,
+                                doriX,
+                                doriY,
+                                arrowScreenX,
+                                arrowScreenY);
+
+        arrowAngleDegrees = calcArrowAngleDegrees(arrowScreenX,
+                                                  arrowScreenY,
+                                                  centerX,
+                                                  centerY,
+                                                  doriX,
+                                                  doriY);
+
+        calcArcInfo();
+        redraw();
+        return 1;
+    }
+    else if(key == 'a') {
+        showArcs = !showArcs;
+        redraw();
+        return 1;
+    }
+    else if(key == 'g') {
+        showGrid = !showGrid;
+        redraw();
+        return 1;
+    }
+
+    return 0;
+}
+
+int SiteEditor::handleMouseWheel(float centerX,
+                                 float centerY,
+                                 float doriX,
+                                 float doriY,
+                                 float arrowScreenX,
+                                 float arrowScreenY)
+{
+    // add or subtract pixels per cell (perform zooming)
+    // depending on the direction of the mouse scroll
+    float zoomAmount = ZOOM_PIXEL_AMOUNT * Fl::event_dy();
+
+    // Store the old world center, before zooming
+    // so that after we zoom, we can pan back to our old coordinate,
+    // and simulate zooming into the center of the screen
+    float oldCenterX = screenCenterWorldX();
+    float oldCenterY = screenCenterWorldY();
+
+    pixelsPerCell -= zoomAmount;
+
+    float newCenterX = screenCenterWorldX();
+    float newCenterY = screenCenterWorldY();
+
+    if(pixelsPerCell < MIN_PIXELS_PER_CELL) {
+        pixelsPerCell = MIN_PIXELS_PER_CELL;
+    }
+    else if(pixelsPerCell > MAX_PIXELS_PER_CELL) {
+        pixelsPerCell = MAX_PIXELS_PER_CELL;
+    }
+    else {
+        worldPanX -= newCenterX - oldCenterX;
+        worldPanY -= newCenterY - oldCenterY;
+    }
+
+    enforceSiteBounds();
+
+    calcArrowScreenPosition(centerX,
+                            centerY,
+                            doriX,
+                            doriY,
+                            arrowScreenX,
+                            arrowScreenY);
+
+    arrowAngleDegrees = calcArrowAngleDegrees(arrowScreenX,
+                                              arrowScreenY,
+                                              centerX,
+                                              centerY,
+                                              doriX,
+                                              doriY);
+
+    calcArcInfo();
+
+    redraw();
+    return 1;
+}
 
 void SiteEditor::drawGrid() {
     char textBuffer[32];
@@ -852,7 +873,7 @@ void SiteEditor::drawGrid() {
     }
 }
 
-void SiteEditor::drawArcs() {
+void SiteEditor::calcArcInfo() {
     // height of line's second point
     // is (1/2) *  width * tan(outside angle converted to radians)
     // outside angle = (180.0 - 360.0) / 2
@@ -862,65 +883,99 @@ void SiteEditor::drawArcs() {
     fl_color(GRID_COLOUR);
     fl_line_style(FL_SOLID, 2);
 
+    float centerX = (siteMeterExtents / 2.0);
+    float centerY = (siteMeterExtents / 2.0);
+
+    for(int i = 0; i < numArcs; i++) {
+        ArcInfo *info;
+
+        // Make a new arc info object if the vector doesn't contain
+        // information for the arc at this radius
+        if(arcInfo.size() <= (unsigned)i) {
+            ArcInfo newArcInfo;
+            arcInfo.push_back(newArcInfo);
+        }
+
+        info = &arcInfo[i];
+
+        float radius = (i+1) * 1.0f;
+
+        // approximate the circle as a square:
+        // we make the squares smaller by 75% to under approximate the circle
+        // so that we won't hide the arcs near the edge of the screen
+        float squareLeft = centerX - (radius * 0.75);
+        float squareRight = centerX + (radius * 0.75);
+        float squareTop = centerY - (radius * 0.75);
+        float squareBottom = centerY + (radius * 0.75);
+
+        // Don't draw the circle if the screen is completely inside of it
+        if(squareLeft < worldPanX &&
+           squareRight > worldPanX + screenToWorld(w()) &&
+           squareTop < worldPanY &&
+           squareBottom > worldPanY + screenToWorld(h()))
+        {
+            info->isOnScreen = false;
+            continue;
+        }
+
+        // Expand the square back to regular size to check if it's outside the screen
+        // If we leave it at the reduced 75%, then some rings are hidden when
+        // we pan near the edge of the site
+        squareLeft = centerX - radius;
+        squareRight = centerX + radius;
+        squareTop = centerY - radius;
+        squareBottom = centerY + radius;
+
+        // Don't draw the circle (represented as a square)
+        // if it doesn't intersect with the screen at all
+        if(squareRight < worldPanX ||
+            squareBottom < worldPanY ||
+            squareLeft > worldPanX + screenToWorld(w()) ||
+            squareTop > worldPanY + screenToWorld(h()))
+        {
+            info->isOnScreen = false;
+            continue;
+        }
+
+        info->isOnScreen = true;
+        info->screenRadius = worldToScreen(radius);
+    }
+}
+
+void SiteEditor::drawArcs() {
+
     int textHeight, textWidth;
     char textBuffer[32];
 
     fl_font(CUSTOM_FONT, 15);
 
-    // approximate the circle as a square:
-    // we make the squares smaller by 75% to under approximate the circle
-    // so that we won't hide the arcs near the edge of the screen
-    float centerX = worldToScreen(screenCenterWorldX());
-    float centerY = worldToScreen(screenCenterWorldY());
+    float doriX = worldToScreen((siteMeterExtents / 2.0) - worldPanX);
+    float doriY = worldToScreen((siteMeterExtents / 2.0) - worldPanY);
 
-    for(int i = 0; i < numArcs; i++) {
-        // radius = (i+1) meters
-        float radius = worldToScreen(((float)i+1.0) * 1.0);
-
-        int squareLeft = centerX - (radius * 0.75);
-        int squareRight = centerX + (radius * 0.75);
-        int squareTop = centerY - (radius * 0.75);
-        int squareBottom = centerY + (radius * 0.75);
-
-        // Don't draw the circle if the screen is completely inside of it
-        if(squareLeft < 0 &&
-           squareRight > w() &&
-           squareTop < 0 &&
-           squareBottom > h()) {
+    int count = 0;
+    for(unsigned i = 0; i < arcInfo.size(); i++) {
+        if(!arcInfo[i].isOnScreen) {
             continue;
         }
 
-        // Expand the square back to regular size to check if it's outside the screen
-        // If we leave it at the reduced 75%, then some rings are hidden when 
-        // we pan near the edge of the site
-        squareLeft = centerX - (radius * 1.00);
-        squareRight = centerX + (radius * 1.00);
-        squareTop = centerY - (radius * 1.00);
-        squareBottom = centerY + (radius * 1.00);
-
-        // Don't draw the circle if it is completely outside of the screen
-        if((squareRight < 0 && squareTop < 0) ||
-           (squareLeft > w() && squareBottom > h())) {
-            continue;
-        }
-
+        count++;
         fl_color(LABEL_COLOUR);
-        fl_circle(centerX, centerY, radius);
+        fl_circle(doriX, doriY, arcInfo[i].screenRadius);
 
-        sprintf(textBuffer, "%d", i+1);
+        sprintf(textBuffer, "%d", (int)(i+1));
         fl_measure(textBuffer, textWidth, textHeight, 0);
 
         // top text
-        fl_draw(textBuffer, centerX - (textWidth / 2.0), centerY - radius - 2);
+        fl_draw(textBuffer, doriX - (textWidth / 2.0), doriY - arcInfo[i].screenRadius - 2);
 
         // left text
-        fl_draw(textBuffer, centerX - radius - textWidth, centerY);
+        fl_draw(textBuffer, doriX - arcInfo[i].screenRadius - textWidth, doriY);
 
         // bottom text
-        fl_draw(textBuffer, centerX - (textWidth / 2.0), centerY + radius + textHeight);
+        fl_draw(textBuffer, doriX - (textWidth / 2.0), doriY + arcInfo[i].screenRadius + textHeight);
 
         // right text
-        fl_draw(textBuffer, centerX + radius + 2, centerY);
+        fl_draw(textBuffer, doriX + arcInfo[i].screenRadius + 2, doriY);
     }
 }
 
@@ -1036,7 +1091,12 @@ void SiteEditor::drawArrow(float arrowScreenX, float arrowScreenY, float arrowAn
     fl_pop_matrix();
 }
 
-float SiteEditor::calculateArrowAngleDegrees(float arrowX, float arrowY, float centerX, float centerY, float doriX, float doriY) {
+float SiteEditor::calcArrowAngleDegrees(float arrowX,
+                                        float arrowY,
+                                        float centerX,
+                                        float centerY,
+                                        float doriX,
+                                        float doriY) {
     if(arrowX == -1 || arrowY == -1) {
         return -1;
     }
@@ -1047,7 +1107,12 @@ float SiteEditor::calculateArrowAngleDegrees(float arrowX, float arrowY, float c
     return atan2(distanceY, distanceX) * (180.0 / M_PI);
 }
 
-void SiteEditor::calculateArrowScreenPosition(float centerX, float centerY, float doriX, float doriY, float& arrowX, float& arrowY) {
+void SiteEditor::calcArrowScreenPosition(float centerX,
+                                         float centerY,
+                                         float doriX,
+                                         float doriY,
+                                         float& arrowX,
+                                         float& arrowY) {
     float screenWidthWorld = screenToWorld(w());
     float screenHeightWorld = screenToWorld(h());
 
