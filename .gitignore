@@ -64,3 +64,4 @@ tk/data/test.csv
 tk/send
 tk/tk
 widgets/libwidgets.so
+data/siteobjects.db
