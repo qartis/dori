@@ -28,15 +28,16 @@ public:
     virtual void cancel() = 0;
 
     virtual std::string toString() = 0;
-    virtual void fromString(char*) = 0;
+    virtual bool fromString(char*) = 0;
 
     virtual void init(float worldX, float worldY, float r, float g, float b) = 0;
 
     void setRGB(unsigned red, unsigned green, unsigned blue);
 
     void select();
-
     void unselect();
+
+    void setLocked(bool lock);
 
     SiteObject();
     virtual ~SiteObject() { }
@@ -54,7 +55,7 @@ public:
     unsigned backupG;
     unsigned backupB;
 
-    char special[128];
+    std::string uri;
 
     bool selected;
 
@@ -65,4 +66,6 @@ public:
     float siteCenterY;
 
     SiteObjectType type;
+
+    bool locked;
 };

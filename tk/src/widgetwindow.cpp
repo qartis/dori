@@ -12,6 +12,7 @@
 #include <FL/Fl_Choice.H>
 #include <FL/Fl_Output.H>
 #include <FL/Fl_Color_Chooser.H>
+#include <FL/Fl_Tree.H>
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>
@@ -35,7 +36,6 @@
 #include "basic_ball.h"
 #include "Fl_Custom_Cursor.H"
 #include "FlGlArcballWindow.h"
-//#include "mgl2/fltk.h"
 #include "siteobject.h"
 #include "rectobject.h"
 #include "colorchooser.h"

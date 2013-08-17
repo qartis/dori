@@ -3,6 +3,7 @@
 #include <FL/Fl_Button.H>
 #include <FL/fl_draw.H>
 #include <FL/Fl_Color_Chooser.H>
+#include <FL/Fl_Tree.H>
 #include <string>
 #include <sstream>
 #include "colorchooser.h"
@@ -147,7 +148,7 @@ static void button_cb(Fl_Widget *widget, void *data) {
 }
 
 Toolbar::Toolbar(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), lineButton(NULL), rectButton(NULL), circleButton(NULL), colorChooser(NULL), curSelectedObjType(UNDEFINED) {
-    lineButton = new Fl_Button(0, 0, w / 3, h / 4);
+    lineButton = new Fl_Button(0, 0, w / 3, h / 6);
     lineButton->image(line_pixmap);
     lineButton->type(FL_RADIO_BUTTON);
     lineButton->callback(button_cb, this);
@@ -167,8 +168,12 @@ Toolbar::Toolbar(int x, int y, int w, int h, const char *label) : Fl_Window(x, y
     polyButton->type(FL_RADIO_BUTTON);
     polyButton->callback(button_cb, this);
 
-    colorChooser = new ColorChooser(lineButton->w(), 0, w - lineButton->w(), h);
+    colorChooser = new ColorChooser(lineButton->w(), 0, w - lineButton->w(), polyButton->y() + polyButton->h());
     colorChooser->mode(0);
+
+    tree = new Fl_Tree(0, colorChooser->y() + colorChooser->h(), w, h - (colorChooser->y() + colorChooser->h()));
+    tree->showroot(false);
+    tree->add("Site Objects");
 
     user_data(NULL);
     end();
@@ -185,4 +190,9 @@ void Toolbar::clearSelectedObjectType() {
 
 int Toolbar::handle(int event) {
     return Fl_Window::handle(event);
+}
+
+void Toolbar::draw() {
+    fl_draw_box(FL_FLAT_BOX, 0, colorChooser->y() + colorChooser->h(), w(), h() - (colorChooser->y() + colorChooser->h()), FL_RED);
+    Fl_Window::draw();
 }

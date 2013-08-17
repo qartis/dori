@@ -6,6 +6,11 @@ SiteObject::SiteObject() {
     r = backupR = 0;
     g = backupG = 0;
     b = backupB = 0;
+    
+    worldHeight = 0.0;
+    elevation = 0.0;
+    
+    locked = false;
 
     // This is temporary until the database is plugged in
     siteCenterX = SITE_METER_EXTENTS;
@@ -44,5 +49,8 @@ void SiteObject::setRGB(unsigned red, unsigned green, unsigned blue) {
     b = blue;
 }
 
+void SiteObject::setLocked(bool lock) {
+    locked = lock;
+}
 
 

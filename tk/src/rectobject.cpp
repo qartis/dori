@@ -6,6 +6,7 @@
 #include <FL/Fl.H>
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
+#include <algorithm>
 
 RectObject::RectObject() : worldWidth(0.0), worldLength(0.0) {
     type = RECT;
@@ -139,10 +140,12 @@ void RectObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float pix
 }
 
 void RectObject::updateWorldOffsetCenterX(float offsetCenterX) {
+    if(locked) return;
     worldOffsetX += offsetCenterX;
 }
 
 void RectObject::updateWorldOffsetCenterY(float offsetCenterY) {
+    if(locked) return;
     worldOffsetY += offsetCenterY;
 }
 
@@ -155,6 +158,7 @@ float RectObject::getWorldOffsetCenterY() {
 }
 
 void RectObject::updateSize(float worldDifferenceX, float worldDifferenceY) {
+    if(locked) return;
     worldWidth  = worldDifferenceX;
     worldLength = worldDifferenceY;
 }
@@ -176,21 +180,33 @@ std::string RectObject::toString() {
     ss << worldWidth   << " " << worldLength  << " ";
     ss << elevation    << " " << worldHeight  << " ";
 
-    ss << r << " " << g << " " << b << " " << (int)type;
+    ss << r << " " << g << " " << b << " ";
+    ss << (int)type << (int)locked;
 
     return ss.str();
 }
 
-void RectObject::fromString(char* input) {
+bool RectObject::fromString(char* input) {
+    std::string temp = input;
+    size_t count = std::count(temp.begin(), temp.end(), ' ');
+    if(count < 10) {
+        fprintf(stderr, "RectObject::fromString(): Invalid record: %s\n", input);
+        return false;
+    }
+
     sscanf(input,
            "%f %f "
            "%f %f "
            "%f %f "
            "%u %u %u "
+           "%d "
            "%d ",
            &worldOffsetX, &worldOffsetY,
            &worldWidth, &worldLength,
            &elevation, &worldHeight,
            &r, &g, &b,
-           (int*)&type);
+           (int*)&type,
+           (int*)&locked);
+
+    return true;
 }

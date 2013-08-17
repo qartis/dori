@@ -8,12 +8,15 @@ public:
 
     void clearSelectedObjectType();
     virtual int handle(int event);
+    virtual void draw();
 
     Fl_Button *lineButton;
     Fl_Button *rectButton;
     Fl_Button *circleButton;
     Fl_Button *polyButton;
     ColorChooser *colorChooser;
+
+    Fl_Tree *tree;
 
     SiteObjectType curSelectedObjType;
 };

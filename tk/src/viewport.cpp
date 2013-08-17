@@ -4,6 +4,7 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Table_Row.H>
 #include <FL/Fl_Color_Chooser.H>
+#include <FL/Fl_Tree.H>
 #include <FL/fl_draw.H>
 #include <GL/glut.h>
 #include <vector>
@@ -16,7 +17,7 @@
 #include "siteobject.h"
 #include "lineobject.h"
 #include "rectobject.h"
-//#include "circleobject.h"
+#include "circleobject.h"
 #include "colorchooser.h"
 #include "toolbar.h"
 #include "3dcontrols.h"

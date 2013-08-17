@@ -3,6 +3,7 @@
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Color_Chooser.H>
+#include <FL/Fl_Tree.H>
 #include <FL/gl.h>
 #include <math.h>
 #include <map>
@@ -23,14 +24,28 @@
 #include <unistd.h>
 
 #define CUSTOM_FONT 69
-#define SELECTION_DISTANCE_PIXELS 13
+#define SELECTION_DISTANCE_PIXELS 15
 #define CELLS_PER_METER 4.0
 #define MIN_PIXELS_PER_CELL 16
 #define MAX_PIXELS_PER_CELL 320
 #define ZOOM_PIXEL_AMOUNT 4
 #define ARROW_SCREEN_OFFSET 15.0f
 
-#define SITE_ID 1
+#define GLOBAL_SITE_ID 1
+
+#define ROWID_COL 0
+
+#define OBJECT_GATEWAY_ROWID_COL 1
+#define OBJECT_SITEID_COL 2
+#define OBJECT_TYPE_COL 3
+#define OBJECT_DATA_COL 4
+
+#define RECORD_TYPE_COL 1
+#define RECORD_A_COL 2
+#define RECORD_B_COL 3
+#define RECORD_C_COL 4
+#define RECORD_SITEID_COL 5
+#define RECORD_TIME_COL 6
 
 #define BG_COLOUR FL_DARK2
 #define GRID_COLOUR FL_DARK1
@@ -54,18 +69,69 @@ float SiteEditor::worldToScreen(float worldVal) {
     return SiteObject::worldToScreen(worldVal, pixelsPerCell, CELLS_PER_METER);
 }
 
-int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
+int SiteEditor::recordMigrationCallback(void *arg, int ncols, char**cols, char **colNames) {
+    printf(".");
+    (void)colNames;
+    SiteEditor *editor = (SiteEditor*)arg;
+    int rowid = atoi(cols[ROWID_COL]);
+    char *type = cols[RECORD_TYPE_COL];
+    char *a = cols[RECORD_A_COL];
+    char *b = cols[RECORD_B_COL];
+    int siteid = atoi(cols[RECORD_SITEID_COL]);
+    unsigned int time = atoi(cols[RECORD_TIME_COL]);
+    /*
+    char *c = cols[RECORD_C_COL];
+    */
+
+    // laser's 'a' record is angle
+    // 'b' record is distance
+    if(strcasecmp(type, "LASER") == 0) {
+        std::ostringstream ss;
+
+        CircleObject laserPoint;
+
+        float angle = atof(a);
+        float dist = atof(b);
+
+        float distX = dist * cos(angle * (M_PI / 180.0));
+        float distY = dist * sin(angle * (M_PI / 180.0));
+
+        laserPoint.init(distX, distY, 0, 255, 255);
+        laserPoint.updateSize(0.1, 0.1);
+        //laserPoint.setLocked(true);
+
+        ss << "INSERT INTO objects (gateway_rowid, siteid, type, data) VALUES (";
+        ss << rowid << ", " << siteid << ", " << laserPoint.type << ", ";
+        ss << "\"" << laserPoint.toString() << "\");";
+
+        int rc = sqlite3_exec(editor->db, ss.str().c_str(), NULL, NULL, NULL);
+        if(SQLITE_OK != rc) {
+            fprintf(stderr, "Couldn't insert object entry into db\n");
+        }
+    }
+
+    return 0;
+}
+
+int SiteEditor::maxGatewayRowIdCallback(void *maxRowId, int ncols, char**cols, char **colNames) {
+    if(ncols > 0 && cols[0] != NULL) {
+        *(int*)maxRowId = atoi(cols[0]);
+    }
+
+    return 0;
+}
+
+int SiteEditor::readObjectsCallback(void *arg, int ncols, char**cols, char **colNames) {
     (void)ncols;
     (void)colNames;
     std::vector<SiteObject*>* objs = (std::vector<SiteObject*>*)arg;
 
     // rowid, siteid, type
-    int rowid = atoi(cols[0]);
-    int siteid = atoi(cols[1]);
+    int rowid = atoi(cols[ROWID_COL]);
+    int siteid = atoi(cols[OBJECT_SITEID_COL]);
     (void)siteid;
 
-    SiteObjectType type = (SiteObjectType)(atoi(cols[2]));
-    (void)type;
+    SiteObjectType type = (SiteObjectType)(atoi(cols[OBJECT_TYPE_COL]));
 
     SiteObject *obj;
 
@@ -84,9 +150,13 @@ int SiteEditor::sqlite_cb(void *arg, int ncols, char**cols, char **colNames) {
         break;
     default:
         fprintf(stderr, "ERROR: undefined object type\n");
+        return -1;
     }
 
-    obj->fromString(cols[3]);
+    if(!obj->fromString(cols[OBJECT_DATA_COL])) {
+        delete obj;
+        return -1;
+    }
     obj->id = rowid;
 
     objs->push_back(obj);
@@ -125,9 +195,9 @@ void SiteEditor::clickedObjTypeCallback(void *data) {
     siteeditor->curState = SiteEditor::WAITING;
 }
 
-SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxWindowWidth(w), maxWindowLength(h), panStartWorldX(0), panStartWorldY(0), showArcs(false), showGrid(true), curWorldDistance(0.0), arrowScreenX(-1), arrowScreenY(-1) {
+SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxWindowWidth(w), maxWindowLength(h), panStartWorldX(0), panStartWorldY(0), showArcs(false), showGrid(true), curWorldDistance(0.0), arrowScreenX(-1), arrowScreenY(-1), maxGatewayRowId(0) {
     Fl::set_font(CUSTOM_FONT, "OCRB");
-    loadSiteObjects("data/siteobjects.db");
+    loadSiteObjects("data/db");
 
     siteMeterExtents = SITE_METER_EXTENTS * 2; // 80m in all directions
     sitePixelExtents = w * 8;
@@ -243,26 +313,47 @@ void SiteEditor::findObjectsInBoundingBox(int mouseStartX, int mouseStartY, int 
 
 
 void SiteEditor::loadSiteObjects(const char * db_name) {
-    scaleX = w() / (maxX - minX);
-    scaleY = h() / (maxY - minY);
-
     sqlite3_open(db_name, &db);
     if(!db) {
         perror("processData()");
         exit(1);
     }
 
-    const char* query = "SELECT rowid, * FROM objects;";
-    int ret = sqlite3_exec(db, query, sqlite_cb, &siteObjects, NULL);
-    if (ret != SQLITE_OK)
-    {
-        fprintf(stderr, "error executing query\n");
+    char query[256];
+    sprintf(query, "%s", "CREATE TABLE IF NOT EXISTS objects(gateway_rowid, siteid, type text, data text);");
+    int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "error executing query: %s\n", query);
+        return;
+    }
+
+    // Select the max row_id of any objects that were created from tk records
+    sprintf(query, "%s", "SELECT MAX(gateway_rowid) FROM objects;");
+    ret = sqlite3_exec(db, query, maxGatewayRowIdCallback, &maxGatewayRowId, NULL);
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "error executing query: %s\n", query);
+        return;
+    }
+
+    // Migrate all new data from the gateway->tk records database
+    sprintf(query, "%s%d;", "SELECT rowid, * FROM records WHERE rowid > ", maxGatewayRowId);
+    beginDatabaseTransaction();
+    ret = sqlite3_exec(db, query, recordMigrationCallback, this, NULL);
+    endDatabaseTransaction();
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "error executing query: %s\n", query);
+        return;
+    }
+
+    sprintf(query, "%s", "SELECT rowid, * FROM objects;");
+    ret = sqlite3_exec(db, query, readObjectsCallback, &siteObjects, NULL);
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "error executing query: %s\n", query);
+        return;
     }
 
     end();
-
     callback(window_cb);
-
     redraw();
 }
 
@@ -354,8 +445,8 @@ void SiteEditor::processNewSiteObject() {
 
     std::ostringstream ss;
 
-    ss << "INSERT INTO objects (siteid, type, data) VALUES (";
-    ss << SITE_ID << ", " << newSiteObject->type << ", ";
+    ss << "INSERT INTO objects (gateway_rowid, siteid, type, data) VALUES (";
+    ss << "NULL, " << GLOBAL_SITE_ID << ", " << newSiteObject->type << ", ";
     ss << "\"" << newSiteObject->toString() << "\");";
 
     int rc = sqlite3_exec(db, ss.str().c_str(), NULL, NULL, NULL);
@@ -649,6 +740,10 @@ int SiteEditor::handleKeyPress(int key, int centerX, int centerY, int doriX, int
         // all site objects with matching IDs
         std::vector<SiteObject*>::iterator itSelected = selectedObjects.begin();
         for(; itSelected != selectedObjects.end(); itSelected++) {
+
+            if((*itSelected)->locked)
+                continue;
+
             sprintf(query, "DELETE FROM objects WHERE rowid = %d;", (*itSelected)->id);
             sqlite3_exec(db, query, NULL, NULL, NULL);
 
@@ -660,7 +755,7 @@ int SiteEditor::handleKeyPress(int key, int centerX, int centerY, int doriX, int
                 }
             }
         }
-        selectedObjects.clear();
+        clearSelectedObjects();
         curState = WAITING;
         endDatabaseTransaction();
         redraw();
@@ -874,12 +969,6 @@ void SiteEditor::drawGrid() {
 }
 
 void SiteEditor::calcArcInfo() {
-    // height of line's second point
-    // is (1/2) *  width * tan(outside angle converted to radians)
-    // outside angle = (180.0 - 360.0) / 2
-    float outsideAngle = -180.0 / 2.0;
-    outsideAngle *= (M_PI / 180.0); // convert to radians
-
     fl_color(GRID_COLOUR);
     fl_line_style(FL_SOLID, 2);
 
@@ -1039,8 +1128,8 @@ void SiteEditor::drawSelectionState() {
         }
         break;
     case SELECTING:
-        fl_line_style(1);
-        fl_color(255, 255, 255);
+        fl_line_style(FL_DASH, 2);
+        fl_color(FL_WHITE);
         fl_begin_loop();
         fl_vertex(clickedMouseX, clickedMouseY);
         fl_vertex(curMouseX, clickedMouseY);
@@ -1066,7 +1155,6 @@ void SiteEditor::drawArrow(float arrowScreenX, float arrowScreenY, float arrowAn
     // Calculate the intersection points between the line
     // and the 4 lines of the screen
     // We do this to determine where to place the arrow that points to DORI
-
 
     // If arrow coordinates aren't set, then there's no arrow to draw
     if(arrowScreenX < 0 || arrowScreenY < 0)

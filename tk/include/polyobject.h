@@ -16,7 +16,7 @@ public:
     void updateWorldOffsetCenterY(float offsetCenterY);
 
     std::string toString();
-    void fromString(char* output);
+    bool fromString(char* output);
 
     void addPoint(float x, float y);
     void setNextPoint(float x, float y);

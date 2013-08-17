@@ -41,7 +41,9 @@ public:
 private:
 
     float scaledSelectionDistance();
-    static int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
+    static int readObjectsCallback(void *arg, int ncols, char**cols, char **colNames);
+    static int recordMigrationCallback(void *arg, int ncols, char**cols, char **colNames);
+    static int maxGatewayRowIdCallback(void *maxRowID, int ncols, char**cols, char **colNames);
 
     void loadSiteObjects(const char *db_name);
 
@@ -172,4 +174,6 @@ private:
     };
 
     std::vector<ArcInfo> arcInfo;
+
+    int maxGatewayRowId;
 };
