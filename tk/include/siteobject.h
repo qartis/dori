@@ -39,10 +39,12 @@ public:
 
     void setLocked(bool lock);
 
+    std::string buildTreeString();
+
     SiteObject();
     virtual ~SiteObject() { }
 
-    int id;
+    int rowid;
 
     float elevation;
     float worldHeight;
@@ -55,8 +57,6 @@ public:
     unsigned backupG;
     unsigned backupB;
 
-    std::string uri;
-
     bool selected;
 
     float worldOffsetX;
@@ -68,4 +68,9 @@ public:
     SiteObjectType type;
 
     bool locked;
+    int siteid;
+
+    std::string recordType;
+
+    Fl_Tree_Item *treeItem;
 };

@@ -2,7 +2,7 @@ class SiteEditor : public Fl_Double_Window {
 
 public:
 
-    SiteEditor(int x, int y, int w, int h, const char *label = NULL);
+    SiteEditor(Toolbar *tb, int x, int y, int w, int h, const char *label = NULL);
 
     ~SiteEditor();
 
@@ -43,7 +43,7 @@ private:
     float scaledSelectionDistance();
     static int readObjectsCallback(void *arg, int ncols, char**cols, char **colNames);
     static int recordMigrationCallback(void *arg, int ncols, char**cols, char **colNames);
-    static int maxGatewayRowIdCallback(void *maxRowID, int ncols, char**cols, char **colNames);
+    static int maxRecordRowIdCallback(void *maxRowID, int ncols, char**cols, char **colNames);
 
     void loadSiteObjects(const char *db_name);
 
@@ -82,6 +82,9 @@ private:
     void processNewSiteObject();
 
     void commitSelectedObjectsToDatabase();
+    void commitSiteObject(sqlite3 *db, SiteObject *siteObject, int *recordRowID, char *recordType, int siteid);
+
+    bool hasSqliteError(sqlite3 *db, const char *query, int ret);
 
     void enforceSiteBounds();
 
@@ -175,5 +178,5 @@ private:
 
     std::vector<ArcInfo> arcInfo;
 
-    int maxGatewayRowId;
+    int maxRecordRowId;
 };

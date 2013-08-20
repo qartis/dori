@@ -8,7 +8,6 @@ public:
 
     void clearSelectedObjectType();
     virtual int handle(int event);
-    virtual void draw();
 
     Fl_Button *lineButton;
     Fl_Button *rectButton;

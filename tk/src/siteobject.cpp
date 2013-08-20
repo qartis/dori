@@ -1,5 +1,6 @@
 #include <string>
 #include <sstream>
+#include <FL/Fl_Tree.H>
 #include "siteobject.h"
 
 SiteObject::SiteObject() {
@@ -17,6 +18,10 @@ SiteObject::SiteObject() {
     siteCenterY = SITE_METER_EXTENTS;
 
     selected = false;
+
+    siteid = -1; 
+    recordType = "";
+    treeItem = NULL;
 }
 
 // # cells = pixels * (cells / pixel)
@@ -53,4 +58,44 @@ void SiteObject::setLocked(bool lock) {
     locked = lock;
 }
 
+std::string SiteObject::buildTreeString() {
+    std::ostringstream ssTree;
+
+    // special siteID for annotations
+    if(siteid == -1) {
+        ssTree << "Annotations";
+    }
+    else {
+        ssTree << "Site " << siteid;
+    }
+
+    ssTree << "/";
+
+    // Check if this site object has a record type from TK
+    if(recordType.length() > 0) {
+        ssTree << recordType;
+    }
+    else {
+        switch(type) {
+        case LINE:
+            ssTree << "Lines";
+            break;
+        case RECT:
+            ssTree << "Rectanges";
+            break;
+        case CIRCLE:
+            ssTree << "Circles";
+            break;
+        case POLY:
+            ssTree << "Polygons";
+            break;
+        default:
+            ssTree << "Undefined Object";
+        }
+    }
+
+    ssTree << "/" << rowid;
+
+    return ssTree.str();
+}
 

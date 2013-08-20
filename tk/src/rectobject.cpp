@@ -1,12 +1,13 @@
 #include <stddef.h>
 #include <string>
 #include <sstream>
-#include "siteobject.h"
-#include "rectobject.h"
 #include <FL/Fl.H>
+#include <FL/Fl_Tree.H>
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
 #include <algorithm>
+#include "siteobject.h"
+#include "rectobject.h"
 
 RectObject::RectObject() : worldWidth(0.0), worldLength(0.0) {
     type = RECT;

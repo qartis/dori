@@ -26,16 +26,13 @@
 #define TOOLBAR_WIDTH 200
 
 SiteEditorWindow::SiteEditorWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), toolbar(NULL) {
-    siteEditor = new SiteEditor(0, 0, w - TOOLBAR_WIDTH, h);
     toolbar = new Toolbar(w - TOOLBAR_WIDTH, 0, TOOLBAR_WIDTH, h);
+    siteEditor = new SiteEditor(toolbar, 0, 0, w - TOOLBAR_WIDTH, h);
     end();
 
-    siteEditor->toolbar = toolbar;
-
+    toolbar->user_data(siteEditor);
     toolbar->colorChooser->user_data(siteEditor);
     toolbar->colorChooser->setColorCallback = siteEditor->setColorCallback;
-
-    toolbar->user_data(siteEditor);
     toolbar->clickedObjTypeCallback = siteEditor->clickedObjTypeCallback;
     toolbar->show();
 }

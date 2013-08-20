@@ -2,11 +2,12 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include "siteobject.h"
-#include "polyobject.h"
 #include <FL/Fl.H>
+#include <FL/Fl_Tree.H>
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
+#include "siteobject.h"
+#include "polyobject.h"
 
 PolyObject::PolyObject() {
     type = POLY;

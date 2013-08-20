@@ -31,14 +31,15 @@
 #define ZOOM_PIXEL_AMOUNT 4
 #define ARROW_SCREEN_OFFSET 15.0f
 
-#define GLOBAL_SITE_ID 1
+#define ANNOTATION_SITE_ID -1 
 
 #define ROWID_COL 0
 
-#define OBJECT_GATEWAY_ROWID_COL 1
-#define OBJECT_SITEID_COL 2
-#define OBJECT_TYPE_COL 3
-#define OBJECT_DATA_COL 4
+#define OBJECT_RECORD_ROWID_COL 1
+#define OBJECT_RECORD_TYPE_COL 2
+#define OBJECT_SITEID_COL 3
+#define OBJECT_TYPE_COL 4
+#define OBJECT_DATA_COL 5
 
 #define RECORD_TYPE_COL 1
 #define RECORD_A_COL 2
@@ -70,24 +71,22 @@ float SiteEditor::worldToScreen(float worldVal) {
 }
 
 int SiteEditor::recordMigrationCallback(void *arg, int ncols, char**cols, char **colNames) {
-    printf(".");
+    (void)ncols;
     (void)colNames;
+
     SiteEditor *editor = (SiteEditor*)arg;
-    int rowid = atoi(cols[ROWID_COL]);
-    char *type = cols[RECORD_TYPE_COL];
+    int recordRowID = atoi(cols[ROWID_COL]);
+    int siteid = atoi(cols[RECORD_SITEID_COL]);
+
+    char *recordType = cols[RECORD_TYPE_COL];
     char *a = cols[RECORD_A_COL];
     char *b = cols[RECORD_B_COL];
-    int siteid = atoi(cols[RECORD_SITEID_COL]);
-    unsigned int time = atoi(cols[RECORD_TIME_COL]);
-    /*
-    char *c = cols[RECORD_C_COL];
-    */
 
     // laser's 'a' record is angle
     // 'b' record is distance
-    if(strcasecmp(type, "LASER") == 0) {
+    if(strcasecmp(recordType, "LASER") == 0) {
         std::ostringstream ss;
-
+  
         CircleObject laserPoint;
 
         float angle = atof(a);
@@ -98,22 +97,17 @@ int SiteEditor::recordMigrationCallback(void *arg, int ncols, char**cols, char *
 
         laserPoint.init(distX, distY, 0, 255, 255);
         laserPoint.updateSize(0.1, 0.1);
-        //laserPoint.setLocked(true);
+        laserPoint.setLocked(true);
 
-        ss << "INSERT INTO objects (gateway_rowid, siteid, type, data) VALUES (";
-        ss << rowid << ", " << siteid << ", " << laserPoint.type << ", ";
-        ss << "\"" << laserPoint.toString() << "\");";
-
-        int rc = sqlite3_exec(editor->db, ss.str().c_str(), NULL, NULL, NULL);
-        if(SQLITE_OK != rc) {
-            fprintf(stderr, "Couldn't insert object entry into db\n");
-        }
+        editor->commitSiteObject(editor->db, &laserPoint, &recordRowID, recordType, siteid);
     }
 
     return 0;
 }
 
-int SiteEditor::maxGatewayRowIdCallback(void *maxRowId, int ncols, char**cols, char **colNames) {
+int SiteEditor::maxRecordRowIdCallback(void *maxRowId, int ncols, char**cols, char **colNames) {
+    (void)colNames;
+
     if(ncols > 0 && cols[0] != NULL) {
         *(int*)maxRowId = atoi(cols[0]);
     }
@@ -124,18 +118,18 @@ int SiteEditor::maxGatewayRowIdCallback(void *maxRowId, int ncols, char**cols, c
 int SiteEditor::readObjectsCallback(void *arg, int ncols, char**cols, char **colNames) {
     (void)ncols;
     (void)colNames;
-    std::vector<SiteObject*>* objs = (std::vector<SiteObject*>*)arg;
+    SiteEditor *editor = (SiteEditor*)arg;
+    std::vector<SiteObject*>* objs = &editor->siteObjects;
 
     // rowid, siteid, type
     int rowid = atoi(cols[ROWID_COL]);
     int siteid = atoi(cols[OBJECT_SITEID_COL]);
-    (void)siteid;
-
-    SiteObjectType type = (SiteObjectType)(atoi(cols[OBJECT_TYPE_COL]));
+    char *recordType = cols[OBJECT_RECORD_TYPE_COL];
+    SiteObjectType objectType = (SiteObjectType)(atoi(cols[OBJECT_TYPE_COL]));
 
     SiteObject *obj;
 
-    switch(type) {
+    switch(objectType) {
     case LINE:
         obj = new LineObject;
         break;
@@ -155,10 +149,24 @@ int SiteEditor::readObjectsCallback(void *arg, int ncols, char**cols, char **col
 
     if(!obj->fromString(cols[OBJECT_DATA_COL])) {
         delete obj;
+        fprintf(stderr, "Error reading object from database with rowid %d\n", rowid);
         return -1;
     }
-    obj->id = rowid;
 
+
+    obj->siteid = siteid;
+    obj->rowid = rowid;
+
+    // site objects that are annotations do not have a record type
+    if(recordType) {
+        obj->recordType = recordType;
+    }
+
+    std::string treeString = obj->buildTreeString();
+    Fl_Tree_Item *item = editor->toolbar->tree->add(treeString.c_str());
+    obj->treeItem = item;
+    item->user_data(obj);
+    editor->toolbar->tree->redraw();
     objs->push_back(obj);
 
     return 0;
@@ -176,7 +184,7 @@ void SiteEditor::setColorCallback(void *data, float r, float g, float b) {
 
         ss << "UPDATE objects SET data = \"";
         ss << siteeditor->selectedObjects[i]->toString();
-        ss << "\" WHERE rowid = " << siteeditor->selectedObjects[i]->id;
+        ss << "\" WHERE rowid = " << siteeditor->selectedObjects[i]->rowid;
 
         int rc = sqlite3_exec(siteeditor->db, ss.str().c_str(), NULL, NULL, NULL);
         if(SQLITE_OK != rc) {
@@ -195,7 +203,8 @@ void SiteEditor::clickedObjTypeCallback(void *data) {
     siteeditor->curState = SiteEditor::WAITING;
 }
 
-SiteEditor::SiteEditor(int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxWindowWidth(w), maxWindowLength(h), panStartWorldX(0), panStartWorldY(0), showArcs(false), showGrid(true), curWorldDistance(0.0), arrowScreenX(-1), arrowScreenY(-1), maxGatewayRowId(0) {
+SiteEditor::SiteEditor(Toolbar *tb, int x, int y, int w, int h, const char *label) : Fl_Double_Window(x, y, w, h, label), toolbar(NULL), db(NULL), curMouseOverElevation(0.0), curState(WAITING), newSiteObject(NULL), maxWindowWidth(w), maxWindowLength(h), panStartWorldX(0), panStartWorldY(0), showArcs(false), showGrid(true), curWorldDistance(0.0), arrowScreenX(-1), arrowScreenY(-1), maxRecordRowId(0) {
+    toolbar = tb;
     Fl::set_font(CUSTOM_FONT, "OCRB");
     loadSiteObjects("data/db");
 
@@ -311,7 +320,6 @@ void SiteEditor::findObjectsInBoundingBox(int mouseStartX, int mouseStartY, int 
     }
 }
 
-
 void SiteEditor::loadSiteObjects(const char * db_name) {
     sqlite3_open(db_name, &db);
     if(!db) {
@@ -320,35 +328,33 @@ void SiteEditor::loadSiteObjects(const char * db_name) {
     }
 
     char query[256];
-    sprintf(query, "%s", "CREATE TABLE IF NOT EXISTS objects(gateway_rowid, siteid, type text, data text);");
+    sprintf(query, "%s", "CREATE TABLE IF NOT EXISTS objects(record_rowid, record_type, siteid, type, data);");
     int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
-    if (ret != SQLITE_OK) {
-        fprintf(stderr, "error executing query: %s\n", query);
+    if(hasSqliteError(db, query, ret)) {
         return;
     }
 
+
     // Select the max row_id of any objects that were created from tk records
-    sprintf(query, "%s", "SELECT MAX(gateway_rowid) FROM objects;");
-    ret = sqlite3_exec(db, query, maxGatewayRowIdCallback, &maxGatewayRowId, NULL);
-    if (ret != SQLITE_OK) {
-        fprintf(stderr, "error executing query: %s\n", query);
+    sprintf(query, "%s", "SELECT MAX(record_rowid) FROM objects;");
+    ret = sqlite3_exec(db, query, maxRecordRowIdCallback, &maxRecordRowId, NULL);
+    if(hasSqliteError(db, query, ret)) {
         return;
     }
 
     // Migrate all new data from the gateway->tk records database
-    sprintf(query, "%s%d;", "SELECT rowid, * FROM records WHERE rowid > ", maxGatewayRowId);
+    sprintf(query, "%s%d;", "SELECT rowid, * FROM records WHERE rowid > ", maxRecordRowId);
     beginDatabaseTransaction();
     ret = sqlite3_exec(db, query, recordMigrationCallback, this, NULL);
-    endDatabaseTransaction();
-    if (ret != SQLITE_OK) {
-        fprintf(stderr, "error executing query: %s\n", query);
+    if(hasSqliteError(db, query, ret)) {
+        endDatabaseTransaction();
         return;
     }
+    endDatabaseTransaction();
 
     sprintf(query, "%s", "SELECT rowid, * FROM objects;");
-    ret = sqlite3_exec(db, query, readObjectsCallback, &siteObjects, NULL);
-    if (ret != SQLITE_OK) {
-        fprintf(stderr, "error executing query: %s\n", query);
+    ret = sqlite3_exec(db, query, readObjectsCallback, this, NULL);
+    if(hasSqliteError(db, query, ret)) {
         return;
     }
 
@@ -403,17 +409,24 @@ bool SiteEditor::isObjectSelected(SiteObject *obj) {
 
 
 void SiteEditor::beginDatabaseTransaction() {
-    int err = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, NULL);
-    if(err != SQLITE_OK) {
-        printf("sqlite error: %s\n", sqlite3_errmsg(db));
-    }
+    char *query = "BEGIN TRANSACTION";
+    int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+    hasSqliteError(db, query, ret);
 }
 
 void SiteEditor::endDatabaseTransaction() {
-    int err = sqlite3_exec(db, "END TRANSACTION", NULL, NULL, NULL);
-    if(err != SQLITE_OK) {
-        printf("sqlite error: %s\n", sqlite3_errmsg(db));
+    char *query = "END TRANSACTION";
+    int ret = sqlite3_exec(db, query, NULL, NULL, NULL);
+    hasSqliteError(db, query, ret);
+}
+
+bool SiteEditor::hasSqliteError(sqlite3 *db, const char *query, int ret) {
+    if(ret != SQLITE_OK) {
+        fprintf(stderr, "SQLite error while executing query: '%s'\nError was '%s'", query, sqlite3_errmsg(db));;
+        return true;
     }
+
+    return false;
 }
 
 void SiteEditor::commitSelectedObjectsToDatabase() {
@@ -426,11 +439,11 @@ void SiteEditor::commitSelectedObjectsToDatabase() {
 
         ss << "UPDATE objects SET data = \"";
         ss << selectedObjects[i]->toString();
-        ss << "\" WHERE rowid = " << selectedObjects[i]->id;
+        ss << "\" WHERE rowid = " << selectedObjects[i]->rowid;
 
         int rc = sqlite3_exec(db, ss.str().c_str(), NULL, NULL, NULL);
-        if(SQLITE_OK != rc) {
-            fprintf(stderr, "Couldn't update object entry in db\n");
+        if(hasSqliteError(db, ss.str().c_str(), rc)) {
+           return;
         }
 
         selectedObjects[i]->select();
@@ -443,21 +456,53 @@ void SiteEditor::processNewSiteObject() {
     if(newSiteObject == NULL)
         return;
 
-    std::ostringstream ss;
+    commitSiteObject(db, newSiteObject, NULL, NULL, ANNOTATION_SITE_ID);
 
-    ss << "INSERT INTO objects (gateway_rowid, siteid, type, data) VALUES (";
-    ss << "NULL, " << GLOBAL_SITE_ID << ", " << newSiteObject->type << ", ";
-    ss << "\"" << newSiteObject->toString() << "\");";
+    std::string treeString = newSiteObject->buildTreeString();
+    Fl_Tree_Item *item = toolbar->tree->add(treeString.c_str());
+    newSiteObject->treeItem = item;
+    item->user_data(newSiteObject);
+    toolbar->tree->redraw();
+
+    siteObjects.push_back(newSiteObject);
+    newSiteObject = NULL;
+}
+
+
+void SiteEditor::commitSiteObject(sqlite3 *db, SiteObject * siteObject, int *recordRowID, char *recordType, int siteid) {
+    std::ostringstream ss;
+    ss << "INSERT INTO objects (record_rowid, record_type, siteid, type, data) VALUES (";
+    
+    if(recordRowID) {
+        ss << *recordRowID;
+    }
+    else {
+        ss << "NULL";
+    }
+
+    ss << ", ";
+
+    if(recordType) {
+        ss << "\"" << recordType << "\"";
+    }
+    else {
+        ss << "NULL";
+    }
+
+    ss << ", ";
+
+    ss << siteid << ", " << siteObject->type << ", ";
+    ss << "\"" << siteObject->toString() << "\");";
 
     int rc = sqlite3_exec(db, ss.str().c_str(), NULL, NULL, NULL);
-    if(SQLITE_OK != rc) {
-        fprintf(stderr, "Couldn't insert object entry into db\n");
+    if(hasSqliteError(db, ss.str().c_str(), rc)) {
+        return;
     }
 
     sqlite_int64 rowid = sqlite3_last_insert_rowid(db);
-    newSiteObject->id = rowid;
-    siteObjects.push_back(newSiteObject);
-    newSiteObject = NULL;
+
+    siteObject->rowid = rowid;
+    siteObject->siteid = ANNOTATION_SITE_ID;
 }
 
 void SiteEditor::resize(int X, int Y, int W, int H) {
@@ -744,12 +789,21 @@ int SiteEditor::handleKeyPress(int key, int centerX, int centerY, int doriX, int
             if((*itSelected)->locked)
                 continue;
 
-            sprintf(query, "DELETE FROM objects WHERE rowid = %d;", (*itSelected)->id);
+            sprintf(query, "DELETE FROM objects WHERE rowid = %d;", (*itSelected)->rowid);
             sqlite3_exec(db, query, NULL, NULL, NULL);
 
             std::vector<SiteObject*>::iterator itAllObjects = siteObjects.begin();
             for(; itAllObjects != siteObjects.end(); itAllObjects++) {
-                if((*itAllObjects)->id == (*itSelected)->id) {
+                if((*itAllObjects)->rowid == (*itSelected)->rowid) {
+                    Fl_Tree_Item *parent = (*itAllObjects)->treeItem;
+                    toolbar->tree->remove((*itAllObjects)->treeItem);
+
+                    while(parent && parent->children() == 0) {
+                        Fl_Tree_Item *newParent = parent->parent();
+                        toolbar->tree->remove(parent);
+                        parent = newParent;
+                    }
+
                     itAllObjects = siteObjects.erase(itAllObjects);
                     break;
                 }
@@ -758,6 +812,7 @@ int SiteEditor::handleKeyPress(int key, int centerX, int centerY, int doriX, int
         clearSelectedObjects();
         curState = WAITING;
         endDatabaseTransaction();
+        toolbar->tree->redraw();
         redraw();
 
         return 1;
