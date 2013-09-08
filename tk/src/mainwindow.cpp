@@ -9,6 +9,7 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Choice.H>
 #include <FL/Fl_Color_Chooser.H>
+#include <FL/Fl_Tree.H>
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>

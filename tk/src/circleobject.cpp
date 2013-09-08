@@ -1,12 +1,13 @@
 #include <stddef.h>
 #include <string>
 #include <sstream>
-#include "siteobject.h"
-#include "circleobject.h"
 #include <FL/Fl.H>
+#include <FL/Fl_Tree.H>
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
 #include <algorithm>
+#include "siteobject.h"
+#include "circleobject.h"
 
 CircleObject::CircleObject() : worldRadius(0.0) {
     type = CIRCLE;
@@ -59,10 +60,12 @@ void CircleObject::drawScreen(bool drawCenterPoint, float cellsPerMeter, float p
 }
 
 void CircleObject::updateWorldOffsetCenterX(float offsetCenterX) {
+    if(locked) return;
     worldOffsetX += offsetCenterX;
 }
 
 void CircleObject::updateWorldOffsetCenterY(float offsetCenterY) {
+    if(locked) return;
     worldOffsetY += offsetCenterY;
 }
 
@@ -75,9 +78,10 @@ float CircleObject::getWorldOffsetCenterY() {
 }
 
 
-
 // Resize the object based on world coordinates
 void CircleObject::updateSize(float worldDifferenceX, float worldDifferenceY) {
+    if(locked) return;
+
     // set the radius to the max mouse difference
     worldRadius = std::max(worldDifferenceX, worldDifferenceY);
 }
@@ -96,12 +100,20 @@ std::string CircleObject::toString() {
     ss << worldRadius  << " ";
     ss << elevation    << " " << worldHeight  << " ";
 
-    ss << r << " " << g << " " << b << " " << (int)type;
+    ss << r << " " << g << " " << b << " ";
+    ss << (int)type << (int)locked;
 
     return ss.str();
 }
 
-void CircleObject::fromString(char* input) {
+bool CircleObject::fromString(char* input) {
+    std::string temp = input;
+    size_t count = std::count(temp.begin(), temp.end(), ' ');
+    if(count < 8) {
+        fprintf(stderr, "CircleObject::fromString(): Invalid record: %s\n", input);
+        return false;
+    }
+
     sscanf(input,
            "%f %f "
            "%f "
@@ -112,5 +124,7 @@ void CircleObject::fromString(char* input) {
            &worldRadius,
            &elevation, &worldHeight,
            &r, &g, &b,
-           (int*)&type);
+           (int*)&locked);
+
+    return true;
 }

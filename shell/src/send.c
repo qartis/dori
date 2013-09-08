@@ -25,7 +25,7 @@
 #define LEN_FILE_SIZE 4
 
 const char *gateway_address = "localhost";
-const int gateway_port = 1338;
+int gateway_port = 1338;
 static int gatewayfd;
 
 uint8_t parse_can_arg(const char *arg)
@@ -46,7 +46,7 @@ uint8_t parse_can_arg(const char *arg)
             return 16 * from_hex(arg[0]) + from_hex(arg[1]);
         }
 
-    if (strlen(arg) == 1 && isalpha(arg[0]) && isupper(arg[0])) {
+    if (strlen(arg) == 1 && ((isalpha(arg[0]) && isupper(arg[0])) || arg[0] == '.')) {
         /* otherwise maybe its a letter (eg. J P G) */
         return arg[0];
     }
@@ -130,6 +130,8 @@ int ignore_can_until_type(uint8_t target_type,
 
         int i;
 
+        // For now, only print received frames if they're
+        // not the CAN type that we're expecting
         if(*type != target_type) {
             printf("Dori sent frame: %s [%x] %s [%x] %d [ ", type_names[*type], *type,
                    id_names[*id], *id, *len);
@@ -337,13 +339,8 @@ void process_file_read() {
     process_data_transfer(file_path, file_size);
 }
 
+// don't need to do anything special for the file tree at the moment
 void process_file_tree() {
-
-    uint8_t id, type, len;
-    uint8_t data[MAX_DATA_LEN];
-
-    uint8_t target_type = TYPE_file_tree;
-
     process_data_transfer_stdout();
 }
 
@@ -352,14 +349,22 @@ int main(int argc, char *argv[])
 {
     if(argc < 3 || argc > 11)
     {
-        printf("Usage: send [TYPE] [ID] [DATA]\n");
+        printf("Usage: send [D]? [TYPE] [ID] [DATA]\n");
         exit(0);
     }
 
-    init_gateway_connection();
-
     uint8_t type, id, len;
     uint8_t data[MAX_DATA_LEN];
+
+    // If the first arg is a single D, then we connect to gateway on port 53,
+    // in order to impersonate DORI
+    if(strlen(argv[1]) == 1 && argv[1][0] == 'D') {
+        gateway_port = 53;
+        argv = &argv[1];
+        argc -= 1;
+    }
+
+    init_gateway_connection();
 
     // skip over the executable filename
     argv = &argv[1];

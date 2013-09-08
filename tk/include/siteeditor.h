@@ -2,7 +2,7 @@ class SiteEditor : public Fl_Double_Window {
 
 public:
 
-    SiteEditor(int x, int y, int w, int h, const char *label = NULL);
+    SiteEditor(Toolbar *tb, int x, int y, int w, int h, const char *label = NULL);
 
     ~SiteEditor();
 
@@ -20,11 +20,16 @@ public:
     void beginDatabaseTransaction();
     void endDatabaseTransaction();
 
+    static void setColorCallback(void *data, float r, float g, float b);
+    static void clickedObjTypeCallback(void *data);
+
     sqlite3 *db;
 
     void selectAllObjects();
 
     void clearSelectedObjects();
+
+    virtual void resize(int X, int Y, int W, int H);
 
     typedef enum {
         WAITING,
@@ -33,20 +38,12 @@ public:
         SELECTING,
     } state;
 
-    void setCurState(state s)
-    {
-        curState = s;
-    }
-
-    state getCurState()
-    {
-        return curState;
-    }
-
 private:
 
     float scaledSelectionDistance();
-    static int sqlite_cb(void *arg, int ncols, char**cols, char **colNames);
+    static int readObjectsCallback(void *arg, int ncols, char**cols, char **colNames);
+    static int recordMigrationCallback(void *arg, int ncols, char**cols, char **colNames);
+    static int maxRecordRowIdCallback(void *maxRowID, int ncols, char**cols, char **colNames);
 
     void loadSiteObjects(const char *db_name);
 
@@ -64,29 +61,32 @@ private:
     void drawDistanceText();
     void drawArrow(float arrowScreenX, float arrowScreenY, float arrowAngleDegrees);
 
-    void calculateArrowScreenPosition(float centerX,
+    void calcArrowScreenPosition(float centerX,
                                 float centerY,
                                 float doriX,
                                 float doriY,
                                 float& arrowX,
                                 float& arrowY);
 
-    float calculateArrowAngleDegrees(float arrowScreenX,
+    float calcArrowAngleDegrees(float arrowScreenX,
                                      float arrowScreenY,
                                      float centerX,
                                      float centerY,
                                      float doriX,
                                      float doriY);
 
+    void calcArcInfo();
+
     void createNewObject(SiteObjectType type, float mouseX, float mouseY);
 
     void processNewSiteObject();
 
     void commitSelectedObjectsToDatabase();
+    void commitSiteObject(sqlite3 *db, SiteObject *siteObject, int *recordRowID, char *recordType, int siteid);
+
+    bool hasSqliteError(sqlite3 *db, const char *query, int ret);
 
     void enforceSiteBounds();
-
-    virtual void resize(int X, int Y, int W, int H);
 
     float screenToWorld(float screenVal);
     float worldToScreen(float worldVal);
@@ -98,6 +98,27 @@ private:
 
     void panToWorldCenter();
     void handlePan();
+    void handleMouseMovement(int mouseX, int mouseY);
+
+    int handleLeftMouse(int event,
+                        int curMouseX,
+                        int curMouseY,
+                        int& clickedMouseX,
+                        int& clickedMouseY);
+
+    int handleKeyPress(int key,
+                       int centerX,
+                       int centerY,
+                       int doriX,
+                       int doriY);
+
+    int handleMouseWheel(float centerX,
+                         float centerY,
+                         float doriX,
+                         float doriY,
+                         float arrowScreenX,
+                         float arrowScreenY);
+
 
     int clickedMouseX;
     int clickedMouseY;
@@ -149,4 +170,13 @@ private:
     float arrowScreenY;
 
     float arrowAngleDegrees;
+
+    struct ArcInfo {
+        bool isOnScreen;
+        float screenRadius;
+    };
+
+    std::vector<ArcInfo> arcInfo;
+
+    int maxRecordRowId;
 };

@@ -19,7 +19,7 @@ public:
     void cancel();
 
     std::string toString();
-    void fromString(char* output);
+    bool fromString(char* output);
 
     float worldRadius;
 };

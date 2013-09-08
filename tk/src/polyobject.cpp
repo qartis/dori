@@ -2,11 +2,12 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include "siteobject.h"
-#include "polyobject.h"
 #include <FL/Fl.H>
+#include <FL/Fl_Tree.H>
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
+#include "siteobject.h"
+#include "polyobject.h"
 
 PolyObject::PolyObject() {
     type = POLY;
@@ -172,11 +173,13 @@ void PolyObject::calculateCenterPoint() {
 
 
 void PolyObject::updateWorldOffsetCenterX(float offsetCenterX) {
+    if(locked) return;
     worldOffsetX += offsetCenterX;
     recalculateCenterPoint = true;
 }
 
 void PolyObject::updateWorldOffsetCenterY(float offsetCenterY) {
+    if(locked) return;
     worldOffsetY += offsetCenterY;
     recalculateCenterPoint = true;
 }
@@ -208,6 +211,7 @@ void PolyObject::setNextPoint(float x, float y) {
 
 // Resize the object based on world coordinates
 void PolyObject::updateSize(float worldDifferenceX, float worldDifferenceY) {
+    if(locked) return;
     float x, y;
 
     if(points.size() > 0) {
@@ -251,11 +255,12 @@ std::string PolyObject::toString() {
     ss << " " << elevation << " "   << worldHeight;
     ss << " " << r << " "  << g  << " "  << b;
     ss << " " << type;
+    ss << " " << (int)locked;
 
     return ss.str();
 }
 
-void PolyObject::fromString(char* input) {
+bool PolyObject::fromString(char* input) {
     unsigned total_points = 0;
     std::istringstream ss(input);
 
@@ -277,6 +282,10 @@ void PolyObject::fromString(char* input) {
     int typeTemp = 0;
     ss >> typeTemp;
     type = (SiteObjectType)typeTemp;
+
+    ss >> locked;
+
+    return true;
 }
 
 int PolyObject::numPoints() {
