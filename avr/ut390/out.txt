@@ -1,0 +1,10 @@
+Arduino laser distance meter init
+Laser distance: 3.535m
+Laser distance: 1.835m
+Laser distance: 0.415m
+Laser distance: 0.211m
+Laser distance: 0.168m
+Laser distance: 0.235m
+Laser distance: 37.428m
+Laser distance: 30.720m
+Laser distance: 
