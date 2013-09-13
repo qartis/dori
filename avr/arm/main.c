@@ -9,6 +9,9 @@
 #include <util/atomic.h>
 
 #include "uart.h"
+#include "motor.h"
+#include "can.h"
+#include "irq.h"
 #include "spi.h"
 #include "mcp2515.h"
 #include "time.h"
@@ -17,6 +20,16 @@
 
 uint8_t uart_irq(void)
 {
+    uint16_t goal;
+    scanf("%u", &goal);
+    if (goal > 9) {
+        uint8_t i;
+        for (i = 0; i < goal; i++) {
+            motor_cw();
+        }
+    } else {
+        set_arm_angle(goal);
+    }
     return 0;
 }
 
@@ -37,7 +50,8 @@ uint8_t periodic_irq(void)
 
     counter++;
 
-    rc = mcp2515_send(TYPE_value_periodic, ID_arm, 3, buf);
+    //rc = mcp2515_send(TYPE_value_periodic, ID_arm, buf, 3);
+    rc = 0;
     if (rc != 0) {
         return rc;
     }
@@ -76,6 +90,15 @@ void main(void)
 {
     NODE_INIT();
     adc_init();
+
+    DDRC |= (1 << PORTC2);
+    PORTC |= (1 << PORTC2);
+    PORTC |=  (1 << PORTC0);
+    PORTC |=  (1 << PORTC1);
+
+    motor_init();
+
+    sei();
 
     NODE_MAIN();
 }
