@@ -39,9 +39,9 @@ static FILE mystdout = FDEV_SETUP_STREAM(
 #endif
 
 /* must be 2^n */
-static volatile uint8_t uart_ring[UART_BUF_SIZE];
-static volatile uint8_t ring_in;
-static volatile uint8_t ring_out;
+volatile uint8_t uart_ring[UART_BUF_SIZE];
+volatile uint8_t ring_in;
+volatile uint8_t ring_out;
 
 #ifndef UART_CUSTOM_INTERRUPT
 ISR(USART_RXC_vect)

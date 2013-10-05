@@ -9,7 +9,7 @@
 #include "irq.h"
 
 #define DEBUG_BUF_SIZE 64
-#define DEBUG_FAST
+//#define DEBUG_FAST
 
 volatile uint8_t debug_buf[DEBUG_BUF_SIZE];
 volatile uint8_t debug_buf_in;
