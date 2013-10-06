@@ -1,6 +1,9 @@
 #define ON_BTN  DDRD, PORTD, PIND5
 #define OFF_BTN DDRD, PORTD, PIND6
 
+#define VPLUS_PIN PIND
+#define VPLUS_BIT PIND7
+
 #define \
     HOLD(X) \
     hold(X)
