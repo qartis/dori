@@ -95,11 +95,28 @@ ISR(USART_RX_vect)
 }
 
 
-uint8_t has_power(void)
+void adc_init(void)
 {
-    return (VPLUS_PIN & (1 << VPLUS_BIT));
+    ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
 }
 
+uint16_t adc_read(uint8_t channel)
+{
+    ADMUX = (1 << REFS0) | channel; /* internal vref */
+
+    ADCSRA |= (1 << ADSC);
+    while (ADCSRA & (1 << ADSC)) {};
+
+    uint8_t low = ADCL;
+    uint8_t high = ADCH;
+    return ((uint16_t)(high<<8)) | low;
+}
+
+uint8_t has_power(void)
+{
+    uint16_t v_ref = adc_read(7);
+    return v_ref > 400;
+}
 
 void turn_off(void)
 {
@@ -183,6 +200,7 @@ int8_t measure_rapid_fire(uint8_t target_count)
     ring_out = ring_in = 0;
 
     if(!has_power()) {
+        printf("no power\n");
         return -2;
     }
 
@@ -348,6 +366,7 @@ void input_init(void)
 void main(void)
 {
     input_init();
+    adc_init();
 
     NODE_INIT();
     sei();
