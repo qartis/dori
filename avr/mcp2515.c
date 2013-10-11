@@ -161,7 +161,7 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
     }
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        load_tx0(type, id, (const uint8_t *)data, len);
+        load_tx0(type, id, (const uint8_t *)data, len, 0x00);
         mcp2515_busy = 1;
 
         modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
@@ -173,7 +173,22 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
     return 0;
 }
 
-void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len)
+uint8_t mcp2515_send_tagged(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t tag)
+{
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        load_tx0(type, id, (const uint8_t *)data, len, tag);
+        mcp2515_busy = 1;
+
+        modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
+        mcp2515_select();
+        spi_write(MCP_COMMAND_RTS_TX0);
+        mcp2515_unselect();
+    }
+
+    return 0;
+}
+
+void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16_t tag)
 {
     uint8_t i;
 
@@ -184,8 +199,8 @@ void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len)
     spi_write(MCP_COMMAND_LOAD_TX0);
     spi_write(type);
     spi_write(id);
-    spi_write(0x00);
-    spi_write(0x00);
+    spi_write(tag >> 8);
+    spi_write(tag & 0xFF);
 
     spi_write(len);
 
@@ -218,12 +233,9 @@ void read_packet(uint8_t regnum)
     packet.more = (packet.id & 0b00010000) >> 4;
     packet.id = ((packet.id & 0b11100000) >> 3) | (packet.id & 0b00000011);
 
-    spi_recv();
-    spi_recv();
-#if 0
-    packet.data[0] = spi_recv(); /* use extended ID bytes to store */
-    packet.data[1] = spi_recv(); /* two more data bytes */
-#endif
+    packet.tag = spi_recv();
+    packet.tag <<= 8;
+    packet.tag |= spi_recv();
 
     packet.len = spi_recv() & 0x0f;
 
@@ -266,21 +278,23 @@ void read_packet(uint8_t regnum)
                             (uint32_t)packet.data[1] << 16 |
                             (uint32_t)packet.data[2] << 8  |
                             (uint32_t)packet.data[3] << 0;
-        //printf_P(PSTR("mcp time=%lu\n"), new_time);
+        printf_P(PSTR("mcp time=%lu\n"), new_time);
         time_set(new_time);
     } else if (packet.type == TYPE_set_interval && packet.id == MY_ID) {
         periodic_prev = now;
         periodic_interval =  (uint16_t)packet.data[0] << 8 |
                                 (uint16_t)packet.data[1] << 0;
 
-        //printf_P(PSTR("mcp period=%u\n"), periodic_interval);
+        printf_P(PSTR("mcp period=%u\n"), periodic_interval);
     } else if (packet.type == TYPE_sos_reboot && packet.id == MY_ID) {
         cli();
         wdt_enable(WDTO_15MS);
         for (;;) {};
+    } else if (packet.id == MY_ID) {
+        mcp2515_tophalf();
+    } else {
+        printf_P(PSTR("not mine\n"));
     }
-
-    mcp2515_tophalf();
 }
 
 ISR(PCINT0_vect)

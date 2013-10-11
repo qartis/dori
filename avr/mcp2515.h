@@ -7,6 +7,7 @@ struct mcp2515_packet_t {
     mcp2515_type_t type;
     mcp2515_id_t id;
     uint8_t more;
+    uint16_t tag;
     uint8_t len;
     uint8_t data[9];
     uint8_t unread;
@@ -189,7 +190,8 @@ void write_register(uint8_t address, uint8_t value);
 void modify_register(uint8_t address, uint8_t mask, const uint8_t value);
 uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len);
 uint8_t mcp2515_send2(struct mcp2515_packet_t *p);
-void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len);
+uint8_t mcp2515_send_tagged(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t tag);
+void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16_t tags);
 
 uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len);
 uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,

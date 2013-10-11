@@ -3,12 +3,13 @@
 \
     X(value_periodic, 1) \
     X(value_explicit, 2) \
-    X(set_time, 3) \
-    X(set_interval, 4) \
-    X(sos_reboot, 5) \
-    X(sos_rx_overrun, 6) \
-    X(sos_stfu, 7) \
-    X(sos_nostfu, 8) \
+    X(value_request, 3) \
+    X(set_time, 4) \
+    X(set_interval, 5) \
+    X(sos_reboot, 6) \
+    X(sos_rx_overrun, 7) \
+    X(sos_stfu, 8) \
+    X(sos_nostfu, 9) \
 \
     X(file_read, 0x10) \
     X(file_write, 0x11) \
@@ -56,7 +57,6 @@
     X(sd,      0x07) \
     X(arm,     0x08) \
     X(heater,  0x09) \
-    X(lidar,   0x0a) \
     X(powershot, 0x0b) \
     X(9dof,    0x0c) \
     X(compass, 0x0d) \

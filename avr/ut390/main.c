@@ -8,8 +8,12 @@
 #include <util/delay.h>
 #include <util/atomic.h>
 
-#define UART_BAUD 115200
+#define UART_BAUD 38400
 #define DEBUG
+
+enum TAGS {
+    LASER = 0,
+};
 
 #include "irq.h"
 #include "debug.h"
@@ -28,7 +32,7 @@ inline uint8_t streq(const char *a, const char *b)
     return strcmp(a,b) == 0;
 }
 
-volatile int dist_mm;
+volatile uint16_t dist_mm;
 volatile uint8_t read_flag;
 
 volatile int8_t laser_alive;
@@ -38,10 +42,10 @@ int strstart_P(const char *s1, const char * PROGMEM s2)
     return strncmp_P(s1, s2, strlen_P(s2)) == 0;
 }
 
-int parse_dist_str(const char *buf)
+uint16_t parse_dist_str(const char *buf)
 {
     char *comma;
-    int dist;
+    uint16_t dist;
 
     if (!strstart_P(buf, PSTR("Dist: ")))
         return -1;
@@ -137,10 +141,10 @@ void turn_off(void)
 
     // if the laser is on
     if(has_power()) {
-        printf("CAN: DEVICE FAILED TO TURN OFF\n");
+        printf_P(PSTR("CAN: DEVICE FAILED TO TURN OFF\n"));
     }
     else {
-        printf("CAN: DEVICE TURNED OFF\n");
+        printf_P(PSTR("CAN: DEVICE TURNED OFF\n"));
     }
 }
 
@@ -151,10 +155,10 @@ void turn_on(void)
 
     // if the laser is on
     if(has_power()) {
-        printf("CAN: DEVICE TURNED ON\n");
+        printf_P(PSTR("CAN: DEVICE TURNED ON\n"));
     }
     else {
-        printf("CAN: DEVICE FAILED TO TURN ON\n");
+        printf_P(PSTR("CAN: DEVICE FAILED TO TURN ON\n"));
     }
 }
 
@@ -176,13 +180,16 @@ void measure_once(void)
     PRESS(ON_BTN);
 
     uint16_t retry = 16384;// 0xFFFF;
-    while(--retry && !read_flag);
+    while(--retry && !read_flag)
+    {
+        _delay_us(300);
+    }
 
     if(read_flag) {
-        printf("CAN: LASER DIST %d\n", dist_mm);
+        printf_P(PSTR("CAN: LASER DIST %d\n"), dist_mm);
     }
     else {
-        printf("CAN: LASER FAIL TO MEASURE\n");
+        printf_P(PSTR("CAN: LASER FAIL TO MEASURE\n"));
     }
 
     // cancel any mode the laser got into
@@ -200,7 +207,7 @@ int8_t measure_rapid_fire(uint8_t target_count)
     ring_out = ring_in = 0;
 
     if(!has_power()) {
-        printf("no power\n");
+        printf_P(PSTR("no power\n"));
         return -2;
     }
 
@@ -212,13 +219,13 @@ int8_t measure_rapid_fire(uint8_t target_count)
         laser_alive = 0;
         read_flag = 0;
 
-        retry = 3333; // 300us * 333 = ~1 second
+        retry = 3333; // 300us * 3333 = ~1 second
         while(!read_flag && --retry) {
             _delay_us(300);
         }
 
         if(read_flag) {
-            printf("READ DIST: %d\n", dist_mm);
+            printf_P(PSTR("READ DIST: %d\n"), dist_mm);
             read_count++;
             continue;
         }
@@ -247,7 +254,7 @@ int8_t measure_rapid_fire(uint8_t target_count)
 // assumes laser is already on
 void measure(uint32_t target_count)
 {
-    printf("CAN: TAKING %d READINGS\n", target_count);
+    printf_P(PSTR("CAN: %d RDNGS\n"), target_count);
     _delay_ms(100);
 
     uint32_t remaining = target_count;
@@ -270,32 +277,32 @@ void measure(uint32_t target_count)
         else if(read == -1) {
             // timed out, heard no measurements
             // but the device is still talking
-            printf("CAN: LASER ALIVE BUT NO MEASUREMENTS - MOVE ME\n");
+            printf_P(PSTR("CAN: LZR LIVE NO MSRSMNT - MV ME\n"));
             seq_error_count++;
         }
         else if(read == -2) {
             // timed out and nothing heard from the device
-            printf("CAN: HEARD NOTHING\n");
+            printf_P(PSTR("CAN: HEARD NOTHING\n"));
             seq_error_count++;
 
             if(seq_error_count == 1) {
                 // reset device to default state
-                printf("CAN: RESETTING TO DEFAULT MENU\n");
+                printf_P(PSTR("CAN: BACK TO DEFAULT MENU\n"));
                 PRESS(OFF_BTN);
             }
             else if(seq_error_count == 2) {
-                printf("CAN: RESTARTING DEVICE\n");
+                printf_P(PSTR("CAN: RESTARTING\n"));
                 turn_on_safe();
             }
             else {
-                printf("CAN: FAILED TO READ MEASUREMENTS\n");
+                printf_P(PSTR("CAN: FAILED TO READ MEASUREMENTS\n"));
                 PRESS(OFF_BTN);
                 break;
             }
         }
     }
 
-    printf("CAN: TOOK %d READINGS\n", target_count - remaining);
+    printf_P(PSTR("CAN: TOOK %d READINGS\n"), target_count - remaining);
 }
 
 uint8_t debug_irq(void)
@@ -314,7 +321,7 @@ uint8_t debug_irq(void)
         unsigned int max_count = 20;
 
         if(strlen(buf) > 2) {
-            sscanf(&buf[2], "%d", &max_count);
+            max_count = atoi(&buf[2]);
         }
         measure(max_count);
     } else if(streq(buf, "off")) {
@@ -322,7 +329,7 @@ uint8_t debug_irq(void)
     } else if(streq(buf, "c")) {
         PRESS(ON_BTN);
     } else {
-        printf("unrecognized input: '%s'\n", buf);
+        printf_P(PSTR("unrecognized input: '%s'\n"), buf);
     }
 
     debug_flush();
@@ -335,6 +342,29 @@ uint8_t debug_irq(void)
 
 uint8_t can_irq(void)
 {
+    uint8_t buf[2];
+
+    switch (packet.type) {
+    case TYPE_value_request:
+        turn_on_safe();
+        measure_once();
+        turn_off();
+
+        if(read_flag)
+        {
+            //uint8_t mcp2515_send_tagged(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t tag);
+            buf[0] = dist_mm >> 8;
+            buf[1] = (dist_mm & 0x00FF);
+            mcp2515_send_tagged(TYPE_value_explicit,
+                                packet.id,
+                                buf,
+                                2,
+                                LASER);
+
+        }
+    }
+
+    packet.unread = 0;
     return 0;
 }
 

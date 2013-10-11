@@ -44,6 +44,7 @@ void get_mcusr(void)
     goto reinit; \
 \
 reinit: \
+    _delay_ms(100); \
     cli(); \
     while (mcp2515_init()) { \
         puts_P(PSTR("mcp: init")); \

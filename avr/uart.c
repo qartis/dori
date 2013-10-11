@@ -62,6 +62,7 @@ ISR(USART_RXC_vect)
         irq_signal |= IRQ_UART;
     }
 
+#ifdef ECHO
 resend:
     /* echo the char */
     while (!(UCSRA & (1<<UDRE))) {};
@@ -71,6 +72,7 @@ resend:
         data = '\r';
         goto resend;
     }
+#endif
 }
 #endif
 

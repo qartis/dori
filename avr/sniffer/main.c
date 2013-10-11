@@ -110,6 +110,7 @@ uint8_t uart_irq(void)
     uint8_t id = 0;
     uint8_t rc;
     uint8_t enabled = 0;
+    uint8_t tag = 0;
 
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
@@ -123,13 +124,23 @@ uint8_t uart_irq(void)
             goto uart_irq_end;
         }
         type = parse_arg(arg);
-
         arg = strtok(NULL, " ");
         if (arg == NULL) {
             show_send_usage();
             goto uart_irq_end;
         }
+
+        char *tag_dot = strchr(arg, '.');
+        if(tag_dot) {
+            *tag_dot = '\0';
+        }
+
         id = parse_arg(arg);
+        tag = 0;
+        if(tag_dot) {
+            tag = parse_arg(tag_dot + 1);
+        }
+
 
         i = 0;
         for (;;) {
@@ -143,7 +154,7 @@ uint8_t uart_irq(void)
         if (squelch != 2){
             squelch = 0;  // so we can hear the reply.
         }
-        rc = mcp2515_send(type, id, sendbuf, i);
+        rc = mcp2515_send_tagged(type, id, sendbuf, i, tag);
         _delay_ms(200);
         printf_P(PSTR("mcp2515_send: %d\n"), rc);
     } else if (strcmp(arg, "squelch") == 0){
