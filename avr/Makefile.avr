@@ -5,8 +5,13 @@ GCC_PART ?= atmega88
 DUDE_PART ?= m88
 CC = avr-gcc
 STD ?= -ansi -std=c99
+<<<<<<< HEAD
 WARNINGS ?= -fmessage-length=0 -fwrapv -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Werror -Wall -Wextra -Wshadow -Wwrite-strings -Wstrict-overflow=5 -Winit-self -Wcast-align -Wno-error=cast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wstrict-prototypes -Wno-error=unused-variable -Wformat-security -Wpointer-to-int-cast -Wint-to-pointer-cast -Wno-error=unused-label -Wno-error=strict-aliasing -Wno-error=unused-but-set-variable -W -Wno-error=unused-function -mcall-prologues -Wno-error=strict-overflow -Wno-override-init
 CFLAGS += $(WARNINGS) -Os -mmcu=$(GCC_PART) -I/usr/avr/include -I.. -I../.. $(STD) -DF_CPU=$(F_CPU) -fdata-sections -ffunction-sections -ffreestanding -g -DCPU=$(GCC_PART) -flto -DVERSION="$(shell git log -1 --date=local --format="%h %ad")"
+=======
+WARNINGS ?= -fmessage-length=0 -fwrapv -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Werror -Wall -Wextra -Wshadow -Wwrite-strings -Wstrict-overflow=5 -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wstrict-prototypes -Wno-error=unused-variable -Wformat-security -Wpointer-to-int-cast -Wint-to-pointer-cast -Wno-error=unused-label -Wno-error=strict-aliasing -Wno-error=unused-but-set-variable -W -Wno-error=unused-function -mcall-prologues -Wno-error=strict-overflow -Wno-override-init
+CFLAGS += $(WARNINGS) -Os -mmcu=$(GCC_PART) -I/usr/avr/include -I.. -I../.. $(STD) -DF_CPU=$(F_CPU) -fdata-sections -ffunction-sections -ffreestanding -g -DCPU=$(GCC_PART) -DVERSION="$(shell git rev-parse --short HEAD)"
+>>>>>>> nodes have custom hardware bases now
 LDFLAGS += -L. -Wl,-relax -Wl,-gc-sections -fwhole-program 
 LDFLAGS += -Wl,-Map,main.map,--cref
 ASFLAGS = -mmcu=$(GCC_PART) -I/usr/avr/include
@@ -53,4 +58,4 @@ rdfuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -v -q
 
 boot:; avrdude -P $(PROG_DEVICE) -n -c $(PROG_TYPE) -p $(DUDE_PART)
 
-nodefuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -U lfuse:w:0xfd:m
+nodefuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -U lfuse:w:0xfd:m -U lfuse:w:0xdf:m

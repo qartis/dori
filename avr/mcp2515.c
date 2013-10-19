@@ -240,7 +240,7 @@ void read_packet(uint8_t regnum)
     packet.len = spi_recv() & 0x0f;
 
     if (packet.len > 8) {
-        printf_P(PSTR("mcp len %d!"), packet.len);
+        printf_P(PSTR("mcp ln%u t%u!\n"), packet.len, packet.type);
         packet.len = 8;
     }
 

@@ -51,12 +51,12 @@ void set_arm_angle(uint8_t pos)
         puts_P(PSTR("done"));
         //nothing
     } else if (now > goal) {
-        PORTC &= ~(1 << PORTC0);
-        while (get_arm_angle() > goal) { _delay_ms(10); };
-        PORTC |=  (1 << PORTC0);
-    } else {
-        PORTC &= ~(1 << PORTC1);
-        while (get_arm_angle() < goal) { _delay_ms(10); };
         PORTC |=  (1 << PORTC1);
+        while (get_arm_angle() > goal) { _delay_ms(10); };
+        PORTC &= ~(1 << PORTC1);
+    } else {
+        PORTC |=  (1 << PORTC0);
+        while (get_arm_angle() < goal) { _delay_ms(10); };
+        PORTC &= ~(1 << PORTC0);
     }
 }

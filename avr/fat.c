@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdio.h>
+#include <avr/pgmspace.h>
 
 #include "fat.h"
 #include "sd.h"

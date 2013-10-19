@@ -22,6 +22,9 @@
     X(dcim_len, 0x18) \
     X(file_offer, 0x19) \
 \
+    X(get_arm, 0x20) \
+    X(set_arm, 0x21) \
+\
     X(sensor_error, 0x1a) \
     X(file_checksum, 0x1b) \
 \
@@ -64,6 +67,7 @@
     X(modemb,  0x0f) \
     X(accel,   0x10) \
     X(gyro,    0x11) \
+    X(enviro,  0x12) \
     X(invalid, 0x1f) \
 
 

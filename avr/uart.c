@@ -10,8 +10,10 @@
 #include "irq.h"
 #include "mcp2515.h"
 
+#ifndef UART_CUSTOM_INTERRUPT
 #define ICRNL
 #define ONLCR
+#endif
 //#define ECHO
 
 #ifdef UBRR0H

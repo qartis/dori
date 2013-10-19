@@ -1,8 +1,8 @@
-GCC_PART = atmega88p
-DUDE_PART = m88p
+GCC_PART = atmega328p
+DUDE_PART = m328p
 F_CPU = 8000000L
 
-OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o
+OBJS = ../spi.o ../uart.o ../time.o ../irq.o ../sd.o ../fat.o
 
 CFLAGS = -DMY_ID=ID_powershot
 

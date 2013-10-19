@@ -145,7 +145,7 @@ uint8_t parse_nmea(char *buf)
             buf++;
         }
         if (*buf == 'V'){
-            /* invalid fix, ignore it */
+            /* void: invalid fix, ignore it */
             return 0;
         }
         buf += 2; /* this puts us at the start of the lat */

@@ -9,7 +9,7 @@
 #include <util/atomic.h>
 
 #include "uart.h"
-#include "motor.h"
+#include "stepper.h"
 #include "can.h"
 #include "irq.h"
 #include "spi.h"
@@ -20,12 +20,20 @@
 
 uint8_t uart_irq(void)
 {
-    uint16_t goal;
-    scanf("%u", &goal);
+    int32_t i;
+    int32_t goal;
+    scanf("%ld", &goal);
     if (goal > 9) {
-        uint8_t i;
         for (i = 0; i < goal; i++) {
-            motor_cw();
+            stepper_cw();
+            _delay_us(200);
+            _delay_ms(1);
+        }
+    } else if (goal < 0) {
+        for (i = goal; i < 0; i++) {
+            stepper_ccw();
+            _delay_us(200);
+            _delay_ms(1);
         }
     } else {
         set_arm_angle(goal);
@@ -63,6 +71,8 @@ uint8_t can_irq(void)
 {
     uint8_t pos;
 
+    packet.unread = 0;
+
     switch (packet.type) {
     case TYPE_set_arm:
         if (packet.len != 1) {
@@ -93,10 +103,8 @@ void main(void)
 
     DDRC |= (1 << PORTC2);
     PORTC |= (1 << PORTC2);
-    PORTC |=  (1 << PORTC0);
-    PORTC |=  (1 << PORTC1);
 
-    motor_init();
+    stepper_init();
 
     sei();
 

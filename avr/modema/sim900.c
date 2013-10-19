@@ -83,6 +83,7 @@ uint8_t TCPDisconnect(void)
 //    wait_for_state(STATE_CLOSED);
 
 //    state = STATE_UNKNOWN;
+    _delay_ms(500);
 
     sendATCommand(PSTR("AT+CIPSHUT"));
 //    wait_for_state(STATE_CLOSED);

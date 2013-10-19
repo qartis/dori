@@ -39,12 +39,12 @@ uint8_t from_hex(char a)
 
 void show_usage(void)
 {
-    printf_P(PSTR("cmds: send, ...\n"));
+    putchar('?');
 }
 
 void show_send_usage(void)
 {
-    printf_P(PSTR("send type id [02 ff ab ..]\n"));
+    printf_P(PSTR("end type id [02 ff ab ..]\n"));
 	 printf_P(PSTR("valid types:"));
 
 #if 1 
@@ -61,6 +61,7 @@ ID_LIST(X)
 }
 void show_filter_usage(void)
 {
+    return;
     printf_P(PSTR("filter id [0/1]\n"));
 #if 1
 	printf_P(PSTR("\nvalid ids:"));
@@ -73,6 +74,10 @@ ID_LIST(X)
 
 uint8_t parse_arg(const char *arg)
 {
+
+    if (arg[0] == '\'' && arg[1] != '\0' && arg[2] == '\'')
+        return arg[1];
+
     /* first check all the type names*/
 #define X(name, value) if (streq_P(arg, PSTR(#name))) return TYPE_ ##name; \
 
@@ -95,7 +100,7 @@ uint8_t parse_arg(const char *arg)
         return from_hex(arg[0]);
     }
 
-    printf("WTF! given arg '%s'\n", arg);
+    putchar('!');
     return 0xff;
 }
 
@@ -117,16 +122,18 @@ uint8_t uart_irq(void)
 
     arg = strtok(buf, " ");
 
-    if (strcmp(arg, "send") == 0) {
+    if (arg[0] == '\0') {
+        mcp2515_send(TYPE_xfer_cts, ID_sd, NULL, 0);
+    } else if (strcmp_P(arg, PSTR("send")) == 0) {
         arg = strtok(NULL, " ");
         if (arg == NULL) {
-            show_send_usage();
+            //show_send_usage();
             goto uart_irq_end;
         }
         type = parse_arg(arg);
         arg = strtok(NULL, " ");
         if (arg == NULL) {
-            show_send_usage();
+            //show_send_usage();
             goto uart_irq_end;
         }
 
@@ -156,18 +163,18 @@ uint8_t uart_irq(void)
         }
         rc = mcp2515_send_tagged(type, id, sendbuf, i, tag);
         _delay_ms(200);
-        printf_P(PSTR("mcp2515_send: %d\n"), rc);
-    } else if (strcmp(arg, "squelch") == 0){
+        printf_P(PSTR("snd %d\n"), rc);
+    } else if (strcmp_P(arg, PSTR("squelch")) == 0){
         arg = strtok(NULL, " ");
         if (arg == NULL) {
             squelch = squelch?0:1;
             goto uart_irq_end;
         }
         squelch = parse_arg(arg);
-    } else if (strcmp(arg, "filter") == 0){
+    } else if (strcmp_P(arg, PSTR("filter")) == 0){
         arg = strtok(NULL, " ");
         if (arg == NULL) {
-            show_filter_usage();
+            //show_filter_usage();
             goto uart_irq_end;
         }
         id = parse_arg(arg);
@@ -197,7 +204,7 @@ uint8_t uart_irq(void)
         show_usage();
     }
 uart_irq_end:
-    print_P(PSTR("\n" XSTR(MY_ID) "> "));
+    putchar('>');
     return 0;
 }
 
@@ -208,7 +215,6 @@ uint8_t periodic_irq(void)
 
 uint8_t can_irq(void)
 {
-   
     uint8_t i;
 
     packet.unread = 0;
@@ -239,6 +245,8 @@ ID_LIST(X)
 #undef X
     };
 
+    uint8_t len = packet.len;
+
     if (squelch == 0 && filter[packet.id] != 0){
         printf_P(PSTR("[%lu:%02lu:%02lu] %S [%x] %S [%x] %db: "),
             now/3600, (now/60) % 60, now % 60,
@@ -246,14 +254,15 @@ ID_LIST(X)
             packet.type,
             (PGM_P)pgm_read_word(&(id_names[packet.id])),
             packet.id,
-            packet.len);
+            len);
 
-        for (i = 0; i < packet.len; i++) {
+        for (i = 0; i < len; i++) {
             printf_P(PSTR("%x,"), packet.data[i]);
         }
 
-        printf_P(PSTR("\n"));
+        putchar('\n');
     }
+
     return 0;
 }
 

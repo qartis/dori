@@ -194,6 +194,9 @@ uint8_t log_packet(void)
 
         /* dump the page buf */
         rc = dump_page_buf(page_buf, sizeof(page_buf));
+        if (rc)
+            return rc;
+
         page_buf_len = 0;
     }
 
@@ -431,11 +434,13 @@ uint8_t can_irq(void)
     return 0;
 }
 
-uint8_t tree_send_entry(const char *buf)
+uint8_t tree_send_chunks(const char *buf)
 {
-    uint8_t i = strlen(buf);
+    uint8_t i;
     uint8_t chunksize;
     uint8_t rc;
+
+    i = strlen(buf);
 
     while (i > 0) {
         if (i > 8)
@@ -443,6 +448,13 @@ uint8_t tree_send_entry(const char *buf)
         else
             chunksize = i;
 
+        putchar('\'');
+        uint8_t j;
+        for (j = 0; j < chunksize; j++) {
+            putchar(buf[j]);
+        }
+        putchar('\'');
+        putchar('\n');
         rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, buf, chunksize);
         if (rc)
             return 3;
@@ -454,14 +466,15 @@ uint8_t tree_send_entry(const char *buf)
     return 0;
 }
 
-uint8_t tree_send_path(const char *path)
+uint8_t tree_send_path(char *path)
 {
-    FILINFO fno;
     uint8_t rc;
-    DIR dir;
+    uint8_t len;
     char buf[32];
+    DIR dir;
+    FILINFO fno;
 
-    printf_P(PSTR("path %s\n"), path);
+    printf("path %s\n", path);
 
     rc = pf_opendir(&dir, path);
     if (rc)
@@ -469,30 +482,31 @@ uint8_t tree_send_path(const char *path)
 
     for (;;) {
         rc = pf_readdir(&dir, &fno);
-        if (rc) {
-            printf_P(PSTR("dir %u\n"), rc);
+        if (rc)
             return 2;
-        }
 
-        if (!fno.fname[0]) {
-            printf("no fname\n");
+        if (!fno.fname[0])
             break;
-        }
 
         if (fno.fattrib & AM_DIR) {
-            snprintf_P(buf, sizeof(buf), PSTR("%s/\n"), fno.fname);
-            tree_send_entry(buf);
+            len = strlen(path);
 
-            snprintf_P(buf, sizeof(buf), PSTR("%s/%s"), path, fno.fname);
+            sprintf_P(buf, PSTR("%s/\n"), fno.fname);
+            tree_send_chunks(buf);
 
-            rc = tree_send_path(buf);
+            sprintf_P(path + len, PSTR("/%s"), fno.fname);
+
+            rc = tree_send_path(path);
             if (rc)
                 return rc;
 
             mcp2515_send(TYPE_xfer_chunk, MY_ID, "\n", 1);
+
+            path[len] = '\0';
         } else {
-            rc = snprintf_P(buf, sizeof(buf), PSTR("%s [%ld]\n"), fno.fname, fno.fsize);
-            tree_send_entry(buf);
+            snprintf_P(buf, sizeof(buf), PSTR("%s [%lu]\n"),
+                    fno.fname, fno.fsize);
+            tree_send_chunks(buf);
         }
     }
 
@@ -503,15 +517,17 @@ uint8_t tree_send_path(const char *path)
 uint8_t tree(uint8_t dest)
 {
     uint8_t rc;
+    char path[24];
 
-    rc = tree_send_path("");
+    path[0] = '\0';
 
-    puts_P(PSTR("snd lst cnk"));
+    rc = tree_send_path(path);
+    if (rc)
+        return rc;
+
     rc = mcp2515_xfer(TYPE_xfer_chunk, dest, NULL, 0);
-    if (rc) {
-        puts_P(PSTR("xf fl"));
+    if (rc)
         return 4;
-    }
 
     return 0;
 }

@@ -42,6 +42,7 @@
 * Air Pressure (i2c)
 * Shadow Temperature (1wire)
 * Sunlight Temperature (1wire)
+* Lightning sensor
 
 
 === Battery node ===

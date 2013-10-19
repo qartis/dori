@@ -13,7 +13,7 @@ volatile uint16_t periodic_interval;
 void periodic_tophalf(void)
 {
     if (irq_signal & IRQ_PERIODIC) {
-        puts_P(PSTR("timer!"));
+        //puts_P(PSTR("timer!"));
     }
 
     irq_signal |= IRQ_PERIODIC;

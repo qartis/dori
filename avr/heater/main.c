@@ -8,6 +8,8 @@
 #include <util/atomic.h>
 
 #include "node.h"
+#include "irq.h"
+#include "../can.h"
 #include "uart.h"
 #include "mcp2515.h"
 #include "time.h"
@@ -54,6 +56,12 @@ uint8_t uart_irq(void)
     fgets(buf, sizeof(buf), stdin);
 
     printf("got: '%s'\n", buf);
+    int16_t temp;
+
+    uint8_t channel = 0;
+    
+    uint8_t rc = read_temp(channel, &temp);
+    printf("temp %d\n", temp);
 
     return 0;
 }
@@ -67,9 +75,9 @@ uint8_t periodic_irq(void)
     
     rc = read_temp(channel, &temp);
     if (rc != 0) {
-        rc = mcp2515_send(TYPE_sensor_error, ID_heater, 1, (void *)&rc);
+        //rc = mcp2515_send(TYPE_sensor_error, ID_heater, 1, (void *)&rc);
         /* assume that sent */
-        return rc;
+        //return rc;
     }
 
     uint8_t buf[3];
@@ -77,10 +85,10 @@ uint8_t periodic_irq(void)
     buf[1] = (temp >> 8) & 0xff;
     buf[2] = temp & 0xff;
 
-    rc = mcp2515_send(TYPE_value_periodic, ID_heater, 3, buf);
-    if (rc != 0) {
-        return rc;
-    }
+    //rc = mcp2515_send(TYPE_value_periodic, ID_heater, 3, buf);
+    //if (rc != 0) {
+    //    return rc;
+   // }
 
     return 0;
 }
@@ -91,6 +99,7 @@ uint8_t can_irq(void)
 
     return 0;
 
+#if 0
     switch (packet.type) {
     case TYPE_set_output:
         if (packet.len != 1) {
@@ -123,11 +132,14 @@ uint8_t can_irq(void)
     default:
         break;
     }
+#endif
 }
 
 void main(void)
 {
     NODE_INIT();
+
+    sei();
 
     NODE_MAIN();
 }

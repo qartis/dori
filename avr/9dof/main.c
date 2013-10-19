@@ -32,7 +32,7 @@ uint8_t uart_irq(void)
         return 0;
 
     if (streq_P(buf, "read")) {
-        printf("read\n");
+        puts_P(PSTR("read"));
     }
 
     return 0;

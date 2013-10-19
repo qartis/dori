@@ -29,8 +29,8 @@ void spi_low(void)
    
 void spi_medium(void)
 {
-    spi_low();
-    SPSR |= (1 << SPI2X);   
+    spi_high();
+    SPSR &= ~(1 << SPI2X);
 }   
    
 void spi_high(void)
@@ -39,6 +39,7 @@ void spi_high(void)
     SPSR |= (1 << SPI2X);   
 }
 
+#if 0
 uint8_t spi_write_timeout(uint8_t data)
 {
     uint8_t retry = 0;
@@ -48,12 +49,13 @@ uint8_t spi_write_timeout(uint8_t data)
     while (!(SPSR & (1<<SPIF)) && --retry){}
 
     if (!retry) {
-        printf_P(PSTR("spi timeout\n"));
+        puts_P(PSTR("spi err"));
         return 1;
     }
 
     return 0;
 }
+#endif
 
 uint8_t spi_write(uint8_t data)
 {
