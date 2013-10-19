@@ -1,0 +1,40 @@
+1  13
+2  14
+3  15
+4  16
+5  17
+6  18
+7
+8
+9
+10
+11
+12
+
+
+
+1 - analog in
+2 - N/C
+3 - GND
+4 - PC2 (turn on to measure arm)
+
+5 - N/C
+6 - N/C
+7 - GND (orange)
+8 - 5V (green)
+9 - PC0 - IN1 of relay board (blue)
+10 - PC1 - IN2 of relay board (brown)
+11 - cutoff switch 
+12 - cutoff switch
+
+13 - Motor A1 (green)
+14 - Motor A2 (black)
+15 - Motor B1 (red)
+16 - Motor B2 (blue)
+17 - N/C
+18 - N/CC
+
+
+
+Arm red: relay board channel 1 common
+Arm black: relay board channel 2 common
