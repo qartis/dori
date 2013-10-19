@@ -20,30 +20,11 @@
 
 uint8_t uart_irq(void)
 {
-    int32_t i;
-    int32_t goal;
-    scanf("%ld", &goal);
-    if (goal > 9) {
-        for (i = 0; i < goal; i++) {
-            stepper_cw();
-            _delay_us(200);
-            _delay_ms(1);
-        }
-    } else if (goal < 0) {
-        for (i = goal; i < 0; i++) {
-            stepper_ccw();
-            _delay_us(200);
-            _delay_ms(1);
-        }
-    } else {
-        set_arm_angle(goal);
-    }
     return 0;
 }
 
-uint8_t periodic_irq(void)
+uint8_t send_arm_angle(uint8_t type)
 {
-    /* this also gets called when we move the arm */
     uint8_t rc;
     uint16_t angle;
     
@@ -58,42 +39,106 @@ uint8_t periodic_irq(void)
 
     counter++;
 
-    //rc = mcp2515_send(TYPE_value_periodic, ID_arm, buf, 3);
-    rc = 0;
+    rc = mcp2515_send_tagged(type, ID_arm, buf, 3, TAG_get_arm);
     if (rc != 0) {
-        return rc;
+        puts_P(PSTR("err: arm: mcp2515_send_tagged"));
     }
 
-    return 0;
+    return rc;
 }
 
-uint8_t can_irq(void)
+uint8_t send_stepper_angle(uint8_t type)
 {
-    uint8_t pos;
+    uint8_t rc;
+    uint16_t angle;
+    
+    angle = get_stepper_angle();
 
-    packet.unread = 0;
+    uint8_t buf[3];
+    static uint8_t counter = 0;
 
-    switch (packet.type) {
-    case TYPE_set_arm:
-        if (packet.len != 1) {
-            puts_P(PSTR("err: TYPE_set_arm data len"));
-            break;
-        }
-        pos = packet.data[0];
-        set_arm_angle(pos);
-        /* send arm angle again */
-        periodic_irq();
+    buf[0] = angle >> 8;
+    buf[1] = angle & 0xff;
+    buf[2] = counter;
+
+    counter++;
+
+    rc = mcp2515_send_tagged(type, ID_arm, buf, 3, TAG_get_stepper);
+    if (rc != 0) {
+        puts_P(PSTR("err: arm: mcp2515_send_tagged"));
+    }
+
+    return rc;
+}
+
+
+uint8_t periodic_irq(void)
+{
+    uint8_t rc = send_arm_angle(TYPE_value_periodic);
+    if(rc != 0) return rc;
+
+    rc = send_stepper_angle(TYPE_value_periodic);
+    return rc;
+}
+
+uint8_t process_value_request(void)
+{
+    uint8_t rc = 0;
+
+    switch(packet.tag) {
+    case TAG_get_arm:
+        rc = send_arm_angle(TYPE_value_explicit);
         break;
-
-    case TYPE_get_arm:
-        periodic_irq();
-        break;
-
+    case TAG_get_stepper:
+        rc = send_stepper_angle(TYPE_value_explicit);
     default:
         break;
     }
 
-    return 0;
+    return rc;
+}
+
+uint8_t process_command(void)
+{
+    uint8_t rc = 0;
+
+    switch(packet.tag) {
+    case TAG_set_arm:
+        {
+            uint8_t val = packet.data[0];
+            set_arm_percent(val);
+            break;
+        }
+    case TAG_set_stepper:
+        {
+            uint16_t val = packet.data[0] << 8;
+            val |= packet.data[1] & 0xff;
+            set_stepper_angle(val);
+            break;
+        }
+    default:
+        break;
+    }
+
+    return rc;
+}
+
+
+uint8_t can_irq(void)
+{
+    uint8_t rc = 0;
+
+    switch (packet.type) {
+    case TYPE_value_request:
+        rc = process_value_request();
+    case TYPE_command:
+        rc = process_command();
+    default:
+        break;
+    }
+
+    packet.unread = 0;
+    return rc;
 }
 
 void main(void)
