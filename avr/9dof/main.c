@@ -77,7 +77,8 @@ uint8_t periodic_irq(void)
     }
 
     p.type = TYPE_value_periodic;
-    p.id = ID_gyro;
+    p.id = ID_9dof;
+    p.sensor = SENSOR_gyro;
     p.data[0] = hmc.x >> 8;
     p.data[1] = hmc.x;
     p.data[2] = hmc.y >> 8;
@@ -93,7 +94,8 @@ uint8_t periodic_irq(void)
 
     _delay_ms(150);
     p.type = TYPE_value_periodic;
-    p.id = ID_compass;
+    p.id = ID_9dof;
+    p.sensor = SENSOR_compass;
     p.data[0] = mpu.x >> 8;
     p.data[1] = mpu.x;
     p.data[2] = mpu.y >> 8;
@@ -110,7 +112,8 @@ uint8_t periodic_irq(void)
 
 	 _delay_ms(150);
     p.type = TYPE_value_periodic;
-    p.id = ID_accel;
+    p.id = ID_9dof;
+    p.sensor = SENSOR_accel;
     p.data[0] = nunchuck.accel_x >> 8;
     p.data[1] = nunchuck.accel_x;
     p.data[2] = nunchuck.accel_y >> 8;
@@ -150,7 +153,7 @@ uint8_t can_irq(void)
 
     switch(packet.type) {
     case TYPE_value_request:
-        if(packet.tag == 0) {
+        if(packet.sensor == SENSOR_gyro) {
             rc = hmc_read(&hmc);
             if (rc) {
                 /* sensor error, reinit */
@@ -159,13 +162,13 @@ uint8_t can_irq(void)
 
             p.type = TYPE_value_explicit;
             p.id = MY_ID;
+            p.sensor = SENSOR_gyro;
             p.data[0] = hmc.x >> 8;
             p.data[1] = hmc.x;
             p.data[2] = hmc.y >> 8;
             p.data[3] = hmc.y;
             p.data[4] = hmc.z >> 8;
             p.data[5] = hmc.z;
-            p.tag = 0;
             p.len = 6;
             rc = mcp2515_send2(&p);
             if (rc) {
@@ -174,7 +177,7 @@ uint8_t can_irq(void)
             }
 
         }
-        else if(packet.tag == 1) {
+        else if(packet.sensor == SENSOR_compass) {
 
             rc = mpu_read(&mpu);
             if (rc) {
@@ -184,13 +187,13 @@ uint8_t can_irq(void)
 
             p.type = TYPE_value_explicit;
             p.id = MY_ID;
+            p.sensor = SENSOR_compass;
             p.data[0] = mpu.x >> 8;
             p.data[1] = mpu.x;
             p.data[2] = mpu.y >> 8;
             p.data[3] = mpu.y;
             p.data[4] = mpu.z >> 8;
             p.data[5] = mpu.z;
-            p.tag = 1;
             p.len = 6;
 
             rc = mcp2515_send2(&p);

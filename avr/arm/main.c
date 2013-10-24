@@ -39,9 +39,9 @@ uint8_t send_arm_angle(uint8_t type)
 
     counter++;
 
-    rc = mcp2515_send_tagged(type, ID_arm, buf, 3, TAG_get_arm);
+    rc = mcp2515_send_sensor(type, ID_arm, buf, 3, SENSOR_arm);
     if (rc != 0) {
-        puts_P(PSTR("err: arm: mcp2515_send_tagged"));
+        puts_P(PSTR("err: arm: mcp2515_send_sensor"));
     }
 
     return rc;
@@ -63,9 +63,9 @@ uint8_t send_stepper_angle(uint8_t type)
 
     counter++;
 
-    rc = mcp2515_send_tagged(type, ID_arm, buf, 3, TAG_get_stepper);
+    rc = mcp2515_send_sensor(type, ID_arm, buf, 3, SENSOR_stepper);
     if (rc != 0) {
-        puts_P(PSTR("err: arm: mcp2515_send_tagged"));
+        puts_P(PSTR("err: stepper: mcp2515_send_sensor"));
     }
 
     return rc;
@@ -85,11 +85,11 @@ uint8_t process_value_request(void)
 {
     uint8_t rc = 0;
 
-    switch(packet.tag) {
-    case TAG_get_arm:
+    switch(packet.sensor) {
+    case SENSOR_arm:
         rc = send_arm_angle(TYPE_value_explicit);
         break;
-    case TAG_get_stepper:
+    case SENSOR_stepper:
         rc = send_stepper_angle(TYPE_value_explicit);
     default:
         break;
@@ -98,32 +98,6 @@ uint8_t process_value_request(void)
     return rc;
 }
 
-uint8_t process_command(void)
-{
-    uint8_t rc = 0;
-
-    switch(packet.tag) {
-    case TAG_set_arm:
-        {
-            uint8_t val = packet.data[0];
-            set_arm_percent(val);
-            break;
-        }
-    case TAG_set_stepper:
-        {
-            uint16_t val = packet.data[0] << 8;
-            val |= packet.data[1] & 0xff;
-            set_stepper_angle(val);
-            break;
-        }
-    default:
-        break;
-    }
-
-    return rc;
-}
-
-
 uint8_t can_irq(void)
 {
     uint8_t rc = 0;
@@ -131,8 +105,20 @@ uint8_t can_irq(void)
     switch (packet.type) {
     case TYPE_value_request:
         rc = process_value_request();
-    case TYPE_command:
-        rc = process_command();
+        break;
+    case TYPE_action_arm_spin:
+        {
+            uint8_t val = packet.data[0];
+            set_arm_percent(val);
+            break;
+        }
+    case TYPE_action_arm_angle:
+        {
+            uint16_t val = packet.data[0] << 8;
+            val |= packet.data[1] & 0xff;
+            set_stepper_angle(val);
+            break;
+        }
     default:
         break;
     }

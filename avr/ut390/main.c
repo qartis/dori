@@ -11,10 +11,6 @@
 #define UART_BAUD 38400
 #define DEBUG
 
-enum TAGS {
-    LASER = 0,
-};
-
 #include "irq.h"
 #include "debug.h"
 #include "time.h"
@@ -329,7 +325,7 @@ uint8_t debug_irq(void)
     } else if(streq(buf, "c")) {
         PRESS(ON_BTN);
     } else {
-        printf_P(PSTR("unrecognized input: '%s'\n"), buf);
+        printf_P(PSTR("err: '%s'\n"), buf);
     }
 
     debug_flush();
@@ -344,24 +340,30 @@ uint8_t can_irq(void)
 {
     uint8_t buf[2];
 
+    printf("can irq type: %d\n", packet.type);
     switch (packet.type) {
     case TYPE_value_request:
+        printf("value request\n");
+        /*
         turn_on_safe();
         measure_once();
         turn_off();
+        */
+        read_flag = 1;
 
         if(read_flag)
         {
-            //uint8_t mcp2515_send_tagged(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t tag);
             buf[0] = dist_mm >> 8;
             buf[1] = (dist_mm & 0x00FF);
-            mcp2515_send_tagged(TYPE_value_explicit,
+            mcp2515_send_sensor(TYPE_value_explicit,
                                 packet.id,
                                 buf,
                                 2,
-                                LASER);
+                                SENSOR_laser);
 
         }
+
+        read_flag = 0;
     }
 
     packet.unread = 0;
