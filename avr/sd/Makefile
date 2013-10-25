@@ -6,7 +6,7 @@ F_CPU = 8000000L
 
 OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o ../fat.o ../sd.o ../irq.o
 
-CFLAGS = -DMY_ID=ID_sd -DCAN_TOPHALF -DUSER_IRQ=1
+CFLAGS = -DMY_ID=ID_logger -DCAN_TOPHALF -DUSER_IRQ=1
 #CFLAGS += -D"printf_P(...)"=";" -D"puts_P(...)"=";"
 #CFLAGS += -D"printf_P(...)"=";"
 

@@ -4,6 +4,6 @@ F_CPU = 8000000L
 
 OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o ../irq.o ../debug.o
 
-CFLAGS = -DUART_CUSTOM_INTERRUPT=1 -DMY_ID=ID_laser
+CFLAGS = -DUART_CUSTOM_INTERRUPT=1 -DMY_ID=ID_imaging
 
 include ../Makefile.avr

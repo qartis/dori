@@ -11,10 +11,6 @@
 #define UART_BAUD 38400
 #define DEBUG
 
-enum TAGS {
-    LASER = 0,
-};
-
 #include "irq.h"
 #include "debug.h"
 #include "time.h"
@@ -141,10 +137,10 @@ void turn_off(void)
 
     // if the laser is on
     if(has_power()) {
-        printf_P(PSTR("CAN: DEVICE FAILED TO TURN OFF\n"));
+        printf_P(PSTR("DEVICE FAILED TO TURN OFF\n"));
     }
     else {
-        printf_P(PSTR("CAN: DEVICE TURNED OFF\n"));
+        printf_P(PSTR("DEVICE TURNED OFF\n"));
     }
 }
 
@@ -155,10 +151,10 @@ void turn_on(void)
 
     // if the laser is on
     if(has_power()) {
-        printf_P(PSTR("CAN: DEVICE TURNED ON\n"));
+        printf_P(PSTR("DEVICE TURNED ON\n"));
     }
     else {
-        printf_P(PSTR("CAN: DEVICE FAILED TO TURN ON\n"));
+        printf_P(PSTR("DEVICE FAILED TO TURN ON\n"));
     }
 }
 
@@ -186,10 +182,10 @@ void measure_once(void)
     }
 
     if(read_flag) {
-        printf_P(PSTR("CAN: LASER DIST %d\n"), dist_mm);
+        printf_P(PSTR("LASER DIST %d\n"), dist_mm);
     }
     else {
-        printf_P(PSTR("CAN: LASER FAIL TO MEASURE\n"));
+        printf_P(PSTR("LASER FAIL TO MEASURE\n"));
     }
 
     // cancel any mode the laser got into
@@ -254,7 +250,7 @@ int8_t measure_rapid_fire(uint8_t target_count)
 // assumes laser is already on
 void measure(uint32_t target_count)
 {
-    printf_P(PSTR("CAN: %d RDNGS\n"), target_count);
+    printf_P(PSTR("%d READINGS\n"), target_count);
     _delay_ms(100);
 
     uint32_t remaining = target_count;
@@ -277,32 +273,32 @@ void measure(uint32_t target_count)
         else if(read == -1) {
             // timed out, heard no measurements
             // but the device is still talking
-            printf_P(PSTR("CAN: LZR LIVE NO MSRSMNT - MV ME\n"));
+            printf_P(PSTR("LASER LIVE BUT NO MEASUREMENT - MOVE ME\n"));
             seq_error_count++;
         }
         else if(read == -2) {
             // timed out and nothing heard from the device
-            printf_P(PSTR("CAN: HEARD NOTHING\n"));
+            printf_P(PSTR("HEARD NOTHING\n"));
             seq_error_count++;
 
             if(seq_error_count == 1) {
                 // reset device to default state
-                printf_P(PSTR("CAN: BACK TO DEFAULT MENU\n"));
+                printf_P(PSTR("BACK TO DEFAULT MENU\n"));
                 PRESS(OFF_BTN);
             }
             else if(seq_error_count == 2) {
-                printf_P(PSTR("CAN: RESTARTING\n"));
+                printf_P(PSTR("RESTARTING\n"));
                 turn_on_safe();
             }
             else {
-                printf_P(PSTR("CAN: FAILED TO READ MEASUREMENTS\n"));
+                printf_P(PSTR("FAILED TO READ MEASUREMENTS\n"));
                 PRESS(OFF_BTN);
                 break;
             }
         }
     }
 
-    printf_P(PSTR("CAN: TOOK %d READINGS\n"), target_count - remaining);
+    printf_P(PSTR("TOOK %d READINGS\n"), target_count - remaining);
 }
 
 uint8_t debug_irq(void)
@@ -329,7 +325,7 @@ uint8_t debug_irq(void)
     } else if(streq(buf, "c")) {
         PRESS(ON_BTN);
     } else {
-        printf_P(PSTR("unrecognized input: '%s'\n"), buf);
+        printf_P(PSTR("err: '%s'\n"), buf);
     }
 
     debug_flush();
@@ -352,16 +348,24 @@ uint8_t can_irq(void)
 
         if(read_flag)
         {
-            //uint8_t mcp2515_send_tagged(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t tag);
             buf[0] = dist_mm >> 8;
             buf[1] = (dist_mm & 0x00FF);
-            mcp2515_send_tagged(TYPE_value_explicit,
+            mcp2515_send_sensor(TYPE_value_explicit,
                                 packet.id,
                                 buf,
                                 2,
-                                LASER);
+                                SENSOR_laser);
 
         }
+        else {
+            mcp2515_send_sensor(TYPE_sensor_error,
+                                packet.id,
+                                buf,
+                                2,
+                                SENSOR_laser);
+        }
+
+        read_flag = 0;
     }
 
     packet.unread = 0;

@@ -38,7 +38,7 @@ uint16_t get_arm_angle(void)
     return val;
 }
 
-void set_arm_angle(uint8_t pos)
+void set_arm_percent(uint8_t pos)
 {
     DDRC |= (1 << PORTC1) | (1 << PORTC0);
     /* pos is 0..9 */

@@ -67,7 +67,7 @@ uint8_t user_irq(void)
 {
     char buf[8];
     snprintf_P(buf, sizeof(buf), PSTR("%u.LOG"), offer_num);
-    mcp2515_send(TYPE_file_offer, ID_sd, buf, strlen(buf));
+    mcp2515_send(TYPE_file_offer, ID_logger, buf, strlen(buf));
     puts_P(PSTR("yo"));
     return 0;
 }
@@ -245,7 +245,7 @@ void dcim_read(void)
 #define DCIM_SIZE (sizeof(struct can_dcim) - 1)
 
     if (packet.len < DCIM_SIZE) {
-        mcp2515_send(TYPE_format_error, ID_sd, NULL, 0);
+        mcp2515_send(TYPE_format_error, ID_logger, NULL, 0);
         return;
     }
 
@@ -259,7 +259,7 @@ void dcim_read(void)
     rc = pf_open(buf);
     printf_P(PSTR("opn %s %u\n"), buf, rc);
     if (rc) {
-        mcp2515_send(TYPE_file_error, ID_sd, buf, 8);
+        mcp2515_send(TYPE_file_error, ID_logger, buf, 8);
         return;
     }
 
@@ -268,7 +268,7 @@ void dcim_read(void)
     if (rc)
         return;
 
-    rc = mcp2515_xfer(TYPE_dcim_len, ID_sd, &(fs.fsize), sizeof(fs.fsize));
+    rc = mcp2515_xfer(TYPE_dcim_len, ID_logger, &(fs.fsize), sizeof(fs.fsize));
     printf_P(PSTR("xf %u\n"), rc);
     if (rc) {
         //puts_P(PSTR("xfer failed"));
@@ -282,11 +282,11 @@ void dcim_read(void)
         rc = pf_read(buf, 8, &rd);
         if (rc) {
             puts_P(PSTR("read er"));
-            mcp2515_send(TYPE_file_error, ID_sd, NULL, 0);
+            mcp2515_send(TYPE_file_error, ID_logger, NULL, 0);
             break;
         }
 
-        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_sd, buf, rd);
+        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_logger, buf, rd);
         printf_P(PSTR("xf %u\n"), rc);
         if (rc) {
             //puts_P(PSTR("xfer failed"));
@@ -312,11 +312,11 @@ void file_read(void)
     rc = pf_open(buf);
     printf_P(PSTR("open %s %u\n"), buf, rc);
     if (rc) {
-        mcp2515_send(TYPE_file_error, ID_sd, buf, strlen(buf));
+        mcp2515_send(TYPE_file_error, ID_logger, buf, strlen(buf));
         return;
     }
 
-    rc = mcp2515_xfer(TYPE_file_header, ID_sd, buf, packet.len);
+    rc = mcp2515_xfer(TYPE_file_header, ID_logger, buf, packet.len);
     printf_P(PSTR("header %u\n"), rc);
     if (rc) {
         //puts_P(PSTR("xfer failed"));
@@ -328,11 +328,11 @@ void file_read(void)
         rc = pf_read(buf, 8, &rd);
         if (rc) {
             puts_P(PSTR("read er"));
-            mcp2515_send(TYPE_file_error, ID_sd, NULL, 0);
+            mcp2515_send(TYPE_file_error, ID_logger, NULL, 0);
             break;
         }
 
-        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_sd, buf, rd);
+        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_logger, buf, rd);
         printf_P(PSTR("xf %u\n"), rc);
         if (rc) {
             //puts_P(PSTR("xfer failed"));
@@ -425,7 +425,7 @@ uint8_t can_irq(void)
         dcim_read();
         break;
     case TYPE_file_tree:
-        tree(ID_sd);
+        tree(ID_logger);
         break;
     case TYPE_file_write:
         break;
@@ -544,7 +544,7 @@ void main(void)
     rc = fat_init();
     if (rc) {
         puts_P(PSTR("fat err"));
-        //mcp2515_send(TYPE_file_error, ID_sd, &rc, sizeof(rc));
+        //mcp2515_send(TYPE_file_error, ID_logger, &rc, sizeof(rc));
         _delay_ms(1000);
         goto reinit;
     }
@@ -557,7 +557,7 @@ void main(void)
     if (cur_log == LOG_INVALID) {
         /* disk full? */
         puts_P(PSTR("fle err"));
-        mcp2515_send(TYPE_disk_full, ID_sd, &rc, sizeof(rc));
+        mcp2515_send(TYPE_disk_full, ID_logger, &rc, sizeof(rc));
         /*
         _delay_ms(1000);
         cli();

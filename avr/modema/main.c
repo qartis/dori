@@ -108,7 +108,7 @@ void tcp_irq(uint8_t *buf, uint8_t len)
             return;
 
         p.type = TYPE_file_read;
-        p.id = ID_sd;
+        p.id = ID_logger;
         p.len = len;
         for (i = 0; i < len; i++)
             p.data[i] = tcp_buf[i + 1];
@@ -344,7 +344,7 @@ uint8_t can_irq(void)
             if (rc) {
                 puts_P(PSTR("sending failed"));
             } else {
-                rc = mcp2515_send(TYPE_xfer_cts, ID_sd, NULL, 0);
+                rc = mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
             }
         }
         break;

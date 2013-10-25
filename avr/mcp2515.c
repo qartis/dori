@@ -173,10 +173,10 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
     return 0;
 }
 
-uint8_t mcp2515_send_tagged(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t tag)
+uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
 {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        load_tx0(type, id, (const uint8_t *)data, len, tag);
+        load_tx0(type, id, (const uint8_t *)data, len, sensor);
         mcp2515_busy = 1;
 
         modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
@@ -188,7 +188,7 @@ uint8_t mcp2515_send_tagged(uint8_t type, uint8_t id, const void *data, uint8_t 
     return 0;
 }
 
-void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16_t tag)
+void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16_t sensor)
 {
     uint8_t i;
 
@@ -199,8 +199,8 @@ void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16
     spi_write(MCP_COMMAND_LOAD_TX0);
     spi_write(type);
     spi_write(id);
-    spi_write(tag >> 8);
-    spi_write(tag & 0xFF);
+    spi_write(sensor >> 8);
+    spi_write(sensor & 0xFF);
 
     spi_write(len);
 
@@ -233,9 +233,9 @@ void read_packet(uint8_t regnum)
     packet.more = (packet.id & 0b00010000) >> 4;
     packet.id = ((packet.id & 0b11100000) >> 3) | (packet.id & 0b00000011);
 
-    packet.tag = spi_recv();
-    packet.tag <<= 8;
-    packet.tag |= spi_recv();
+    packet.sensor = spi_recv();
+    packet.sensor <<= 8;
+    packet.sensor |= spi_recv();
 
     packet.len = spi_recv() & 0x0f;
 
@@ -273,7 +273,7 @@ void read_packet(uint8_t regnum)
             /* finish this */
             xfer_state = 0;
         }
-    } else if (packet.type == TYPE_value_periodic && packet.id == ID_time) {
+    } else if (packet.type == TYPE_value_periodic && packet.sensor == SENSOR_time) {
         uint32_t new_time = (uint32_t)packet.data[0] << 24 |
                             (uint32_t)packet.data[1] << 16 |
                             (uint32_t)packet.data[2] << 8  |
@@ -293,7 +293,7 @@ void read_packet(uint8_t regnum)
     } else if (packet.id == MY_ID) {
         mcp2515_tophalf();
     } else {
-        printf_P(PSTR("not mine\n"));
+        printf_P(PSTR("not mine, id was: %d\n"), packet.id);
     }
 }
 

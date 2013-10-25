@@ -64,6 +64,7 @@ ISR(USART_RXC_vect)
         irq_signal |= IRQ_UART;
     }
 
+
 #ifdef ECHO
 resend:
     /* echo the char */
