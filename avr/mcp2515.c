@@ -293,7 +293,7 @@ void read_packet(uint8_t regnum)
     } else if (packet.id == MY_ID) {
         mcp2515_tophalf();
     } else {
-        printf_P(PSTR("not mine, id was: %d\n"), packet.id);
+        //printf_P(PSTR("not mine, id was: %d\n"), packet.id);
     }
 }
 

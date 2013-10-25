@@ -47,7 +47,7 @@ static PGM_P const id_names[] PROGMEM = {
 
 
 static PGM_P const sensor_names[] PROGMEM = {
-    [0 ... 64] = unknown_string,
+    [0 ... 128] = unknown_string,
 #define X(name, value) [value] = temp_sensor_ ##name,
     SENSOR_LIST(X)
 #undef X

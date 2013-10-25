@@ -44,5 +44,5 @@ void temp_read(uint8_t channel, int16_t *temp)
         return;
     }
 
-    printf("chan %d: %d\n", channel, *temp);
+    //printf("chan %d: %d\n", channel, *temp);
 }

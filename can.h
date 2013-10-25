@@ -77,9 +77,11 @@
     X(rain, 0x0a) \
     X(humidity, 0x0b) \
     X(pressure, 0x0c) \
-    X(temp1, 0x0d) \
-    X(temp2, 0x0e) \
-    X(temp3, 0x0f) \
+    X(temp0, 0x0d) \
+    X(temp1, 0x0e) \
+    X(temp2, 0x0f) \
+    X(temp3, 0x10) \
+    X(temp4, 0x11) \
     //...
 
 
