@@ -1,0 +1,45 @@
+RAIN:
+PD7 (PD6!)
+GND
+
+1WIRE:
+PC3
+PULLUP
+GND
+
+HUMID:
+PC1 (PC7!)
+V+
+GND
+
+WIND:
+PC2 (PC6!)
+GND
+V+
+
+BAROM:
+PC4, PC5 (i2c)
+
+
+ 1wire d | #1  20# |   1wire gnd
+ 1wire d | #2  21# |   1wire gnd
+ 1wire d | #3  22# |   1wire gnd
+ 1wire d | #4  23# |   1wire gnd
+ 1wire d | #5  24# |   1wire gnd
+ 1wire d | #6  25# |   1wire gnd
+ 1wire d | #7  26# |   1wire gnd
+ 1wire d | #8  27# |   1wire gnd
+ 1wire d | #9  28# |   1wire gnd
+ 1wire d | #10 29# |   1wire gnd
+            11 30# | rain gnd
+            12 31# | rain sig
+wind gnd | #13 32
+wind v+  | #14 33# |   BAROM 3V3
+wind dat | #15 34# |   BAROM EOC
+            16 35# |   BAROM CLR
+humid v+ | #17 36# |   BAROM SCL
+humid gn | #18 37# |   BAROM SDA
+humid da | #19 38# |   BAROM 5V
+               40# |   BAROM GND
+
+
