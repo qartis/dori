@@ -149,7 +149,7 @@ void mcp2515_reset(void)
 
 uint8_t mcp2515_send2(struct mcp2515_packet_t *p)
 {
-    return mcp2515_send(p->type, p->id, p->data, p->len);
+    return mcp2515_send_sensor(p->type, p->id, p->data, p->len, p->sensor);
 }
 
 uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
