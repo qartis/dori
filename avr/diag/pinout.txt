@@ -1,0 +1,38 @@
+1WIRE:
+PC3
+PULLUP
+GND
+
+CURR:
+PC1 (PC7!)
+V+
+GND
+
+VOLT:
+PC2 (PC6!)
+GND
+V+
+
+
+ 1wire d | #1  20# |   1wire gnd
+ 1wire d | #2  21# |   1wire gnd
+ 1wire d | #3  22# |   1wire gnd
+ 1wire d | #4  23# |   1wire gnd
+ 1wire d | #5  24# |   1wire gnd
+ 1wire d | #6  25# |   1wire gnd
+ 1wire d | #7  26# |   1wire gnd
+ 1wire d | #8  27# |   1wire gnd
+ 1wire d | #9  28# |   1wire gnd
+ 1wire d | #10 29# |   1wire gnd
+            11 30# |
+            12 31# |
+volt gnd | #13 32
+volt v+  | #14 33# |
+volt dat | #15 34# |
+            16 35# |
+curr v+  | #17 36# |
+curr gn  | #18 37# |   heat3 IO
+curr da  | #19 38# |   heat2 IO
+               40# |   heat1 IO
+
+

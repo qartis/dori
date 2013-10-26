@@ -280,13 +280,15 @@ void read_packet(uint8_t regnum)
                             (uint32_t)packet.data[3] << 0;
         printf_P(PSTR("mcp time=%lu\n"), new_time);
         time_set(new_time);
-    } else if (packet.type == TYPE_set_interval && packet.id == MY_ID) {
+    } else if (packet.type == TYPE_set_interval &&
+              (packet.id == MY_ID || packet.id == ID_any)) {
         periodic_prev = now;
         periodic_interval =  (uint16_t)packet.data[0] << 8 |
                                 (uint16_t)packet.data[1] << 0;
 
         printf_P(PSTR("mcp period=%u\n"), periodic_interval);
-    } else if (packet.type == TYPE_sos_reboot && packet.id == MY_ID) {
+    } else if (packet.type == TYPE_sos_reboot &&
+              (packet.id == MY_ID || packet.id == ID_any)) {
         cli();
         wdt_enable(WDTO_15MS);
         for (;;) {};

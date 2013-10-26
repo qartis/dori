@@ -1,9 +1,9 @@
-GCC_PART = atmega328p
-DUDE_PART = m328p
+GCC_PART = atmega88p
+DUDE_PART = m88p
 F_CPU = 8000000L
 
 OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o ../i2c.o ../irq.o
 
-CFLAGS = -DMY_ID=ID_9dof
+CFLAGS = -DUART_BAUD=9600 -DUSER_IRQ=1 -DUART_CUSTOM_INTERRUPT=1 -DMY_ID=ID_9dof
 
 include ../Makefile.avr
