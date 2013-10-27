@@ -154,27 +154,21 @@ uint8_t mcp2515_send2(struct mcp2515_packet_t *p)
 
 uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
 {
+    return mcp2515_send_sensor(type, id, data, len, 0);
+}
+
+uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
+{
+    if (stfu) {
+        return 0;
+    }
+
     if (mcp2515_busy) {
         puts_P(PSTR("tx overrun"));
         mcp2515_busy = 0;
         return 1;
     }
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        load_tx0(type, id, (const uint8_t *)data, len, 0x00);
-        mcp2515_busy = 1;
-
-        modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
-        mcp2515_select();
-        spi_write(MCP_COMMAND_RTS_TX0);
-        mcp2515_unselect();
-    }
-
-    return 0;
-}
-
-uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
-{
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         load_tx0(type, id, (const uint8_t *)data, len, sensor);
         mcp2515_busy = 1;
@@ -292,6 +286,12 @@ void read_packet(uint8_t regnum)
         cli();
         wdt_enable(WDTO_15MS);
         for (;;) {};
+    } else if (packet.type == TYPE_sos_stfu &&
+               (packet.id == MY_ID || packet.id == ID_any)) {
+        stfu = 1;
+    } else if (packet.type == TYPE_sos_nostfu &&
+               (packet.id == MY_ID || packet.id == ID_any)) {
+        stfu = 0;
     } else if (packet.id == MY_ID) {
         mcp2515_tophalf();
     } else {
