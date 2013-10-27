@@ -32,9 +32,10 @@ ISR(PCINT2_vect)
     }
 }
 
-void send_temp_can(int8_t index)
+uint8_t send_temp_can(int8_t index, uint8_t type)
 {
     uint8_t buf[2];
+    uint8_t rc;
 
     if (num_sensors == 0) {
         temp_init();
@@ -46,85 +47,74 @@ void send_temp_can(int8_t index)
     int16_t temp;
 
     // -1 means send all temperature sensor readings
-    if(index == -1)
-    {
+    if (index == -1) {
         uint8_t i = 0;
         for (i = 0; i < num_sensors; i++) {
             temp_read(i, &temp);
             buf[0] = temp >> 8;
             buf[1] = temp & 0xFF;
 
-            mcp2515_send_sensor(TYPE_value_periodic,
-                                MY_ID,
-                                buf,
-                                2,
-                                SENSOR_temp0 + i);
+            rc = mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_temp0 + i);
+            if (rc) {
+                return rc;
+            }
 
             _delay_ms(150);
         }
-    }
-    else {
+    } else {
         temp_read(index, &temp);
         buf[0] = temp >> 8;
         buf[1] = temp & 0xFF;
 
-        mcp2515_send_sensor(TYPE_value_periodic,
-                            MY_ID,
-                            buf,
-                            2,
-                            SENSOR_temp0 + index);
+        rc = mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_temp0 + index);
+        if (rc) {
+            return rc;
+        }
     }
+
+    return 0;
 }
 
-void send_rain_can(void)
+uint8_t send_rain_can(uint8_t type)
 {
     uint8_t buf[1];
+    uint8_t rc;
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         buf[0] = water_tips;
         water_tips = 0;
     }
 
-    mcp2515_send_sensor(TYPE_value_periodic,
-                        MY_ID,
-                        buf,
-                        1,
-                        SENSOR_rain);
+    rc = mcp2515_send_sensor(type, MY_ID, buf, 1, SENSOR_rain);
 
     water_tips = 0;
+
+    return rc;
 }
 
-void send_wind_can(void)
+uint8_t send_wind_can(uint8_t type)
 {
     uint8_t buf[2];
-    uint16_t wind = get_wind_speed();
+    uint16_t wind;
+
+    wind = get_wind_speed();
     buf[0] = wind >> 8;
     buf[1] = (wind & 0x00FF);
 
-    mcp2515_send_sensor(TYPE_value_periodic,
-                        MY_ID,
-                        buf,
-                        2,
-                        SENSOR_wind);
+    return mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_wind);
 }
 
-
-void send_humidity_can(void)
+uint8_t send_humidity_can(uint8_t type)
 {
     uint8_t buf[2];
     uint16_t humidity = get_humidity();
     buf[0] = humidity >> 8;
     buf[1] = (humidity & 0x00FF);
 
-    mcp2515_send_sensor(TYPE_value_periodic,
-                        MY_ID,
-                        buf,
-                        2,
-                        SENSOR_humidity);
+    return mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_humidity);
 }
 
-
-void send_pressure_can(void)
+uint8_t send_pressure_can(uint8_t type)
 {
     uint8_t buf[4];
     struct bmp085_sample s;
@@ -138,59 +128,74 @@ void send_pressure_can(void)
     buf[2] = pressure >> 8;
     buf[3] = pressure & 0xFF;
 
-    mcp2515_send_sensor(TYPE_value_periodic,
-                        MY_ID,
-                        buf,
-                        4,
-                        SENSOR_pressure);
+    return mcp2515_send_sensor(type, MY_ID, buf, 4, SENSOR_pressure);
+}
 
+uint8_t send_all_can(uint8_t type)
+{
+    uint8_t rc;
+    // -1 means send all temperature sensor readings
+    rc = send_temp_can(-1, type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_rain_can(type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_wind_can(type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_humidity_can(type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_pressure_can(type);
+    return rc;
 }
 
 uint8_t periodic_irq(void)
 {
-    // -1 means send all temperature sensor readings
-    send_temp_can(-1);
-    _delay_ms(150);
-
-    send_rain_can();
-    _delay_ms(150);
-
-    send_wind_can();
-    _delay_ms(150);
-
-    send_humidity_can();
-    _delay_ms(150);
-
-    send_pressure_can();
-    return 0;
+    return send_all_can(TYPE_value_periodic);
 }
 
 uint8_t can_irq(void)
 {
-    switch(packet.type) {
+    uint8_t rc = 0;
+    switch (packet.type) {
     case TYPE_value_request:
-        switch(packet.sensor) {
+        switch (packet.sensor) {
         case SENSOR_temp0 ... SENSOR_temp4:
-            send_temp_can(packet.sensor - SENSOR_temp0);
+            rc = send_temp_can(packet.sensor - SENSOR_temp0,
+                               TYPE_value_explicit);
             break;
         case SENSOR_rain:
-            send_rain_can();
+            rc = send_rain_can(TYPE_value_explicit);
             break;
         case SENSOR_wind:
-            send_wind_can();
+            rc = send_wind_can(TYPE_value_explicit);
             break;
         case SENSOR_humidity:
-            send_humidity_can();
+            rc = send_humidity_can(TYPE_value_explicit);
             break;
         case SENSOR_pressure:
-            send_pressure_can();
+            rc = send_pressure_can(TYPE_value_explicit);
             break;
         default:
-            periodic_irq(); // send everything
+            rc = send_all_can(TYPE_value_explicit); // send everything
         }
     }
 
-    return 0;
+    return rc;
 }
 
 uint8_t uart_irq(void)

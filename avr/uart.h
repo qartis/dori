@@ -1,6 +1,6 @@
 #define BAUD(rate) (F_CPU / (rate * 16L) - 1)
 
-#define UART_BUF_SIZE		64
+#define UART_BUF_SIZE		256
 
 /* avr-libc's putchar/getchar takes a FILE* argument
    which makes every call slightly bigger */
