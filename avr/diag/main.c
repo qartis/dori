@@ -21,9 +21,10 @@
 #include "current.h"
 #include "temp.h"
 
-void send_temp_can(int8_t index)
+uint8_t send_temp_can(int8_t index, uint8_t type)
 {
     uint8_t buf[2];
+    uint8_t rc;
 
     if (num_sensors == 0) {
         temp_init();
@@ -35,78 +36,102 @@ void send_temp_can(int8_t index)
     int16_t temp;
 
     // -1 means send all temperature sensor readings
-    if(index == -1)
-    {
+    if (index == -1) {
         uint8_t i = 0;
         for (i = 0; i < num_sensors; i++) {
             temp_read(i, &temp);
             buf[0] = temp >> 8;
             buf[1] = temp & 0xFF;
 
-            mcp2515_send_sensor(TYPE_value_periodic,
-                                MY_ID,
-                                buf,
-                                2,
-                                SENSOR_temp5 + i);
+            rc = mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_temp0 + i);
+            if (rc) {
+                return rc;
+            }
 
             _delay_ms(150);
         }
-    }
-    else {
+    } else {
         temp_read(index, &temp);
         buf[0] = temp >> 8;
         buf[1] = temp & 0xFF;
 
-        mcp2515_send_sensor(TYPE_value_periodic,
-                            MY_ID,
-                            buf,
-                            2,
-                            SENSOR_temp0 + index);
+        rc = mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_temp0 + index);
+        if (rc) {
+            return rc;
+        }
     }
+
+    return 0;
 }
 
-void send_voltage_can(void)
+uint8_t send_voltage_can(uint8_t type)
 {
     uint8_t buf[2];
     uint16_t voltage = get_voltage();
     buf[0] = voltage >> 8;
     buf[1] = (voltage & 0x00FF);
 
-    mcp2515_send_sensor(TYPE_value_periodic,
-                        MY_ID,
-                        buf,
-                        2,
-                        SENSOR_voltage);
+    return mcp2515_send_sensor(TYPE_value_periodic,
+                               MY_ID,
+                               buf,
+                               2,
+                               SENSOR_voltage);
 }
 
 
-void send_current_can(void)
+uint8_t send_current_can(uint8_t type)
 {
     uint8_t buf[2];
     uint16_t current = get_current();
     buf[0] = current >> 8;
     buf[1] = (current & 0x00FF);
 
-    mcp2515_send_sensor(TYPE_value_periodic,
-                        MY_ID,
-                        buf,
-                        2,
-                        SENSOR_current);
+    return mcp2515_send_sensor(TYPE_value_periodic,
+                               MY_ID,
+                               buf,
+                               2,
+                               SENSOR_current);
 }
+
+uint8_t send_all_can(uint8_t type)
+{
+    uint8_t rc;
+    // -1 means send all temperature sensor readings
+    rc = send_temp_can(-1, type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_voltage_can(type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_current_can(type);
+    return rc;
+}
+
 
 uint8_t periodic_irq(void)
 {
+    uint8_t rc;
     // -1 means send all temperature sensor readings
-    send_temp_can(-1);
-    _delay_ms(150);
+    rc = send_temp_can(-1, TYPE_value_periodic);
+    if (rc) {
+        return rc;
+    }
 
-    send_voltage_can();
     _delay_ms(150);
+    rc = send_voltage_can(TYPE_value_periodic);
+    if (rc) {
+        return rc;
+    }
 
-    send_current_can();
     _delay_ms(150);
-
-    return 0;
+    rc = send_current_can(TYPE_value_periodic);
+    return rc;
 }
 
 uint8_t can_irq(void)
@@ -115,16 +140,17 @@ uint8_t can_irq(void)
     case TYPE_value_request:
         switch(packet.sensor) {
         case SENSOR_temp5 ... SENSOR_temp8:
-            send_temp_can(packet.sensor - SENSOR_temp0);
+            send_temp_can(packet.sensor - SENSOR_temp0,
+                          TYPE_value_request);
             break;
         case SENSOR_voltage:
-            send_voltage_can();
+            send_voltage_can(TYPE_value_request);
             break;
         case SENSOR_current:
-            send_current_can();
+            send_current_can(TYPE_value_request);
             break;
         default:
-            periodic_irq(); // send everything
+            send_all_can(TYPE_value_request); // send everything
         }
     }
 
