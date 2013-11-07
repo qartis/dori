@@ -15,7 +15,6 @@
 #ifndef UART_CUSTOM_INTERRUPT
 #define ICRNL
 #endif
-//#define ECHO
 
 #ifdef UBRR0H
 #define UBRRH UBRR0H 
@@ -46,10 +45,37 @@ volatile uint8_t uart_ring[UART_BUF_SIZE];
 volatile uint8_t ring_in;
 volatile uint8_t ring_out;
 
+uint8_t bytes_in_ring(void)
+{
+    if (ring_in > ring_out)
+        return (ring_in - ring_out);
+    else if (ring_out > ring_in)
+        return (UART_BUF_SIZE - (ring_out - ring_in));
+    else
+        return 0;
+}
+
+
 #ifndef UART_CUSTOM_INTERRUPT
 ISR(USART_RXC_vect)
 {
     uint8_t data = UDR;
+
+    if(data =='\b') {
+        if(bytes_in_ring() > 0) {
+            if(ring_in == 0) {
+                ring_in = UART_BUF_SIZE - 1;
+            }
+            else {
+                ring_in--;
+            }
+
+            uart_putchar('\b');
+            uart_putchar(' ');
+            uart_putchar('\b');
+        }
+        return;
+    }
 
     uart_ring[ring_in] = data;
     ring_in = (ring_in + 1) % UART_BUF_SIZE;
@@ -67,15 +93,7 @@ ISR(USART_RXC_vect)
 
 
 #ifdef ECHO
-resend:
-    /* echo the char */
-    while (!(UCSRA & (1<<UDRE))) {};
-    UDR = data;
-
-    if (data == '\n') {
-        data = '\r';
-        goto resend;
-    }
+    putchar(data);
 #endif
 }
 #endif
@@ -92,6 +110,7 @@ void uart_init(uint16_t ubrr)
     stdin = &mystdout;
 #endif
 }
+
 
 int uart_getchar(void)
 {
@@ -115,6 +134,7 @@ ignore:
 #ifdef ECHO
     uart_putchar(c);
 #endif
+
     return c;
 }
 

@@ -29,7 +29,7 @@ volatile mcp2515_type_t expecting_xfer_type;
 void mcp2515_tophalf(void)
 {
     if (irq_signal & IRQ_CAN) {
-        //puts_P(PSTR("CAN overrun"));
+        puts_P(PSTR("CAN overrun"));
     }
 
     irq_signal |= IRQ_CAN;
@@ -157,6 +157,21 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
     return mcp2515_send_sensor(type, id, data, len, 0);
 }
 
+uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t len)
+{
+    uint8_t retry = 255;
+
+    while(mcp2515_busy && --retry) {
+        _delay_ms(1);
+    }
+
+    if(mcp2515_busy) {
+        return 99;
+    }
+
+    return mcp2515_send_sensor(type, id, data, len, 0);
+}
+
 uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
 {
     if (stfu) {
@@ -165,8 +180,7 @@ uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t 
 
     if (mcp2515_busy) {
         puts_P(PSTR("tx overrun"));
-        mcp2515_busy = 0;
-        return 1;
+        return 66;
     }
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
@@ -195,6 +209,9 @@ void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16
     spi_write(id);
     spi_write(sensor >> 8);
     spi_write(sensor & 0xFF);
+
+    if(len > 8)
+        len = 8;
 
     spi_write(len);
 
@@ -304,9 +321,9 @@ ISR(PCINT0_vect)
     uint8_t canintf;
 
     canintf = read_register(MCP_REGISTER_CANINTF);
-    //printf("int! %x\n", canintf);
+    printf("int! %x\n", canintf);
 
-    canintf &= 0x7f;
+    //canintf &= 0x7f;
 
     if (canintf & MCP_INTERRUPT_RX0I) {
         read_packet(MCP_REGISTER_RXB0SIDH);
@@ -366,7 +383,7 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len)
 
     xfer_state = XFER_CHUNK_SENT;
 
-    rc = mcp2515_send(type, dest, data, len);
+    rc = mcp2515_send_wait(type, dest, data, len);
     if (rc) {
         puts_P(PSTR("xfsd er"));
         return rc;
