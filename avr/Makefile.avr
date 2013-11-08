@@ -1,5 +1,5 @@
 #PROG_DEVICE = /dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0
-PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A4007hkl-if00-port0
+PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A20008Dd-if00-port0
 PROG_TYPE = stk500v2
 GCC_PART ?= atmega88
 DUDE_PART ?= m88
@@ -53,4 +53,4 @@ rdfuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -v -q
 
 boot:; avrdude -P $(PROG_DEVICE) -n -c $(PROG_TYPE) -p $(DUDE_PART)
 
-nodefuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -U lfuse:w:0xfd:m -U lfuse:w:0xdf:m
+nodefuse:; avrdude -P $(PROG_DEVICE) -p $(DUDE_PART) -c $(PROG_TYPE) -U lfuse:w:0xfd:m -U hfuse:w:0xdf:m
