@@ -189,11 +189,11 @@ uint8_t read_register(uint8_t address);
 void write_register(uint8_t address, uint8_t value);
 void modify_register(uint8_t address, uint8_t mask, const uint8_t value);
 uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len);
-uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t len);
+uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor);
 uint8_t mcp2515_send2(struct mcp2515_packet_t *p);
 uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor);
 void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16_t sensor);
 
-uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len);
+uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len, uint16_t sensor);
 uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
     mcp2515_xfer_callback_t xfer_cb);
