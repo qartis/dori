@@ -26,6 +26,19 @@
 
 #define PATH_LEN 128
 
+/********************************/
+/* NOTE: All callers of SD/FAT functions
+   will need to be wrapped in atomic blocks
+   to ensure that the CAN interrupt doesn't
+   pre-empt reading from the SD card.
+   Pre-empting the reading may cause
+   the AVR to miss the SPI response from the
+   SD card, which will cause it to loop
+   infinitely
+*/
+/********************************/
+
+
 uint8_t cur_log;
 uint32_t tmp_write_pos;
 uint32_t log_write_pos;
@@ -477,14 +490,21 @@ uint8_t tree_send_path(char *path)
     DIR dir;
     FILINFO fno;
 
-    printf("path %s\n", path);
+    printf("path '%s'\n", path);
 
-    rc = pf_opendir(&dir, path);
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        rc = pf_opendir(&dir, path);
+    }
+    printf("x: %d\n", rc);
     if (rc)
         return rc;
 
     for (;;) {
-        rc = pf_readdir(&dir, &fno);
+
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            rc = pf_readdir(&dir, &fno);
+        }
+
         if (rc)
             return 2;
 
@@ -499,11 +519,15 @@ uint8_t tree_send_path(char *path)
 
             snprintf_P(path + len, PATH_LEN - len, PSTR("/%s"), fno.fname);
 
+            /*
             rc = tree_send_path(path);
             if (rc)
                 return rc;
 
-            mcp2515_xfer(TYPE_xfer_chunk, MY_ID, "\n", 1);
+                */
+            rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, "\n", 1);
+            if (rc)
+                return rc;
 
             path[len] = '\0';
         } else {
@@ -512,6 +536,7 @@ uint8_t tree_send_path(char *path)
 
             tree_send_chunks(buf);
         }
+
     }
 
     return 0;

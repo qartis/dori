@@ -6,6 +6,7 @@
 #include <avr/wdt.h>
 #include <stdio.h>
 
+#include "sd.h"
 #include "can.h"
 #include "mcp2515.h"
 #include "spi.h"
@@ -160,7 +161,6 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
 uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t len)
 {
     uint8_t retry = 255;
-
     while(mcp2515_busy && --retry) {
         _delay_ms(1);
     }
@@ -169,7 +169,18 @@ uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t le
         return 99;
     }
 
-    return mcp2515_send_sensor(type, id, data, len, 0);
+    mcp2515_send_sensor(type, id, data, len, 0);
+
+    retry = 255;
+    while(mcp2515_busy && --retry) {
+        _delay_ms(1);
+    }
+
+    if(mcp2515_busy) {
+        return 77;
+    }
+
+    return 0;
 }
 
 uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
@@ -320,6 +331,8 @@ ISR(PCINT0_vect)
 {
     uint8_t canintf;
 
+    SD_DESELECT();
+
     canintf = read_register(MCP_REGISTER_CANINTF);
     printf("int! %x\n", canintf);
 
@@ -349,6 +362,7 @@ ISR(PCINT0_vect)
 
         /* TEC > 96 */
         if (eflg & 0b00000100) {
+            printf("TEC\n");
             write_register(MCP_REGISTER_TEC, 0);
         }
 
