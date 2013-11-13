@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <util/delay.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <stdio.h>
@@ -9,6 +10,7 @@
 volatile uint32_t now;
 volatile uint32_t periodic_prev;
 volatile uint16_t periodic_interval;
+static volatile uint8_t overflows;
 
 void periodic_tophalf(void)
 {
@@ -21,14 +23,17 @@ void periodic_tophalf(void)
 
 ISR(TIMER0_COMPA_vect)
 {
-    static uint8_t overflows = 0;
-
     overflows++;
 
     if (overflows >= 250) {
         overflows = 0;
         now++;
         //printf_P(PSTR("time %lu\n"), now);
+
+    /* heartbeat. delay should be moved out of ISR */
+    PORTC &= ~(1 << PORTC3);
+    _delay_us(300);
+    PORTC ^= (1 << PORTC3);
 
         if (now >= periodic_prev + periodic_interval) {
             periodic_tophalf();
@@ -52,6 +57,10 @@ void time_init(void)
     TCCR0A = (1 << WGM01);
     TCCR0B = (1 << CS02); /* clk/256 */
     TIMSK0 = (1 << OCIE0A);
+
+    /* heartbeat light */
+    PORTC |= (1 << PORTC3);
+    DDRC |= (1 << PORTC3);
 }
 
 void time_set(uint32_t new_time)
@@ -62,4 +71,5 @@ void time_set(uint32_t new_time)
     }
 
     now = new_time;
+    overflows = 0;
 }
