@@ -47,7 +47,7 @@ static PGM_P const id_names[] PROGMEM = {
 
 
 static PGM_P const sensor_names[] PROGMEM = {
-    [0 ... 64] = unknown_string,
+    [0 ... 128] = unknown_string,
 #define X(name, value) [value] = temp_sensor_ ##name,
     SENSOR_LIST(X)
 #undef X
@@ -173,8 +173,8 @@ uint8_t uart_irq(void)
 
     arg = strtok(buf, " ");
 
-    if (arg[0] == '\0') {
-        mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
+    if (arg == NULL) {
+        mcp2515_send_wait(TYPE_xfer_cts, ID_logger, NULL, 0, 0);
     } else if (strcmp_P(arg, PSTR("send")) == 0) {
         arg = strtok(NULL, " ");
         if (arg == NULL) {
@@ -212,7 +212,7 @@ uint8_t uart_irq(void)
         if (squelch != 2){
             squelch = 0;  // so we can hear the reply.
         }
-        rc = mcp2515_send_sensor(type, id, sendbuf, i, sensor);
+        rc = mcp2515_send_wait(type, id, sendbuf, i, sensor);
         _delay_ms(200);
         printf_P(PSTR("snd %d\n"), rc);
     } else if (strcmp_P(arg, PSTR("squelch")) == 0){

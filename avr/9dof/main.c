@@ -5,7 +5,9 @@
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
 #include <util/delay.h>
+#include <ctype.h>
 
+#include "irq.h"
 #include "uart.h"
 #include "i2c.h"
 #include "spi.h"
@@ -16,47 +18,121 @@
 #include "mpu6050.h"
 #include "nunchuck.h"
 #include "nmea.h"
-#include "irq.h"
 #include "can.h"
 
 #define streq_P(a,b) (strcmp_P(a,b) == 0)
 
-uint8_t uart_irq(void)
+volatile uint32_t coords_read_time;
+volatile uint32_t num_sats_read_time;
+
+volatile int32_t cur_lat;
+volatile int32_t cur_lon;
+volatile uint8_t num_sats;
+
+extern volatile uint8_t uart_ring[UART_BUF_SIZE];
+extern volatile uint8_t ring_in;
+extern volatile uint8_t ring_out;
+
+#define UDR UDR0
+
+ISR(USART_RX_vect)
 {
-    char buf[UART_BUF_SIZE];
+    uint8_t data = UDR;
+    uart_ring[ring_in] = data;
+    ring_in = (ring_in + 1) % UART_BUF_SIZE;
+    irq_signal |= IRQ_USER;
+}
 
-    fgets(buf, sizeof(buf), stdin);
-    buf[strlen(buf) - 1] = '\0';
+uint8_t send_time_can(void)
+{
+    struct mcp2515_packet_t p;
+    uint8_t rc;
 
-    if (parse_nmea(buf))
-        return 0;
+    p.type = TYPE_value_periodic;
+    p.id = ID_9dof;
+    p.sensor = SENSOR_time;
+    p.data[0] = now >> 24;
+    p.data[1] = now >> 16;
+    p.data[2] = now >> 8;
+    p.data[3] = now & 0xFF;
+    p.len = 4;
 
-    if (streq_P(buf, "read")) {
-        puts_P(PSTR("read"));
+    rc = mcp2515_send2(&p);
+    return rc;
+}
+
+/* 80 lines of text, plus possible \r\n, plus NULL */
+#define BUFLEN 80+2+1
+
+uint8_t user_irq(void)
+{
+    static char buffer[BUFLEN];
+    static uint8_t buflen = 0;
+
+    while (uart_haschar()) {
+        if (buflen > sizeof(buffer)) {
+            buflen = 0;
+            continue;
+        }
+
+        char c = getchar();
+
+        if (c == '$') {
+            buflen = 0;
+        }
+
+        if (!isprint(c) && c != '\n') {
+            continue;
+        }
+
+        if (c == '\n') {
+            if (buflen > 0) {
+                buffer[buflen] = '\0';
+
+                struct nmea_data_t result = parse_nmea(buffer);
+
+                switch (result.tag) {
+                case NMEA_TIMESTAMP:
+                    time_set(result.timestamp);
+                    send_time_can();
+                    break;
+                case NMEA_COORDS:
+                    coords_read_time = now;
+                    cur_lat = result.cur_lat;
+                    cur_lon = result.cur_lon;
+                    break;
+                case NMEA_NUM_SATS:
+                    num_sats_read_time = now;
+                    num_sats = result.num_sats;
+                    break;
+                default:
+                    break;
+                }
+
+            }
+            buflen = 0;
+            continue;
+        }
+        buffer[buflen++] = c;
     }
 
     return 0;
 }
 
-uint8_t periodic_irq(void)
+uint8_t uart_irq(void)
 {
-    uint8_t rc;
-    struct hmc5883_t hmc;
-    struct mpu6050_t mpu;
-    struct nunchuck_t nunchuck;
+    return 0;
+}
+
+uint8_t send_gyro_can(uint8_t type)
+{
     struct mcp2515_packet_t p;
+    struct hmc5883_t hmc;
+    uint8_t rc;
 
     hmc.x = -1;
     hmc.y = -1;
     hmc.z = -1;
-
-    mpu.x = -1;
-    mpu.y = -1;
-    mpu.z = -1;
-
-    nunchuck.accel_x = 255;
-    nunchuck.accel_y = 255;
-    nunchuck.accel_z = 255;
 
     rc = hmc_read(&hmc);
     if (rc) {
@@ -64,19 +140,7 @@ uint8_t periodic_irq(void)
         return rc;
     }
 
-    rc = mpu_read(&mpu);
-    if (rc) {
-        /* sensor error, reinit */
-        return rc;
-    }
-
-    rc = nunchuck_read(&nunchuck);
-    if (rc) {
-        /* sensor error, reinit */
-        return rc;
-    }
-
-    p.type = TYPE_value_periodic;
+    p.type = type;
     p.id = ID_9dof;
     p.sensor = SENSOR_gyro;
     p.data[0] = hmc.x >> 8;
@@ -86,14 +150,28 @@ uint8_t periodic_irq(void)
     p.data[4] = hmc.z >> 8;
     p.data[5] = hmc.z;
     p.len = 6;
+
     rc = mcp2515_send2(&p);
+    return rc;
+}
+
+uint8_t send_compass_can(uint8_t type)
+{
+    struct mcp2515_packet_t p;
+    struct mpu6050_t mpu;
+    uint8_t rc;
+
+    mpu.x = -1;
+    mpu.y = -1;
+    mpu.z = -1;
+
+    rc = mpu_read(&mpu);
     if (rc) {
-        /* can error, attempt to transmit error, reinit */
+        /* sensor error, reinit */
         return rc;
     }
 
-    _delay_ms(150);
-    p.type = TYPE_value_periodic;
+    p.type = type;
     p.id = ID_9dof;
     p.sensor = SENSOR_compass;
     p.data[0] = mpu.x >> 8;
@@ -105,13 +183,26 @@ uint8_t periodic_irq(void)
     p.len = 6;
 
     rc = mcp2515_send2(&p);
+    return rc;
+}
+
+uint8_t send_accel_can(uint8_t type)
+{
+    struct mcp2515_packet_t p;
+    struct nunchuck_t nunchuck;
+    uint8_t rc;
+
+    nunchuck.accel_x = 255;
+    nunchuck.accel_y = 255;
+    nunchuck.accel_z = 255;
+
+    rc = nunchuck_read(&nunchuck);
     if (rc) {
-        /* can error, attempt to transmit error, reinit */
+        /* sensor error, reinit */
         return rc;
     }
 
-	 _delay_ms(150);
-    p.type = TYPE_value_periodic;
+    p.type = type;
     p.id = ID_9dof;
     p.sensor = SENSOR_accel;
     p.data[0] = nunchuck.accel_x >> 8;
@@ -121,92 +212,91 @@ uint8_t periodic_irq(void)
     p.data[4] = nunchuck.accel_z >> 8;
     p.data[5] = nunchuck.accel_z;
     p.len = 6;
-    rc = mcp2515_send2(&p);
-    if (rc) {
-        return rc;
-        /* can error, attempt to transmit error, reinit */
-    }
 
-    return 0;
+    rc = mcp2515_send2(&p);
+    return rc;
 }
 
-uint8_t can_irq(void)
+uint8_t send_coords_can(uint8_t type)
 {
     struct mcp2515_packet_t p;
     uint8_t rc;
 
-    struct hmc5883_t hmc;
-    struct mpu6050_t mpu;
-    struct nunchuck_t nunchuck;
+    if (now - coords_read_time > 5) {
+        return 0;
+    }
 
-    hmc.x = -1;
-    hmc.y = -1;
-    hmc.z = -1;
+    p.type = type;
+    p.id = ID_9dof;
+    p.sensor = SENSOR_coords;
+    p.data[0] = cur_lat >> 24;
+    p.data[1] = cur_lat >> 16;
+    p.data[2] = cur_lat >> 8;
+    p.data[3] = cur_lat & 0xFF;
+    p.data[4] = cur_lon >> 24;
+    p.data[5] = cur_lon >> 16;
+    p.data[6] = cur_lon >> 8;
+    p.data[7] = cur_lon & 0xFF;
+    p.len = 8;
 
-    mpu.x = -1;
-    mpu.y = -1;
-    mpu.z = -1;
+    rc = mcp2515_send2(&p);
+    return rc;
+}
 
-    nunchuck.accel_x = 255;
-    nunchuck.accel_y = 255;
-    nunchuck.accel_z = 255;
+uint8_t send_all_can(uint8_t type)
+{
+    uint8_t rc;
 
-    switch(packet.type) {
+    rc = send_gyro_can(type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_compass_can(type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_accel_can(type);
+    if (rc) {
+        return rc;
+    }
+
+    _delay_ms(150);
+    rc = send_coords_can(type);
+    return rc;
+}
+
+uint8_t periodic_irq(void)
+{
+    return send_all_can(TYPE_value_periodic);
+}
+
+uint8_t can_irq(void)
+{
+    uint8_t rc = 0;
+
+    switch (packet.type) {
     case TYPE_value_request:
-        if(packet.sensor == SENSOR_gyro) {
-            rc = hmc_read(&hmc);
-            if (rc) {
-                /* sensor error, reinit */
-                return rc;
-            }
-
-            p.type = TYPE_value_explicit;
-            p.id = MY_ID;
-            p.sensor = SENSOR_gyro;
-            p.data[0] = hmc.x >> 8;
-            p.data[1] = hmc.x;
-            p.data[2] = hmc.y >> 8;
-            p.data[3] = hmc.y;
-            p.data[4] = hmc.z >> 8;
-            p.data[5] = hmc.z;
-            p.len = 6;
-            rc = mcp2515_send2(&p);
-            if (rc) {
-                /* can error, attempt to transmit error, reinit */
-                return rc;
-            }
-
-        }
-        else if(packet.sensor == SENSOR_compass) {
-
-            rc = mpu_read(&mpu);
-            if (rc) {
-                /* sensor error, reinit */
-                return rc;
-            }
-
-            p.type = TYPE_value_explicit;
-            p.id = MY_ID;
-            p.sensor = SENSOR_compass;
-            p.data[0] = mpu.x >> 8;
-            p.data[1] = mpu.x;
-            p.data[2] = mpu.y >> 8;
-            p.data[3] = mpu.y;
-            p.data[4] = mpu.z >> 8;
-            p.data[5] = mpu.z;
-            p.len = 6;
-
-            rc = mcp2515_send2(&p);
-            if (rc) {
-                /* can error, attempt to transmit error, reinit */
-                return rc;
-            }
-
+        switch (packet.sensor) {
+        case SENSOR_gyro:
+            rc = send_gyro_can(TYPE_value_explicit);
+            break;
+        case SENSOR_compass:
+            rc = send_compass_can(TYPE_value_explicit);
+            break;
+        case SENSOR_coords:
+            rc = send_coords_can(TYPE_value_explicit);
+            break;
+        default:
+            rc = send_all_can(TYPE_value_explicit);
         }
     }
 
     packet.unread = 0;
-    return 0;
+    return rc;
 }
 
 void main(void)

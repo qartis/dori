@@ -1,8 +1,26 @@
-extern uint8_t num_satellites;
-extern uint32_t cur_time;
-extern int32_t cur_lat;
-extern int32_t cur_lon;
+enum nmea_value {
+    NMEA_UNKNOWN = 0,
+    NMEA_TIMESTAMP,
+    NMEA_COORDS,
+    NMEA_NUM_SATS
+};
 
-int checksum(char *buf);
-void parse_coord(char *str);
-uint8_t parse_nmea(char *buf);
+struct nmea_data_t {
+    enum nmea_value tag;
+
+    union {
+        uint8_t num_sats;
+
+        struct {
+            int32_t cur_lat;
+            int32_t cur_lon;
+        };
+
+        uint32_t timestamp;
+    };
+};
+
+uint16_t checksum(const char *buf);
+void parse_coord(const char *str, struct nmea_data_t *data);
+
+struct nmea_data_t parse_nmea(const char *buf);

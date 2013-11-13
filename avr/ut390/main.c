@@ -79,7 +79,7 @@ ISR(USART_RX_vect)
     uart_ring[ring_in] = '\0';
 
     /* if the buffer contains a full line */
-    if (data != '\n') {
+    if (data != '\r') {
         return;
     }
 
@@ -118,7 +118,7 @@ uint8_t has_power(void)
     return v_ref > 400;
 }
 
-void turn_off(void)
+uint8_t turn_off(void)
 {
     // turn off the laser in case it was in the frozen state
     uart_putchar('r');
@@ -135,38 +135,40 @@ void turn_off(void)
     // turn the device off if it is on
     HOLD(OFF_BTN);
 
-    // if the laser is on
+    // if we can't turn the device off
     if(has_power()) {
-        printf_P(PSTR("DEVICE FAILED TO TURN OFF\n"));
+        return 1;
     }
-    else {
-        printf_P(PSTR("DEVICE TURNED OFF\n"));
-    }
+
+    return 0;
 }
 
-void turn_on(void)
+uint8_t turn_on(void)
 {
     // turn on the device
     HOLD(ON_BTN);
 
-    // if the laser is on
-    if(has_power()) {
-        printf_P(PSTR("DEVICE TURNED ON\n"));
+    // error if the laser isn't on yet
+    if(!has_power()) {
+        return 1;
     }
-    else {
-        printf_P(PSTR("DEVICE FAILED TO TURN ON\n"));
-    }
+
+    return 0;
 }
 
-void turn_on_safe(void)
+uint8_t turn_on_safe(void)
 {
-    turn_off();
+    uint8_t ret;
+    ret = turn_off();
+    if(ret) return ret;
+
     // turn on the device
-    turn_on();
+    ret = turn_on();
+    return ret;
 }
 
 // assumes laser is already on
-void measure_once(void)
+uint8_t measure_once(void)
 {
     read_flag = 0;
     ring_out = ring_in = 0;
@@ -181,15 +183,14 @@ void measure_once(void)
         _delay_us(300);
     }
 
-    if(read_flag) {
-        printf_P(PSTR("LASER DIST %d\n"), dist_mm);
-    }
-    else {
-        printf_P(PSTR("LASER FAIL TO MEASURE\n"));
+    if(!read_flag) {
+        return 1;
     }
 
     // cancel any mode the laser got into
     PRESS(OFF_BTN);
+
+    return 0;
 }
 
 
@@ -248,10 +249,12 @@ int8_t measure_rapid_fire(uint8_t target_count)
 }
 
 // assumes laser is already on
-void measure(uint32_t target_count)
+uint8_t measure(uint32_t target_count)
 {
     printf_P(PSTR("%d READINGS\n"), target_count);
     _delay_ms(100);
+
+    uint8_t ret = 0;
 
     uint32_t remaining = target_count;
     uint8_t num_to_read;
@@ -293,12 +296,15 @@ void measure(uint32_t target_count)
             else {
                 printf_P(PSTR("FAILED TO READ MEASUREMENTS\n"));
                 PRESS(OFF_BTN);
+                ret = 1;
                 break;
             }
         }
     }
 
     printf_P(PSTR("TOOK %d READINGS\n"), target_count - remaining);
+
+    return ret;
 }
 
 uint8_t debug_irq(void)
@@ -336,14 +342,36 @@ uint8_t debug_irq(void)
     return 0;
 }
 
+void send_sensor_error(void)
+{
+    mcp2515_send_sensor(TYPE_sensor_error,
+                        packet.id,
+                        NULL,
+                        2,
+                        SENSOR_laser);
+}
+
 uint8_t can_irq(void)
 {
     uint8_t buf[2];
+    uint8_t ret = 0;
 
     switch (packet.type) {
     case TYPE_value_request:
-        turn_on_safe();
-        measure_once();
+        ret = turn_on_safe();
+        if(ret) {
+            send_sensor_error();
+            packet.unread = 0;
+            return 0;
+        }
+
+        ret = measure_once();
+        if(ret) {
+            send_sensor_error();
+            packet.unread = 0;
+            return 0;
+        }
+
         turn_off();
 
         if(read_flag)
@@ -358,11 +386,7 @@ uint8_t can_irq(void)
 
         }
         else {
-            mcp2515_send_sensor(TYPE_sensor_error,
-                                packet.id,
-                                buf,
-                                2,
-                                SENSOR_laser);
+            send_sensor_error();
         }
 
         read_flag = 0;

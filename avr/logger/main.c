@@ -24,6 +24,21 @@
 #define LOG_INVALID 0xff
 #define LOG_SIZE 512
 
+#define PATH_LEN 128
+
+/********************************/
+/* NOTE: All callers of SD/FAT functions
+   will need to be wrapped in atomic blocks
+   to ensure that the CAN interrupt doesn't
+   pre-empt reading from the SD card.
+   Pre-empting the reading may cause
+   the AVR to miss the SPI response from the
+   SD card, which will cause it to loop
+   infinitely
+*/
+/********************************/
+
+
 uint8_t cur_log;
 uint32_t tmp_write_pos;
 uint32_t log_write_pos;
@@ -415,7 +430,7 @@ uint8_t fat_init(void)
 
 uint8_t can_irq(void)
 {
-    packet.unread = 0;
+    uint8_t rc = 0;
 
     switch (packet.type) {
     case TYPE_file_read:
@@ -425,13 +440,14 @@ uint8_t can_irq(void)
         dcim_read();
         break;
     case TYPE_file_tree:
-        tree(ID_logger);
+        rc = tree(ID_logger);
         break;
     case TYPE_file_write:
         break;
     }
 
-    return 0;
+    packet.unread = 0;
+    return rc;
 }
 
 uint8_t tree_send_chunks(const char *buf)
@@ -470,18 +486,25 @@ uint8_t tree_send_path(char *path)
 {
     uint8_t rc;
     uint8_t len;
-    char buf[32];
+    char buf[64];
     DIR dir;
     FILINFO fno;
 
-    printf("path %s\n", path);
+    printf("path '%s'\n", path);
 
-    rc = pf_opendir(&dir, path);
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        rc = pf_opendir(&dir, path);
+    }
+    printf("x: %d\n", rc);
     if (rc)
         return rc;
 
     for (;;) {
-        rc = pf_readdir(&dir, &fno);
+
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            rc = pf_readdir(&dir, &fno);
+        }
+
         if (rc)
             return 2;
 
@@ -491,23 +514,29 @@ uint8_t tree_send_path(char *path)
         if (fno.fattrib & AM_DIR) {
             len = strlen(path);
 
-            sprintf_P(buf, PSTR("%s/\n"), fno.fname);
+            snprintf_P(buf, sizeof(buf), PSTR("%s/\n"), fno.fname);
             tree_send_chunks(buf);
 
-            sprintf_P(path + len, PSTR("/%s"), fno.fname);
+            snprintf_P(path + len, PATH_LEN - len, PSTR("/%s"), fno.fname);
 
+            /*
             rc = tree_send_path(path);
             if (rc)
                 return rc;
 
-            mcp2515_send(TYPE_xfer_chunk, MY_ID, "\n", 1);
+                */
+            rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, "\n", 1);
+            if (rc)
+                return rc;
 
             path[len] = '\0';
         } else {
             snprintf_P(buf, sizeof(buf), PSTR("%s [%lu]\n"),
                     fno.fname, fno.fsize);
+
             tree_send_chunks(buf);
         }
+
     }
 
     return 0;
@@ -517,7 +546,7 @@ uint8_t tree_send_path(char *path)
 uint8_t tree(uint8_t dest)
 {
     uint8_t rc;
-    char path[24];
+    char path[PATH_LEN];
 
     path[0] = '\0';
 

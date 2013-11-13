@@ -5,6 +5,20 @@
 #include "sd.h"
 #include "spi.h"
 
+/********************************/
+/* NOTE: All callers of SD/FAT functions
+   will need to be wrapped in atomic blocks
+   to ensure that the CAN interrupt doesn't
+   pre-empt reading from the SD card.
+   Pre-empting the reading may cause
+   the AVR to miss the SPI response from the
+   SD card, which will cause it to loop
+   infinitely
+*/
+/********************************/
+
+
+
 #define SD_DESELECT() PORTD |=  (1 << PORTD7)
 #define SD_SELECT()   PORTD &= ~(1 << PORTD7)
 
