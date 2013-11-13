@@ -279,11 +279,11 @@ void dcim_read(void)
     }
 
     ptr = (uint8_t *)&packet.data;
-    rc = mcp2515_xfer(TYPE_dcim_header, packet.id, ptr, packet.len);
+    rc = mcp2515_xfer(TYPE_dcim_header, packet.id, ptr, packet.len, 0);
     if (rc)
         return;
 
-    rc = mcp2515_xfer(TYPE_dcim_len, ID_logger, &(fs.fsize), sizeof(fs.fsize));
+    rc = mcp2515_xfer(TYPE_dcim_len, ID_logger, &(fs.fsize), sizeof(fs.fsize), 0);
     printf_P(PSTR("xf %u\n"), rc);
     if (rc) {
         //puts_P(PSTR("xfer failed"));
@@ -301,7 +301,7 @@ void dcim_read(void)
             break;
         }
 
-        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_logger, buf, rd);
+        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_logger, buf, rd, 0);
         printf_P(PSTR("xf %u\n"), rc);
         if (rc) {
             //puts_P(PSTR("xfer failed"));
@@ -331,7 +331,7 @@ void file_read(void)
         return;
     }
 
-    rc = mcp2515_xfer(TYPE_file_header, ID_logger, buf, packet.len);
+    rc = mcp2515_xfer(TYPE_file_header, ID_logger, buf, packet.len, 0);
     printf_P(PSTR("header %u\n"), rc);
     if (rc) {
         //puts_P(PSTR("xfer failed"));
@@ -347,7 +347,7 @@ void file_read(void)
             break;
         }
 
-        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_logger, buf, rd);
+        rc = mcp2515_xfer(TYPE_xfer_chunk, ID_logger, buf, rd, 0);
         printf_P(PSTR("xf %u\n"), rc);
         if (rc) {
             //puts_P(PSTR("xfer failed"));
@@ -471,7 +471,7 @@ uint8_t tree_send_chunks(const char *buf)
         }
         putchar('\'');
         putchar('\n');
-        rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, buf, chunksize);
+        rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, buf, chunksize, 0);
         if (rc)
             return 3;
 
@@ -519,13 +519,11 @@ uint8_t tree_send_path(char *path)
 
             snprintf_P(path + len, PATH_LEN - len, PSTR("/%s"), fno.fname);
 
-            /*
             rc = tree_send_path(path);
             if (rc)
                 return rc;
 
-                */
-            rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, "\n", 1);
+            rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, "\n", 1, 0);
             if (rc)
                 return rc;
 
@@ -554,7 +552,7 @@ uint8_t tree(uint8_t dest)
     if (rc)
         return rc;
 
-    rc = mcp2515_xfer(TYPE_xfer_chunk, dest, NULL, 0);
+    rc = mcp2515_xfer(TYPE_xfer_chunk, dest, NULL, 0, 0);
     if (rc)
         return 4;
 

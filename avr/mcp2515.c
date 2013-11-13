@@ -390,6 +390,7 @@ uint8_t mcp2515_check_alive(void)
     return (rc == 0b00100111);
 }
 
+
 uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len, uint16_t sensor)
 {
     uint8_t retry;
