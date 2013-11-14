@@ -56,13 +56,6 @@ reinit: \
 \
     rc = 0;
 
-
-#define CHECK_CAN \
-
-#define CHECK_TIMER \
-
-#define CHECK_UART \
-
 #ifdef DEBUG
 #define CHECK_DEBUG \
         if (irq_signal & IRQ_DEBUG) { \
@@ -77,7 +70,9 @@ reinit: \
 #define CHECK_DEBUG
 #endif
 
+
 #ifdef USER_IRQ
+#define TRIGGER_USER_IRQ() do { irq_signal |= IRQ_USER; } while(0)
 #define CHECK_USER \
         if (irq_signal & IRQ_USER) { \
             rc = user_irq(); \

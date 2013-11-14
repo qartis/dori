@@ -2,17 +2,11 @@
 #include <string.h>
 #include <avr/io.h>
 #include <util/delay.h>
+#include <avr/interrupt.h>
 
 #include "timer.h"
 #include "fbus.h"
 #include "../uart.h"
-
-#define TYPE_SMS_MGMT 0x14
-#define TYPE_SMS 0x02
-#define TYPE_ACK 0x7f
-#define TYPE_GETID 0xd1
-#define TYPE_ID  0xd2
-#define TYPE_NET_STATUS 0x0a
 
 inline void print_len(const uint8_t *buf, uint8_t len)
 {
@@ -71,7 +65,7 @@ char* addchar(char *str, char c)
 }
 
 char phonenum_buf[16];
-void unbcd_phonenum(uint8_t *data)
+void unbcd_phonenum(volatile uint8_t *data)
 {
     uint8_t len, n, x, at;
     char *endptr = phonenum_buf;
@@ -118,7 +112,7 @@ uint8_t escaped(uint8_t c)
 }
 
 char msg_buf[32];
-void unpack7_msg(uint8_t *data, uint8_t len)
+void unpack7_msg(volatile uint8_t *data, uint8_t len)
 {
     uint16_t *p, w;
     uint8_t c;
@@ -245,65 +239,6 @@ void sendack(uint8_t type, uint8_t seqnum)
     sendframe(TYPE_ACK, buf, sizeof(buf)/sizeof(buf[0]));
 }
 
-ISR(USART_RX_vect)
-{
-    static uint8_t buf[128];
-    static uint8_t buflen;
-
-#define HEADER_LEN 6
-#define CHECKSUM_LEN 2
-
-    buf[buflen] = UDR0;
-
-    /* if the header looks weird, resynchronize */
-    if ((buflen == 0 && buf[buflen] != 0x1e) ||
-         (buflen == 1 && buf[buflen] != 0x0c) ||
-         (buflen == 2 && buf[buflen] != 0x00) ||
-         (buflen == 5 && buf[buflen] > 128)) {
-        buflen = 0;
-        return;
-    }
-
-    buflen++;
-
-    /* if we don't know the length yet */
-    if (buflen < HEADER_LEN) return;
-
-    uint8_t len = buf[5];
-    uint8_t type = buf[3];
-    uint8_t padding = len % 2;
-
-    /* while we're reading `len` bytes of data */
-    if (buflen < HEADER_LEN + len + padding + CHECKSUM_LEN) return;
-
-    //buf[3] = type
-    uint8_t seq_no = buf[6 + len - 1];
-
-    if (type == TYPE_ACK){
-        buflen = 0;
-        return;
-    }
-
-    sendack(type, seq_no & 0x07);
-    delay_ms(100);
-    if (type == TYPE_SMS && buf[3] == 0x10){
-        unbcd_phonenum(buf+23);
-        unpack7_msg(buf+42, buf[22]);
-        fbus_delete_sms(buf[4], buf[5]);
-        return FRAME_SMS_RECV;
-    } else if (type == TYPE_SMS && buf[3] == 0x02){
-        return FRAME_SMS_SENT;
-    } else if (type == TYPE_SMS && buf[3] == 0x03){
-        return FRAME_SMS_ERROR;
-    } else if (type == TYPE_ID){
-        return FRAME_ID;
-    } else if (type == TYPE_NET_STATUS){
-        return FRAME_NET_STATUS;
-    } else {
-        return FRAME_UNKNOWN;
-    }
-}
-
 void uart_sendsms(const char *num, const char *ascii)
 {
     static uint8_t buf[64];
@@ -360,24 +295,21 @@ void fbus_init(void)
     uint8_t c;
     for (c = 0; c < 128; c++){
         uart_putchar('U');
-        delay_ms(1);
+        _delay_ms(1);
     }
-    delay_ms(1);
+    _delay_ms(1);
 }
 
 uint8_t fbus_sendsms(const char *num, const char *msg)
 {
-    enum fbus_frametype f;
-
     fbus_init();
     uart_sendsms(num, msg);
     timer_start();
     for(;;){
-        f = fbus_readframe(10);
-        if (f == FRAME_SMS_SENT){
+        if (frametype == FRAME_SMS_SENT){
             timer_disable();
             return 1;
-        } else if (f == FRAME_READ_TIMEOUT){
+        } else if (frametype == FRAME_READ_TIMEOUT){
             timer_disable();
             return 0;
         }
@@ -395,20 +327,21 @@ void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc)
 
 enum fbus_frametype fbus_heartbeat(void)
 {
-    uint8_t get_info[] = {0x00, 0x01, 0x00, 0x03, 0x00, 0x01, 0x60};
+    uint8_t get_info[] = {0x00, 0x01, 0x00, 0x07, 0x01, 0x00, 0x01, 0x60};
     enum fbus_frametype type;
 
-    for (;;) {
+    //for (;;) {
         fbus_init();
         sendframe(TYPE_GETID, get_info, sizeof(get_info));
+        return FRAME_READ_TIMEOUT;
+        /*
         timer_start();
-        type = fbus_readframe(1);
-        if (type != FRAME_READ_TIMEOUT) {
+        if (frametype != FRAME_READ_TIMEOUT) {
             timer_disable();
-            return type;
+            return frametype;
         }
-        power_press_release();
-        delay_ms(10000);
-        /* 10s is too long for _delay_ms */
-    }
+        _delay_ms(1000);
+        */
+        //TODO: implement power_press_release();
+    //}
 }
