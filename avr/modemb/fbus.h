@@ -1,7 +1,8 @@
-uint8_t fbus_sendsms(const char *num, const char *msg);
+void fbus_sendsms(const char *num, const char *msg);
 enum fbus_frametype fbus_heartbeat(void);
 void fbus_subscribe(void);
 void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc);
+void fbus_init(void);
 
 void unbcd_phonenum(volatile uint8_t *data);
 void sendack(uint8_t type, uint8_t seqnum);

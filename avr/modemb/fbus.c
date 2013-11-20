@@ -167,7 +167,7 @@ uint8_t pack7(uint8_t *dest, const char *s)
     uint8_t n, x;
 
     len = strlen(s);
-    x = ((uint16_t)len * 8) / 7;
+    x = ((uint16_t)(len + 1) * 7) / 8;
     for(n = 0; n < x; ++n)
         dest[n] = 0;
 
@@ -187,12 +187,12 @@ uint8_t pack7(uint8_t *dest, const char *s)
             at++;
         }
     }
-    return len;
+    return x; // return packed length
 }
 
 void sendframe(uint8_t type, uint8_t *data, uint8_t size)
 {
-    static uint8_t buf[128];
+    uint8_t buf[256];
     uint8_t at, len, n;
     uint16_t check;
     uint16_t *p;
@@ -248,21 +248,106 @@ void fbus_init(void)
     _delay_ms(5);
 }
 
-/*
 void uart_sendsms(const char *num, const char *ascii)
 {
-    static uint8_t buf[64];
+    uint8_t buf[256];
     uint8_t len = 0;
     buf[len++] = 0x00;
     buf[len++] = 0x01;
     buf[len++] = 0x00; //SMS frame header
 
-    buf[len++] = 0x01;
     buf[len++] = 0x02;
+    buf[len++] = 0x00;
     buf[len++] = 0x00; //send SMS message
 
-    memset(buf+len, 0, 12);
-    buf[len] = bcd(buf+len+2, "8613800571500") + 1; //include the type-of-address
+    buf[len++] = 0x00;
+    buf[len++] = 0x55;
+    buf[len++] = 0x55;
+
+    memset(buf+len, 0, 100);
+
+    buf[len++] = 0x01;
+    buf[len++] = 0x02;
+
+    uint8_t packet_len_idx = len;
+    buf[len++] = 0x00; // NUL, will be set later
+
+    buf[len++] = 0x11; // hex field for sms properties
+    buf[len++] = 0x00; // reference
+    buf[len++] = 0x00; // PID
+    buf[len++] = 0x00; // DCS
+    buf[len++] = 0x00;
+    buf[len++] = 0x04; // total blocks
+
+    buf[len++] = 0x82;
+    buf[len++] = 0x0c;
+    buf[len++] = 0x01; // remote number
+    buf[len++] = 0x07; // actual data length in this block
+
+    buf[len++] = strlen(num); // length of phone number (unencoded)
+    buf[len++] = 0x81;  // type - unknown
+
+    len += bcd(buf + len, num);
+    /*
+    buf[len++] = 0x77;  // 778-896-9633
+    buf[len++] = 0x88;
+    buf[len++] = 0x69;
+    buf[len++] = 0x69;
+    buf[len++] = 0x33;
+    */
+
+    buf[len++] = 0x00; // start of SMSC block
+    buf[len++] = 0x82;
+    buf[len++] = 0x0c;
+    buf[len++] = 0x02; // field type: SMSC number
+    buf[len++] = 0x08;
+
+    buf[len++] = 0x07; // start of SMSC number
+    buf[len++] = 0x91; // type - international
+    buf[len++] = 0x71; // 1-705-796-9300
+    buf[len++] = 0x50;
+    buf[len++] = 0x97;
+    buf[len++] = 0x96;
+    buf[len++] = 0x03;
+    buf[len++] = 0xf0;
+
+    buf[len++] = 0x80; // start of user data block
+
+    uint8_t enc_len = pack7(buf + len + 3, ascii);
+    uint8_t len_field_idx = len;
+
+    buf[len++] = enc_len + 4; // "length + 4"
+    buf[len++] = enc_len; // encoded length of sms msg
+    buf[len++] = strlen(ascii); // un-encoded length of sms msg
+
+    len += enc_len;
+
+    if(buf[len_field_idx] % 8 != 0) {
+        uint8_t pad_len = 8 - (buf[len_field_idx] % 8);
+        uint8_t i;
+        for(i = 0; i < pad_len; i++) {
+            buf[len++] = 0x55;
+        }
+
+        buf[len_field_idx] += pad_len;
+    }
+
+    buf[len++] = 0x08;
+    buf[len++] = 0x04;
+    buf[len++] = 0x01;
+    buf[len++] = 0xa9; // validity
+
+    buf[packet_len_idx] = len - 9 - 1;
+
+    buf[len++] = 0x01; // terminator
+    buf[len++] = 0x41; // seq no
+
+    sendframe(TYPE_SMS, buf, len);
+    return;
+
+    /*
+
+    buf[len] = bcd(buf+len+2, "17057969300") + 1; //include the type-of-address
     buf[len+1] = 0x91;
     len += 12;
 
@@ -288,7 +373,6 @@ void uart_sendsms(const char *num, const char *ascii)
     buf[len++] = 0x00;
     buf[len++] = 0x00;
 
-    len += pack7(buf + len, ascii);
 
     buf[len++] = 0x01; //terminator
     buf[len++] = 0x41; //seq num
@@ -298,8 +382,16 @@ void uart_sendsms(const char *num, const char *ascii)
     }
 
     sendframe(TYPE_SMS, buf, len);
+    */
 }
 
+void fbus_sendsms(const char *num, const char *msg)
+{
+    fbus_init();
+    uart_sendsms(num, msg);
+}
+
+/*
 uint8_t fbus_sendsms(const char *num, const char *msg)
 {
     fbus_init();
@@ -316,8 +408,8 @@ uint8_t fbus_sendsms(const char *num, const char *msg)
         //TODO what if it's an important packet?
     }
 }
-
 */
+
 #if 0
 unsigned char req[] = {FBUS_FRAME_HEADER, 0x04,
 0x02, /* 0x01 for SM, 0x02 for ME */

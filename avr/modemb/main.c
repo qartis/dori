@@ -50,6 +50,28 @@ volatile uint8_t sms_buflen;
 volatile uint8_t phone_num_buf[FBUS_PHONE_NUM_LEN];
 //volatile uint8_t phone_num_buflen;
 
+
+uint8_t from_hex(char a)
+{
+    if (isupper(a)) {
+        return a - 'A' + 10;
+    } else if (islower(a)) {
+        return a - 'a' + 10;
+    } else {
+        return a - '0';
+    }
+}
+
+uint8_t startswith(const char *a, const char *b)
+{
+    return strncmp(a, b, strlen(b)) == 0;
+}
+
+uint8_t from_hex_8(char a, char b)
+{
+    return (from_hex(a) << 4) | from_hex(b);
+}
+
 uint8_t uart_irq(void)
 {
     return 0;
@@ -174,8 +196,7 @@ void parse_sms(void)
             break;
 
         case 0x80:
-            unpack7_msg(block_ptr + 4, block_ptr[2]);
-            msg_buf[6] = '\0';
+            unpack7_msg(block_ptr + 4, block_ptr[3]);
             printf("GOT MSG '%s'\n", msg_buf);
             break;
 
@@ -192,18 +213,69 @@ void parse_sms(void)
 
 uint8_t user_irq(void)
 {
+    uint8_t rc;
     sendack(fbustype, fbusseqno & 0x07);
+
+    uint8_t type, id, len;
+    uint16_t sensor;
+    uint8_t i;
+
+    uint8_t data[16] = { 0 };
+
+    type = 0;
+    id = 0;
+    sensor = 0;
+    len = 0;
+
+    rc = 0;
 
     switch (frametype) {
     case FRAME_SMS_RECV:
         parse_sms();
+        // convert SMS ascii hex to CAN
+        // [type, id, sensor (16 bits), len, <data> ]
+        // must be at least 5 bytes, 10 characters total
+        if(sms_buflen < 10) {
+            return 0;
+        }
+
+        type = from_hex_8(msg_buf[0], msg_buf[1]);
+        id = from_hex_8(msg_buf[2], msg_buf[3]);
+
+        sensor = from_hex_8(msg_buf[4], msg_buf[5]) << 8;
+        sensor |= from_hex_8(msg_buf[6], msg_buf[7]);
+
+        len = from_hex_8(msg_buf[8], msg_buf[9]);
+
+        if(len > 8) { // invalid length
+            printf("invalid len: %x\n", len);
+            return 0;
+        }
+
+        printf("pkt: %x %x %x %x: ", type, id, sensor, len);
+
+        uint8_t j = 0;
+        for(i = 0; j < len; j++, i+=2) {
+            printf("%c",  msg_buf[10 + i]);
+            printf("%c ", msg_buf[11 + i]);
+            data[j] = from_hex_8(msg_buf[10 + i],
+                                   msg_buf[11 + i]);
+        }
+        printf("\n");
+
+        rc = mcp2515_send_wait(type, id, data, len, sensor);
+
+        // uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
+        // send it over CAN
+        // delete the msg after it's sent,
+        // but only after someone on CAN has acked it
         break;
 
     case FRAME_ID:
         printf("fbus: id\n");
         break;
 
-    case 3:
+    case FRAME_NET_STATUS:
         putchar('$');
         printf("%ld\n", now);
         break;
@@ -214,7 +286,7 @@ uint8_t user_irq(void)
 
     frametype = FRAME_NONE;
 
-    return 0;
+    return rc;
 }
 
 
@@ -243,11 +315,16 @@ uint8_t debug_irq(void)
         DDRD |= (1 << PORTD6);
         _delay_ms(1000);
         DDRD &= ~(1 << PORTD6);
-    } else if (strcmp(buf, "sms") == 0) {
+    } else if (startswith(buf, "sms")) {
+        fbus_sendsms("7788969633", buf + 4);
     } else if (strcmp(buf, "sub") == 0) {
         fbus_subscribe();
     } else if (strcmp(buf, "id") == 0) {
         fbus_heartbeat();
+    } else if (strcmp(buf, "UU") == 0) {
+        fbus_init();
+        fbus_init();
+        fbus_init();
     }else {
         printf("got '%s'\n", buf);
     }
