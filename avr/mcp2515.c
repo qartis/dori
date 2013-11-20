@@ -117,9 +117,17 @@ uint8_t mcp2515_init(void)
         return 1;
     }
 
+#if (F_CPU == 8000000L)
     write_register(MCP_REGISTER_CNF1, 0x01);
     write_register(MCP_REGISTER_CNF2, 0x9a);
     write_register(MCP_REGISTER_CNF3, 0x01);
+#elif (F_CPU == 18432000L)
+    write_register(MCP_REGISTER_CNF1, 0x01);
+    write_register(MCP_REGISTER_CNF2, 0xb6);
+    write_register(MCP_REGISTER_CNF3, 0x07);
+#else
+#error no known MCP2515 values for this clock speed
+#endif
 
     write_register(MCP_REGISTER_CANINTE, 0b00100111);
 
