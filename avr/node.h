@@ -63,13 +63,26 @@ reinit: \
             irq_signal &= ~IRQ_DEBUG; \
         } \
         if (rc) {\
-            puts_P(PSTR("$$4"));\
+            puts_P(PSTR("$$d"));\
             goto reinit;\
         }
 #else
 #define CHECK_DEBUG
 #endif
 
+#ifndef UART_CUSTOM_INTERRUPT
+#define CHECK_UART \
+        if (irq_signal & IRQ_UART) { \
+            rc = uart_irq(); \
+            irq_signal &= ~IRQ_UART; \
+        } \
+        if (rc) {\
+            puts_P(PSTR("$$u"));\
+            goto reinit;\
+        }
+#else
+#define CHECK_UART
+#endif
 
 #ifdef USER_IRQ
 #define TRIGGER_USER_IRQ() do { irq_signal |= IRQ_USER; } while(0)
@@ -79,7 +92,7 @@ reinit: \
             irq_signal &= ~IRQ_USER; \
         } \
         if (rc) {\
-            puts_P(PSTR("$$5"));\
+            puts_P(PSTR("$$U"));\
             goto reinit;\
         }
 #else
@@ -100,7 +113,7 @@ reinit: \
             irq_signal &= ~IRQ_CAN; \
         } \
         if (rc) {\
-            puts_P(PSTR("$$1"));\
+            puts_P(PSTR("$$c"));\
             goto reinit;\
         } \
 \
@@ -109,19 +122,11 @@ reinit: \
             irq_signal &= ~IRQ_PERIODIC; \
         } \
         if (rc) {\
-            puts_P(PSTR("$$2"));\
+            puts_P(PSTR("$$p"));\
             goto reinit;\
         }\
 \
-        if (irq_signal & IRQ_UART) { \
-            rc = uart_irq(); \
-            irq_signal &= ~IRQ_UART; \
-        } \
-        if (rc) {\
-            puts_P(PSTR("$$3"));\
-            goto reinit;\
-        }\
-\
+        CHECK_UART; \
         CHECK_DEBUG; \
         CHECK_USER; \
     }
