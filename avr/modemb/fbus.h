@@ -1,5 +1,6 @@
 uint8_t fbus_sendsms(const char *num, const char *msg);
 enum fbus_frametype fbus_heartbeat(void);
+void fbus_subscribe(void);
 void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc);
 
 void unbcd_phonenum(volatile uint8_t *data);
@@ -16,11 +17,11 @@ extern volatile enum fbus_frametype frametype;
 #define TYPE_ACK 0x7f
 //#define TYPE_GETID 0xd1
 #define TYPE_GETID 0x1b
-#define TYPE_ID  0xd2
+#define TYPE_ID  0x1b
 #define TYPE_NET_STATUS 0x0a
 
 enum fbus_frametype {
-    FRAME_NONE,
+    FRAME_NONE = 0,
     FRAME_ACK,
     FRAME_ID,
     FRAME_NET_STATUS,

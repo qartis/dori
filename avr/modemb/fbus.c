@@ -6,11 +6,11 @@
 
 #include "timer.h"
 #include "fbus.h"
-#include "../uart.h"
+#include "uart.h"
 
-inline void print_len(const uint8_t *buf, uint8_t len)
+void print_len(const uint8_t *buf, uint8_t len)
 {
-    while(len--){
+    while (len--) {
         uart_putchar(*buf++);
     }
 }
@@ -239,6 +239,16 @@ void sendack(uint8_t type, uint8_t seqnum)
     sendframe(TYPE_ACK, buf, sizeof(buf)/sizeof(buf[0]));
 }
 
+void fbus_init(void)
+{
+    uint8_t c;
+    for (c = 0; c < 128; c++){
+        uart_putchar('U');
+    }
+    _delay_ms(5);
+}
+
+/*
 void uart_sendsms(const char *num, const char *ascii)
 {
     static uint8_t buf[64];
@@ -290,16 +300,6 @@ void uart_sendsms(const char *num, const char *ascii)
     sendframe(TYPE_SMS, buf, len);
 }
 
-void fbus_init(void)
-{
-    uint8_t c;
-    for (c = 0; c < 128; c++){
-        uart_putchar('U');
-        _delay_ms(1);
-    }
-    _delay_ms(1);
-}
-
 uint8_t fbus_sendsms(const char *num, const char *msg)
 {
     fbus_init();
@@ -317,6 +317,14 @@ uint8_t fbus_sendsms(const char *num, const char *msg)
     }
 }
 
+*/
+#if 0
+unsigned char req[] = {FBUS_FRAME_HEADER, 0x04,
+0x02, /* 0x01 for SM, 0x02 for ME */
+0x00, /* folder_id */
+0x00, /* Location Hi */
+0x00, /* Location Lo */
+0x0F, 0x55};
 void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc)
 {
     uint8_t del_sms[] = {0x00, 0x01, 0x00, 0x0a, memory_type, storage_loc, 0x01};
@@ -324,24 +332,27 @@ void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc)
     fbus_init();
     sendframe(TYPE_SMS_MGMT, del_sms, sizeof(del_sms));
 }
+#endif
+
+void fbus_subscribe(void)
+{
+#define TYPE_MSG_SUBSCRIBE 0x10
+    uint8_t subscribe_channels[] = 
+        {0x00, 0x01, 0x00, 0x10, 0x06, 0x01, 0x02, 0x0a, 
+         0x14, 0x15, 0x17, 0x01, 0x41};
+
+    fbus_init();
+    sendframe(TYPE_MSG_SUBSCRIBE, subscribe_channels,
+            sizeof(subscribe_channels));
+}
 
 enum fbus_frametype fbus_heartbeat(void)
 {
-    uint8_t get_info[] = {0x00, 0x01, 0x00, 0x07, 0x01, 0x00, 0x01, 0x60};
-    enum fbus_frametype type;
+    uint8_t get_info[] = 
+        {0x00, 0x01, 0x00, 0x07, 0x01, 0x00, 0x01, 0x60};
 
-    //for (;;) {
-        fbus_init();
-        sendframe(TYPE_GETID, get_info, sizeof(get_info));
-        return FRAME_READ_TIMEOUT;
-        /*
-        timer_start();
-        if (frametype != FRAME_READ_TIMEOUT) {
-            timer_disable();
-            return frametype;
-        }
-        _delay_ms(1000);
-        */
-        //TODO: implement power_press_release();
-    //}
+    fbus_init();
+    sendframe(TYPE_GETID, get_info,
+            sizeof(get_info));
+    return FRAME_READ_TIMEOUT;
 }
