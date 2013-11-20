@@ -10,7 +10,7 @@
 #include "irq.h"
 #include "mcp2515.h"
 
-#define ONLCR
+//#define ONLCR
 
 #ifndef UART_CUSTOM_INTERRUPT
 #define ICRNL
@@ -45,6 +45,11 @@ volatile uint8_t uart_ring[UART_BUF_SIZE];
 volatile uint8_t ring_in;
 volatile uint8_t ring_out;
 
+/* must be 2^n */
+volatile uint8_t uart_tx_ring[UART_TX_BUF_SIZE];
+volatile uint8_t tx_ring_in;
+volatile uint8_t tx_ring_out;
+
 uint8_t bytes_in_ring(void)
 {
     if (ring_in > ring_out)
@@ -55,18 +60,33 @@ uint8_t bytes_in_ring(void)
         return 0;
 }
 
+ISR(USART_TX_vect)
+{
+    uint8_t c;
+
+    if (!(UCSR0A & (1 << UDRE0))) {
+        printf("wtf!\n");
+        return;
+    }
+
+    if (tx_ring_in != tx_ring_out) {
+        c = uart_tx_ring[tx_ring_out];
+        tx_ring_out++;
+        UDR0 = c;
+    }
+}
+
 
 #ifndef UART_CUSTOM_INTERRUPT
 ISR(USART_RXC_vect)
 {
     uint8_t data = UDR;
 
-    if(data =='\b') {
-        if(bytes_in_ring() > 0) {
-            if(ring_in == 0) {
+    if (data == '\b') {
+        if (bytes_in_ring() > 0) {
+            if (ring_in == 0) {
                 ring_in = UART_BUF_SIZE - 1;
-            }
-            else {
+            } else {
                 ring_in--;
             }
 
@@ -103,7 +123,7 @@ void uart_init(uint16_t ubrr)
     UBRRH = ubrr >> 8;  
     UBRRL = ubrr;  
 
-    UCSRB = (1 << RXEN) | (1 << TXEN) | (1 << RXCIE);
+    UCSRB = (1 << RXEN) | (1 << TXEN) | (1 << RXCIE0) | (1 << TXCIE0);
 
 #ifndef DEBUG
     stdout = &mystdout;
@@ -143,20 +163,30 @@ uint8_t uart_haschar(void)
     return (ring_in != ring_out);
 }
 
-int uart_putchar(char data)
+int uart_putchar(char c)
 {
 #ifdef ONLCR
 again:
 #endif
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        if ((UCSR0A & (1 << UDRE0)) && (tx_ring_in == tx_ring_out)) {
+            UDR0 = c;
+        } else {
+            uart_tx_ring[tx_ring_in] = c;
+            tx_ring_in++;
+        }
+    }
+    /*
     while (!(UCSRA & (1<<UDRE))){ }
-    UDR = data;
+    UDR = c;
+    */
 #ifdef ONLCR
-    if (data == '\n'){
-        data = '\r';
+    if (c == '\n'){
+        c = '\r';
         goto again;
     }
 #endif
-    return data;
+    return c;
 }
 
 void printu(uint16_t num)
