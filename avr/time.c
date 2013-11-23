@@ -44,7 +44,7 @@ ISR(TIMER0_COMPA_vect)
 
 void time_init(void)
 {
-    periodic_interval = 5;
+    periodic_interval = 9000;
     periodic_prev = 0;
     now = 0;
 
