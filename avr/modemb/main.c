@@ -28,13 +28,8 @@
 #define FBUS_SMS_LOCATION_OFFSET 11
 #define FBUS_SMS_CMD_OFFSET 9
 
-#define FBUS_SMS_CMD_DEL 0x0A
-//#define FBUS_SMS_CMD_RECV 0x10
-#define FBUS_SMS_CMD_RECV 0x04
-
-#define FBUS_SMS_CMD_SEND 0x01
-#define FBUS_SMS_CMD_SENT_OK 0x02
-#define FBUS_SMS_CMD_ERROR 0x03
+#define FBUS_SUBSMS_INCOMING 0x04
+#define FBUS_SUBSMS_SEND_STATUS 0x03
 
 #define FBUS_PHONE_NUM_LEN 12
 #define FBUS_SMS_MAX_LEN 128
@@ -118,15 +113,11 @@ ISR(USART_RX_vect)
         return;
     }
 
-    uint8_t sms_cmd = buf[FBUS_SMS_CMD_OFFSET]; 
-    if (type == TYPE_SMS && sms_cmd == FBUS_SMS_CMD_RECV){
-        incoming_frametype = FRAME_SMS_RECV;
-        /*
-    } else if (type == TYPE_SMS && sms_cmd == FBUS_SMS_CMD_SENT_OK){
-        incoming_frametype = FRAME_SMS_SENT;
-    } else if (type == TYPE_SMS && sms_cmd == FBUS_SMS_CMD_ERROR){
-        incoming_frametype = FRAME_SMS_ERROR;
-        */
+    uint8_t sms_cmd = buf[FBUS_SMS_CMD_OFFSET];
+    if (type == TYPE_SMS && sms_cmd == FBUS_SUBSMS_INCOMING){
+        incoming_frametype = FRAME_SUBSMS_INCOMING;
+    } else if (type == TYPE_SMS && sms_cmd == FBUS_SUBSMS_SEND_STATUS) {
+        incoming_frametype = FRAME_SUBSMS_SEND_STATUS;
     } else if (type == TYPE_ID){
         incoming_frametype = FRAME_ID;
     } else if (type == TYPE_NET_STATUS){
@@ -152,6 +143,13 @@ ISR(USART_RX_vect)
                 sms_buf[i] = buf[i];
 
             sms_buflen = buflen;
+        }
+        else if(type == TYPE_SMS && sms_cmd == FBUS_SUBSMS_SEND_STATUS) {
+            uint8_t status = buf[14]; // could be 0, 1, (unknown = failure)
+            if(status == 0) {
+                // success
+                uint8_t ref_num = buf[16]; // sms reference
+            }
         }
 
         TRIGGER_USER_IRQ();
@@ -230,7 +228,7 @@ uint8_t user_irq(void)
     rc = 0;
 
     switch (frametype) {
-    case FRAME_SMS_RECV:
+    case FRAME_SUBSMS_INCOMING:
         parse_sms();
         // convert SMS ascii hex to CAN
         // [type, id, sensor (16 bits), len, <data> ]
