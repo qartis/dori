@@ -36,13 +36,15 @@ void temp_wait(void)
     _delay_ms(DS18B20_TCONV_12BIT);
 }
 
-void temp_read(uint8_t channel, int16_t *temp)
+uint8_t temp_read(uint8_t channel, int16_t *temp)
 {
     if (ds18b20_read_decicelsius(&sensor_ids[channel][0], temp)) {
         puts("CRC Error? lost sensor?");
         num_sensors = 0;
-        return;
+        return 1;
     }
 
-    //printf("chan %d: %d\n", channel, *temp);
+    printf("chan %d: %d\n", channel, *temp);
+
+    return 0;
 }
