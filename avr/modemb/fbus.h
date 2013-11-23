@@ -6,10 +6,13 @@ void fbus_init(void);
 
 void unbcd_phonenum(volatile uint8_t *data);
 void sendack(uint8_t type, uint8_t seqnum);
-void unpack7_msg(volatile uint8_t *data, uint8_t len);
+uint8_t unpack7_msg(volatile uint8_t *data, uint8_t len, volatile char* output);
 
-extern char phonenum_buf[16];
-extern char msg_buf[32];
+#define MSG_BUF_SIZE 140
+
+extern volatile char phonenum_buf[16];
+extern volatile char msg_buf[MSG_BUF_SIZE];
+extern volatile uint8_t msg_buflen;
 
 extern volatile enum fbus_frametype frametype;
 

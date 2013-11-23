@@ -58,17 +58,17 @@ uint8_t bcd(uint8_t *dest, const char *s)
     return y;
 }
 
-char* addchar(char *str, char c)
+volatile char* addchar(volatile char *str, char c)
 {
     *str = c;
     return str + 1;
 }
 
-char phonenum_buf[16];
+volatile char phonenum_buf[16];
 void unbcd_phonenum(volatile uint8_t *data)
 {
     uint8_t len, n, x, at;
-    char *endptr = phonenum_buf;
+    volatile char *endptr = phonenum_buf;
 
     len = data[0];
 
@@ -111,8 +111,9 @@ uint8_t escaped(uint8_t c)
     }
 }
 
-char msg_buf[32];
-void unpack7_msg(volatile uint8_t *data, uint8_t len)
+volatile char msg_buf[MSG_BUF_SIZE];
+volatile uint8_t msg_buflen;
+uint8_t unpack7_msg(volatile uint8_t *data, uint8_t len, volatile char* output)
 {
     uint16_t *p, w;
     uint8_t c;
@@ -120,7 +121,7 @@ void unpack7_msg(volatile uint8_t *data, uint8_t len)
     uint8_t shift = 0;
     uint8_t at = 0;
     uint8_t escape = 0;
-    char *endptr = msg_buf;
+    volatile char *endptr = output;
 
     for(n = 0; n < len; ++n) {
         p = (uint16_t *)(data + at);
@@ -144,6 +145,7 @@ void unpack7_msg(volatile uint8_t *data, uint8_t len)
         }
     }
     *endptr = '\0';
+    return len;
 }
 
 uint8_t gettrans(uint8_t c)

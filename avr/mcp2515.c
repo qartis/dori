@@ -177,7 +177,7 @@ uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t le
         return 99;
     }
 
-    mcp2515_send_sensor(type, id, data, len, 0);
+    mcp2515_send_sensor(type, id, data, len, sensor);
 
     retry = 255;
     while(mcp2515_busy && --retry) {
