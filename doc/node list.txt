@@ -1,56 +1,39 @@
-=== Main Modem node === HARDWARE DONE
+=== modema node === HARDWARE DONE
 * Main modem (uart)
 
-
-=== Backup Modem node ===
+=== modemb node === HARDWARE DONE
 * Backup modem (uart)
 
-
-=== Logger node ===
+=== logger node ===
 * SD card (spi)
 
-
-=== Arm node ===
+=== arm node === HARDWARE DONE
 * Arm control (2 relays)
 * Linear actuator feedback (analog)
 * Microswitch to detect lower limit
 * Sensor plate spin control (L298N)
 * Floodlight control (relay)
 
-
-=== Motors node ===
+=== drive node === HARDWARE DONE
 * Drive control (2 h-bridges)
 * Ultrasonic (2 io)
 
-
-=== 9DOF node === HARDWARE DONE
+=== 9dof node === HARDWARE DONE
 * nunchuk (i2c)
 * compass (i2c)
 * gyro (i2c)
 * GPS (uart)
 
-
-=== Rain (environmental) node ===
+=== enviro node === HARDWARE DONE
 * Rainfall (1 io)
-* pH (spi)
 * Humidity (analog)
-
-
-=== Air (environmental) node ===
-* LPG gas sensor (analog)
 * Windspeed nunchuk (i2c)
-* Air Pressure (i2c)
 * Shadow Temperature (1wire)
 * Sunlight Temperature (1wire)
-* Lightning sensor
 
-
-=== Battery node ===
+=== diagnostic node ===
 * Battery level (analog)
 * Current sensor (analog)
-
-
-=== Heating node ===
 * Heat control pads (peltier, motorcycle grip heaters)
 * Temperature x 9 (1wire)
 	Temp: motor1
@@ -63,15 +46,8 @@
 	Temp: nokia
 	Temp: battery
 
-
-=== Powershot/logger backup node ===
+=== imaging node ===
 * Powershot (spi)
-
-
-=== LIDAR node ===
 * LIDAR (3 io)
-* PIR motion (1 io)
-* IR Thermo (spi)
-*
 
 === (Sniffer node) === HARDWARE DONE
