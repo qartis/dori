@@ -157,11 +157,12 @@ static int16_t ds18b20_raw_to_decicelsius( uint8_t familycode, uint8_t sp[] )
 		decicelsius = -decicelsius;
 	}
 
-	if (decicelsius == 850 || decicelsius < -550 || decicelsius > 1250) {
+	if (decicelsius == 850 || decicelsius < -550 || 
+            decicelsius > 1250) {
 		return DS18B20_INVALID_DECICELSIUS;
-	} else {
-		return decicelsius;
 	}
+
+    return decicelsius;
 }
 
 void print_temp(int16_t decicelsius, char *str, int n)
