@@ -194,6 +194,8 @@ uint8_t pack7(uint8_t *dest, const char *s)
 
 void sendframe(uint8_t type, uint8_t *data, uint8_t size)
 {
+    // !!!! Don't use a buffer here
+    // !!!! Compute the checksum on the fly instead
     uint8_t buf[256];
     uint8_t at, len, n;
     uint16_t check;

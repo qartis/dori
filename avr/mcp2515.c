@@ -286,6 +286,8 @@ void read_packet(uint8_t regnum)
 
     if (MY_ID == ID_any) {
         mcp2515_tophalf();
+    } else if (MY_ID == ID_modema || MY_ID == ID_modemb) {
+        mcp2515_tophalf();
     } else if (packet.type == TYPE_xfer_cancel && packet.id == MY_ID) {
         puts_P(PSTR("ccl"));
         xfer_state = XFER_CANCEL;
@@ -338,8 +340,6 @@ void read_packet(uint8_t regnum)
 ISR(PCINT0_vect)
 {
     uint8_t canintf;
-
-    SD_DESELECT();
 
     canintf = read_register(MCP_REGISTER_CANINTF);
     printf("int! %x\n", canintf);

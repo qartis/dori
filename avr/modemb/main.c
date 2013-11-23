@@ -9,6 +9,7 @@
 #include <util/delay.h>
 #include <util/atomic.h>
 
+#include "free_ram.h"
 #include "fbus.h"
 #include "can.h"
 #include "uart.h"
@@ -67,11 +68,6 @@ uint8_t from_hex_8(char a, char b)
     return (from_hex(a) << 4) | from_hex(b);
 }
 
-uint8_t uart_irq(void)
-{
-    return 0;
-}
-
 ISR(USART_RX_vect)
 {
     static uint8_t buf[128];
@@ -92,7 +88,6 @@ ISR(USART_RX_vect)
     }
 
     buflen++;
-//    printf("2%d\n", buflen);
 
     /* if we don't know the length yet */
     if (buflen < FBUS_HEADER_LEN)
@@ -126,7 +121,6 @@ ISR(USART_RX_vect)
         incoming_frametype = FRAME_UNKNOWN;
     }
     
-    //printf("ift: %d, ft:%d\n", incoming_frametype, frametype);
 
     if (incoming_frametype > frametype) {
         frametype = incoming_frametype;
@@ -156,7 +150,6 @@ ISR(USART_RX_vect)
 
         TRIGGER_USER_IRQ();
     }
-    //printf("6");
 
     buflen = 0;
 }
@@ -167,7 +160,7 @@ void parse_sms(void)
     uint8_t smstype = sms_buf[9];
     /* SUBSMS_INCOMING */
     if (smstype != 0x04) {
-        printf("wrong sms type %d\n", smstype);
+        printf_P(PSTR("wtftype %d\n"), smstype);
         return;
     }
 
@@ -176,7 +169,7 @@ void parse_sms(void)
 
     /* DELIVER */
     if (smstype2 != 0x00) {
-        printf("wtf\n");
+        puts_P(PSTR("wtf"));
         return;
     }
 
@@ -189,25 +182,17 @@ void parse_sms(void)
 
     for (i = 0; i < num_blocks; i++) {
         /* user data */
-        //printf("block type %x\n", *block_ptr);
         switch (*block_ptr) {
         case 0x82:
             if (block_ptr[2] == 0x01) {
                 unbcd_phonenum(block_ptr + 4);
-                printf("phone: '%s'\n", phonenum_buf);
+                //printf("phone: '%s'\n", phonenum_buf);
             }
             break;
 
         case 0x80:
-            {
-                uint8_t j;
-                for (j = 0; j < block_ptr[3]; j++) {
-                    printf("%d: %x\n", j, block_ptr[4 + j]);
-                }
-
-            }
             msg_buflen = unpack7_msg(block_ptr + 4, block_ptr[3], &msg_buf[msg_buflen]);
-            printf("GOT MSG '%s'\n", msg_buf);
+            printf_P(PSTR("GOT MSG '%s'\n"), msg_buf);
             break;
 
         default:
@@ -263,22 +248,20 @@ uint8_t user_irq(void)
                 break;
             }
 
-            printf("pkt: %02x %02x %04x %02x: ", type, id, sensor, len);
+            printf_P(PSTR("pkt: %02x %02x %04x %02x: "), type, id, sensor, len);
 
             uint8_t j = 0;
             for(i = 0; j < len; j++, i+=2) {
-                printf("%c",  msg[10 + i]);
-                printf("%c ", msg[11 + i]);
+                //printf("%c",  msg[10 + i]);
+                //printf("%c ", msg[11 + i]);
                 data[j] = from_hex_8(msg[10 + i],
                                      msg[11 + i]);
             }
-            printf("\n");
 
             rc = mcp2515_send_wait(type, id, data, len, sensor);
 
-            printf("msg_buflen: %d\n", msg_buflen);
             if(msg_buflen < 10 + (len * 2)) {
-                printf("inval sms\n");
+                puts_P(PSTR("inval sms"));
                 rc = 0;
                 break;
             }
@@ -295,16 +278,19 @@ uint8_t user_irq(void)
         break;
 
     case FRAME_ID:
-        printf("fbus: id\n");
+        puts_P(PSTR("fbus: id"));
         break;
 
     case FRAME_NET_STATUS:
         putchar('$');
-        printf("%ld\n", now);
+        break;
+
+    case FRAME_SUBSMS_SEND_STATUS:
+        puts_P(PSTR("sent ok"));
         break;
 
     default:
-        printf("user_irq: %d\n", frametype);
+        printf_P(PSTR("user_irq: %d\n"), frametype);
     }
 
     frametype = FRAME_NONE;
@@ -353,7 +339,6 @@ uint8_t debug_irq(void)
             if(startswith(msg_ptr, "echo")) {
                 msg_ptr = "010200010401020304";
             }
-            //printf("Sending '%s' to '%s'\n", msg_ptr, num_ptr);
             fbus_sendsms(num_ptr, msg_ptr);
         }
     } else if (strcmp(buf, "sub") == 0) {
@@ -365,10 +350,8 @@ uint8_t debug_irq(void)
         fbus_init();
         fbus_init();
     }else {
-        printf("got '%s'\n", buf);
+        printf_P(PSTR("got '%s'\n"), buf);
     }
-
-    //printf("cur frametype: %d\n", frametype);
 
     PROMPT;
 
@@ -382,10 +365,11 @@ uint8_t periodic_irq(void)
 
 uint8_t can_irq(void)
 {
-    printf("can_irq\n");
-    char output[140] = { 0 };
-    sprintf(output, "%02x%02x%04x%02x", packet.type, packet.id, packet.sensor, packet.len);
-    printf("%02x%02x%04x%02x\n", packet.type, packet.id, packet.sensor, packet.len);
+    printf_P(PSTR("can_irq\n"));
+    char output[140];
+    snprintf_P(output, sizeof(output), PSTR("%02x%02x%04x%02x"), packet.type, packet.id, packet.sensor, packet.len);
+    printf_P(PSTR("%02x%02x%04x%02x"), packet.type, packet.id, packet.sensor, packet.len);
+    putchar('\n');
 
     uint8_t i;
     uint8_t j;
@@ -396,10 +380,9 @@ uint8_t can_irq(void)
 
     fbus_heartbeat(); // send ID before any SMS
 
-    printf("sending '%s'\n", output);
+    printf_P(PSTR("snd'%s'\n"), output);
     //fbus_sendsms("7788969633", output);
     fbus_sendsms("7786860358", output);
-
 
     packet.unread = 0;
 
