@@ -8,10 +8,8 @@ void handle_fd(int fd, void *data)
     Fl_Compass *c = (Fl_Compass *)data;
     double val;
 
-    if (scanf("%lf", &val) != 1) {
-        printf("fuck\n");
+    if (scanf("%lf", &val) != 1)
         exit(1);
-    }
 
     c->value(val);
     c->redraw();
