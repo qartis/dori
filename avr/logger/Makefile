@@ -4,9 +4,9 @@ F_CPU = 8000000L
 
 #LDFLAGS = -Wl,-section-start=.bootloader=0x3800 
 
-OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o ../fat.o ../sd.o ../irq.o
+OBJS = ../spi.o ../uart.o ../mcp2515.o ../time.o ../fat.o ../sd.o ../irq.o ../sram.o
 
-CFLAGS = -DMY_ID=ID_logger -DCAN_TOPHALF -DUSER_IRQ=1
+CFLAGS = -DMY_ID=ID_logger -DCAN_TOPHALF -DUSER_IRQ=1 -DONLCR=1
 #CFLAGS += -D"printf_P(...)"=";" -D"puts_P(...)"=";"
 #CFLAGS += -D"printf_P(...)"=";"
 
