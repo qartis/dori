@@ -28,12 +28,11 @@ ISR(TIMER0_COMPA_vect)
     if (overflows >= 250) {
         overflows = 0;
         now++;
-        //printf_P(PSTR("time %lu\n"), now);
 
-    /* heartbeat. delay should be moved out of ISR */
-    PORTC &= ~(1 << PORTC3);
-    _delay_us(300);
-    PORTC ^= (1 << PORTC3);
+        /* heartbeat. delay should be moved out of ISR */
+        PORTC &= ~(1 << PORTC3);
+        _delay_us(300);
+        PORTC ^= (1 << PORTC3);
 
         if (now >= periodic_prev + periodic_interval) {
             periodic_tophalf();
@@ -49,6 +48,10 @@ void time_init(void)
     now = 0;
 
     /* timer0 is used as global timer for periodic messages */
+
+
+
+#if F_CPU == 8000000L
     /* 8000000 / 256 = 31250
        31250 / 125 = 250.
        so if we overflow every 125 ticks,
@@ -57,6 +60,18 @@ void time_init(void)
     TCCR0A = (1 << WGM01);
     TCCR0B = (1 << CS02); /* clk/256 */
     TIMSK0 = (1 << OCIE0A);
+#elif F_CPU == 18432000L
+    /* 18432000 / 1024 = 18000
+       18000 / 125 = 144 .
+       so if we overflow every 125 ticks,
+       then every 144 overflows is 1 second */
+    OCR0A = (144 - 1);
+    TCCR0A = (1 << WGM01);
+    TCCR0B = (1 << CS02) | (1 << CS00); /* clk/1024 */
+    TIMSK0 = (1 << OCIE0A);
+#else
+#error no TIMER0 definition for baud rate
+#endif
 
     /* heartbeat light */
     PORTC |= (1 << PORTC3);
