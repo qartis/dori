@@ -53,7 +53,7 @@ void time_init(void)
        31250 / 125 = 250.
        so if we overflow every 125 ticks,
        then every 250 overflows is 1 second */
-    OCR0A = 125;
+    OCR0A = (125 - 1);
     TCCR0A = (1 << WGM01);
     TCCR0B = (1 << CS02); /* clk/256 */
     TIMSK0 = (1 << OCIE0A);
