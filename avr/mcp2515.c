@@ -315,8 +315,16 @@ void read_packet(uint8_t regnum)
     } else if (packet.type == TYPE_set_interval &&
               (packet.id == MY_ID || packet.id == ID_any)) {
         periodic_prev = now;
-        periodic_interval =  (uint16_t)packet.data[0] << 8 |
-                                (uint16_t)packet.data[1] << 0;
+        uint16_t new_periodic_interval = 
+                (uint16_t)packet.data[0] << 8 |
+                (uint16_t)packet.data[1] << 0;
+
+        if (new_periodic_interval < 5) {
+            puts_P(PSTR("too small!"));
+            return;
+        }
+
+        periodic_interval = new_periodic_interval;
 
         printf_P(PSTR("mcp period=%u\n"), periodic_interval);
     } else if (packet.type == TYPE_sos_reboot &&
