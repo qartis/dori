@@ -1,5 +1,6 @@
 #PROG_DEVICE = /dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0
-PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A20008Dd-if00-port0
+#PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A20008Dd-if00-port0
+PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A4007hkl-if00-port0
 PROG_TYPE = stk500v2
 GCC_PART ?= atmega88
 DUDE_PART ?= m88

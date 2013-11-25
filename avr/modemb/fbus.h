@@ -1,6 +1,6 @@
-void fbus_sendsms(const char *num, const char *msg);
-enum fbus_frametype fbus_heartbeat(void);
-void fbus_subscribe(void);
+uint8_t fbus_sendsms(const char *num, const char *msg);
+uint8_t fbus_heartbeat(void);
+uint8_t fbus_subscribe(void);
 void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc);
 void fbus_init(void);
 
@@ -16,22 +16,24 @@ extern volatile uint8_t msg_buflen;
 
 extern volatile enum fbus_frametype frametype;
 
+extern volatile uint8_t fbusseqno;
+extern volatile uint8_t fbustype;
+
+extern volatile uint8_t fbus_ack_flag;
+extern volatile uint8_t fbus_sms_sent_flag;
+extern volatile uint8_t fbus_id_flag;
+
 #define TYPE_SMS_MGMT 0x14
 #define TYPE_SMS 0x02
 #define TYPE_ACK 0x7f
-//#define TYPE_GETID 0xd1
-#define TYPE_GETID 0x1b
 #define TYPE_ID  0x1b
 #define TYPE_NET_STATUS 0x0a
 
 enum fbus_frametype {
     FRAME_NONE = 0,
-    FRAME_ACK,
-    FRAME_ID,
-    FRAME_NET_STATUS,
-    FRAME_READ_TIMEOUT,
     FRAME_UNKNOWN,
-    FRAME_SUBSMS_ERROR,
-    FRAME_SUBSMS_SEND_STATUS,
+    FRAME_ID,
     FRAME_SUBSMS_INCOMING,
+    FRAME_SUBSMS_SEND_STATUS,
+    FRAME_NET_STATUS,
 };

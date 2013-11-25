@@ -61,6 +61,7 @@ reinit: \
         if (irq_signal & IRQ_DEBUG) { \
             rc = debug_irq(); \
             irq_signal &= ~IRQ_DEBUG; \
+            PROMPT;\
         } \
         if (rc) {\
             puts_P(PSTR("$$d"));\

@@ -65,7 +65,7 @@ ISR(USART_TX_vect)
     uint8_t c;
 
     if (!(UCSR0A & (1 << UDRE0))) {
-        printf("wtf!\n");
+        puts_P(PSTR("wtf!"));
         return;
     }
 
@@ -74,6 +74,11 @@ ISR(USART_TX_vect)
         tx_ring_out++;
         UDR0 = c;
     }
+}
+
+void uart_tx_flush(void)
+{
+    while (tx_ring_in != tx_ring_out) { }
 }
 
 

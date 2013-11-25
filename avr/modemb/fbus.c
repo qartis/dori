@@ -2,11 +2,27 @@
 #include <string.h>
 #include <avr/io.h>
 #include <util/delay.h>
+#include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 
 #include "timer.h"
 #include "fbus.h"
 #include "uart.h"
+
+volatile enum fbus_frametype frametype;
+volatile uint8_t fbus_ack_flag;
+volatile uint8_t fbus_sms_sent_flag;
+volatile uint8_t fbus_id_flag;
+
+volatile uint8_t fbusseqno;
+volatile uint8_t fbustype;
+
+void _delay_ms_flag(uint16_t msec, volatile uint8_t *flag)
+{
+    while (*flag == 0 && --msec) {
+        _delay_ms(1);
+    }
+}
 
 void print_len(const uint8_t *buf, uint8_t len)
 {
@@ -196,11 +212,37 @@ void sendframe(uint8_t type, uint8_t *data, uint8_t size)
 {
     // !!!! Don't use a buffer here
     // !!!! Compute the checksum on the fly instead
-    uint8_t buf[256];
     uint8_t at, len, n;
-    uint16_t check;
+    //uint16_t check;
+    uint8_t check[2];
     uint16_t *p;
+    uint8_t i;
 
+    uart_putchar(0x1e);
+    uart_putchar(0x00);
+    uart_putchar(0x0c);
+    uart_putchar(type);
+    uart_putchar(0x00);
+    uart_putchar(size);
+
+    check[0] = 0x1e ^ 0x0c ^ 0x00;
+    check[1] = 0x00 ^ type ^ size;
+
+
+    for (i = 0; i < size; i++) {
+        uart_putchar(data[i]);
+        check[i & 1] ^= data[i];
+    }
+
+    // if odd numbered, add filler byte
+    if(size % 2) {
+        uart_putchar(0x00);
+    }
+
+    uart_putchar(check[0]);
+    uart_putchar(check[1]);
+
+    /*
     at = 0;
 
     // build header
@@ -229,8 +271,28 @@ void sendframe(uint8_t type, uint8_t *data, uint8_t size)
     p[n] = check;
     at += 2;
 
+
     // send the message!
     print_len(buf, at);
+    */
+}
+
+uint8_t sendframe_wait(uint8_t type, uint8_t *data, uint8_t size)
+{
+    uint8_t retry;
+
+    fbus_ack_flag = 0;
+    retry = 3;
+    while (fbus_ack_flag == 0 && --retry) {
+        sendframe(type, data, size);
+        _delay_ms_flag(500, &fbus_ack_flag);
+    }
+
+    if (fbus_ack_flag == 0) {
+        puts_P(PSTR("NOACK!"));
+    }
+
+    return fbus_ack_flag == 0;
 }
 
 void sendack(uint8_t type, uint8_t seqnum)
@@ -249,13 +311,17 @@ void fbus_init(void)
     for (c = 0; c < 128; c++){
         uart_putchar('U');
     }
+    uart_tx_flush();
     _delay_ms(5);
 }
 
-void uart_sendsms(const char *num, const char *ascii)
+uint8_t uart_sendsms(const char *num, const char *ascii)
 {
-    uint8_t buf[256];
+    uint8_t rc;
+    uint8_t retry;
+    uint8_t buf[128];
     uint8_t len = 0;
+
     buf[len++] = 0x00;
     buf[len++] = 0x01;
     buf[len++] = 0x00; //SMS frame header
@@ -346,53 +412,34 @@ void uart_sendsms(const char *num, const char *ascii)
     buf[len++] = 0x01; // terminator
     buf[len++] = 0x41; // seq no
 
-    sendframe(TYPE_SMS, buf, len);
-    return;
 
-    /*
+    // Now we keep trying to send the SMS
+    // until we get a successful delivery report
+    // If we get a failure delivery report
+    // then fbus_sms_sent_flag will still be 0
+    fbus_sms_sent_flag = 0;
+    retry = 2;
+    while (fbus_sms_sent_flag == 0 && --retry) {
+        rc = sendframe_wait(TYPE_SMS, buf, len);
+        if (rc)
+            return 99;
 
-    buf[len] = bcd(buf+len+2, "17057969300") + 1; //include the type-of-address
-    buf[len+1] = 0x91;
-    len += 12;
-
-    buf[len++] = 0x11; //SMS Submit, Reject Duplicates, Validity Indicator present
-
-    buf[len++] = 0x00; //message reference
-    buf[len++] = 0x00; //protocol id
-    buf[len++] = 0x00; //data coding scheme
-
-    buf[len++] = strlen(ascii); //data len
-
-    memset(buf+len, 0, 12);
-    buf[len] = strlen(num);
-    buf[len+1] = 0x91;
-    bcd(buf+len+2, num);
-    len += 12;
-
-    buf[len++] = 0xa7; //validity period, 4 days
-    buf[len++] = 0x00;
-    buf[len++] = 0x00;
-    buf[len++] = 0x00;
-    buf[len++] = 0x00;
-    buf[len++] = 0x00;
-    buf[len++] = 0x00;
-
-
-    buf[len++] = 0x01; //terminator
-    buf[len++] = 0x41; //seq num
-
-    if (len % 2){
-        buf[len] = 0x00; //padding, but don't increment len
+        _delay_ms_flag(5000, &fbus_sms_sent_flag);
+        _delay_ms_flag(5000, &fbus_sms_sent_flag);
+        _delay_ms_flag(5000, &fbus_sms_sent_flag);
     }
 
-    sendframe(TYPE_SMS, buf, len);
-    */
+    if (fbus_sms_sent_flag == 0) {
+        puts_P(PSTR("NOSENT!"));
+    }
+
+    return fbus_sms_sent_flag == 0;
 }
 
-void fbus_sendsms(const char *num, const char *msg)
+uint8_t fbus_sendsms(const char *num, const char *msg)
 {
     fbus_init();
-    uart_sendsms(num, msg);
+    return uart_sendsms(num, msg);
 }
 
 /*
@@ -430,25 +477,45 @@ void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc)
 }
 #endif
 
-void fbus_subscribe(void)
+uint8_t fbus_subscribe(void)
 {
-#define TYPE_MSG_SUBSCRIBE 0x10
+    uint8_t rc;
     uint8_t subscribe_channels[] = 
         {0x00, 0x01, 0x00, 0x10, 0x06, 0x01, 0x02, 0x0a, 
          0x14, 0x15, 0x17, 0x01, 0x41};
 
-    fbus_init();
-    sendframe(TYPE_MSG_SUBSCRIBE, subscribe_channels,
+#define TYPE_MSG_SUBSCRIBE 0x10
+
+    rc = fbus_heartbeat();
+    if (rc)
+        return 96;
+
+    return sendframe_wait(TYPE_MSG_SUBSCRIBE, subscribe_channels,
             sizeof(subscribe_channels));
 }
 
-enum fbus_frametype fbus_heartbeat(void)
+uint8_t fbus_heartbeat(void)
 {
+    uint8_t rc;
+    uint8_t retry;
     uint8_t get_info[] = 
         {0x00, 0x01, 0x00, 0x07, 0x01, 0x00, 0x01, 0x60};
 
     fbus_init();
-    sendframe(TYPE_GETID, get_info,
-            sizeof(get_info));
-    return FRAME_READ_TIMEOUT;
+
+    fbus_id_flag = 0;
+    retry = 5;
+    while (fbus_id_flag == 0 && --retry) {
+        rc = sendframe_wait(TYPE_ID, get_info, sizeof(get_info));
+        if (rc)
+            return 97;
+
+        _delay_ms_flag(5000, &fbus_id_flag);
+    }
+
+    if (fbus_id_flag == 0) {
+        puts_P(PSTR("NOID!"));
+    }
+
+    return fbus_id_flag == 0;
 }
