@@ -178,7 +178,7 @@ uint8_t periodic_irq(void)
 uint8_t can_irq(void)
 {
     printf("can irq\n");
-    return 0;
+
     switch(packet.type) {
     case TYPE_value_request:
         switch(packet.sensor) {
@@ -226,6 +226,8 @@ uint8_t uart_irq(void)
     heater_off(2);
     _delay_ms(250);
     heater_off(3);
+
+    send_voltage_can(TYPE_value_explicit);
 
     return 0;
 }

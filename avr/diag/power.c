@@ -14,12 +14,10 @@ uint16_t get_voltage(void)
 
     PORTC &= ~(1 << PORTC0);
     DDRC |= (1 << PORTC0);
-    PORTC &= ~(1 << PORTC0);
 
     _delay_ms(100);
 
     val = adc_read(6);
-    _delay_ms(100);
 
     DDRC &= ~(1 << PORTC0);
 
