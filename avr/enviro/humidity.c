@@ -1,8 +1,6 @@
-#include <avr/io.h>
-#include <util/delay.h>
-#include <avr/pgmspace.h>
-#include <stdio.h>
+#include <stdint.h>
 
+#include "adc.h"
 #include "humidity.h"
 
 uint16_t get_humidity(void)
