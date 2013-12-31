@@ -13,6 +13,13 @@ void get_mcusr(void)
     wdt_disable();
 }
 
+ISR(BADISR_vect)
+{
+    uart_tx_empty();
+    printwait_P(PSTR("BADISR\n"));
+    printwait_P(PSTR("BADISR\n"));
+}
+
 #ifdef DEBUG
 #define DEBUG_INIT debug_init();
 #else
@@ -25,7 +32,6 @@ void get_mcusr(void)
 
 #define PROMPT \
     putchar('>');
-//    printf_P(PSTR("\n" XSTR(MY_ID) "> "));
 
 #define NODE_INIT() \
     uint8_t rc; \
@@ -33,25 +39,29 @@ void get_mcusr(void)
     DEBUG_INIT; \
     time_init(); \
     spi_init(); \
+    set_sleep_mode(SLEEP_MODE_IDLE); \
 \
     _delay_ms(300); \
-    puts_P(PSTR("\n" XSTR(MY_ID) " start: " XSTR(VERSION))); \
-    printf_P((boot_mcusr & (1 << WDRF)) ? PSTR("wd") : PSTR("")); \
-    printf_P((boot_mcusr & (1 << BORF)) ? PSTR("bo") : PSTR("")); \
-    printf_P((boot_mcusr & (1 << EXTRF)) ? PSTR("ext") : PSTR("")); \
-    printf_P((boot_mcusr & (1 << PORF)) ? PSTR("po") : PSTR("")); \
-    puts_P(PSTR(" reboot")); \
+    printwait_P(PSTR("\n" XSTR(MY_ID) " start: " XSTR(VERSION) " ")); \
+    printwait_P((boot_mcusr & (1 << WDRF)) ? PSTR("wd") : PSTR("")); \
+    printwait_P((boot_mcusr & (1 << BORF)) ? PSTR("bo") : PSTR("")); \
+    printwait_P((boot_mcusr & (1 << EXTRF)) ? PSTR("ext") : PSTR("")); \
+    printwait_P((boot_mcusr & (1 << PORF)) ? PSTR("po") : PSTR("")); \
+    printwait_P((boot_mcusr & ((1 << PORF) | (1 << EXTRF) | (1 << BORF) | (1 << WDRF))) == 0 ? PSTR("software") : PSTR("")); \
+    printwait_P(PSTR(" reboot\n")); \
 \
 \
     goto reinit; \
 \
 reinit: \
+    uart_tx_flush(); \
     _delay_ms(100); \
     cli(); \
     reinit = 0; \
     while (mcp2515_init()) { \
-        puts_P(PSTR("mcp: init")); \
-        _delay_ms(500); \
+        PORTD |=  (1 << PORTD7); \
+        printwait_P(PSTR("mcp: init\n")); \
+        _delay_ms(1500); \
     } \
 \
     rc = 0;
@@ -64,7 +74,7 @@ reinit: \
             PROMPT;\
         } \
         if (rc) {\
-            puts_P(PSTR("$$d"));\
+            printwait_P(PSTR("$$d"));\
             goto reinit;\
         }
 #else
@@ -78,7 +88,7 @@ reinit: \
             irq_signal &= ~IRQ_UART; \
         } \
         if (rc) {\
-            puts_P(PSTR("$$u"));\
+            printwait_P(PSTR("$$u"));\
             goto reinit;\
         }
 #else
@@ -93,13 +103,26 @@ reinit: \
             irq_signal &= ~IRQ_USER; \
         } \
         if (rc) {\
-            puts_P(PSTR("$$U"));\
+            printwait_P(PSTR("$$U"));\
             goto reinit;\
         }
 #else
 #define CHECK_USER
 #endif
 
+inline void sleep(void)
+{
+#if 0
+    ACSR |= (1 << ACD); /* analog comparator disabled */
+    ADCSRA &= ~(1 << ADEN); /* adc off */
+    PRR |= (1 << PRTWI) | (1 << PRTIM2) | (1 << PRADC);
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
+#endif
+}
 
 #define NODE_MAIN() \
     PROMPT \
@@ -107,14 +130,14 @@ reinit: \
     for (;;) { \
         if (0 && reinit) goto reinit; \
 \
-        while (irq_signal == 0) {}; \
+        sleep(); \
 \
         if (irq_signal & IRQ_CAN) { \
             rc = can_irq(); \
             irq_signal &= ~IRQ_CAN; \
         } \
         if (rc) {\
-            puts_P(PSTR("$$c"));\
+            printwait_P(PSTR("$$c"));\
             goto reinit;\
         } \
 \
@@ -123,7 +146,7 @@ reinit: \
             irq_signal &= ~IRQ_PERIODIC; \
         } \
         if (rc) {\
-            puts_P(PSTR("$$p"));\
+            printwait_P(PSTR("$$p"));\
             goto reinit;\
         }\
 \
