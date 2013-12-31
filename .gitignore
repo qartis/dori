@@ -11,6 +11,7 @@
 *.gz
 *.db
 tags
+cscope
 db
 eagle
 .clang_complete
