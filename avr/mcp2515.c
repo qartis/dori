@@ -351,13 +351,13 @@ void read_packet(uint8_t regnum)
                 (uint16_t)packet.data[1] << 0;
 
         if (new_periodic_interval < 5) {
-            puts_P(PSTR("too small!"));
+            puts_P(PSTR("small!"));
             return;
         }
 
         periodic_interval = new_periodic_interval;
 
-        printf_P(PSTR("mcp period=%u\n"), periodic_interval);
+        printf_P(PSTR("period=%u\n"), periodic_interval);
     } else if (packet.type == TYPE_sos_reboot &&
               (packet.id == MY_ID || packet.id == ID_any)) {
         cli();
@@ -409,7 +409,7 @@ ISR(PCINT0_vect)
 
         /* TEC > 96 */
         if (eflg & 0b00000100) {
-            printf("TEC\n");
+            puts_P(PSTR("TEC"));
             write_register(MCP_REGISTER_TEC, 0);
         }
 
