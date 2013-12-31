@@ -5,6 +5,8 @@
 #include <avr/wdt.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
 #include <util/atomic.h>
 #include <util/delay.h>
 
@@ -16,7 +18,6 @@
 #include "mcp2515.h"
 #include "time.h"
 #include "node.h"
-#include "debug.h"
 #include "free_ram.h"
 #include "can.h"
 
@@ -26,8 +27,8 @@
 
 #define PATH_LEN 128
 
-/********************************/
-/* NOTE: All callers of SD/FAT functions
+/*
+   NOTE: All callers of SD/FAT functions
    will need to be wrapped in atomic blocks
    to ensure that the CAN interrupt doesn't
    pre-empt reading from the SD card.
@@ -36,7 +37,6 @@
    SD card, which will cause it to loop
    infinitely
 */
-/********************************/
 
 
 uint8_t cur_log;
@@ -83,7 +83,7 @@ uint8_t user_irq(void)
     char buf[8];
     snprintf_P(buf, sizeof(buf), PSTR("%u.LOG"), offer_num);
     mcp2515_send(TYPE_file_offer, ID_logger, buf, strlen(buf));
-    puts_P(PSTR("yo"));
+    puts_P(PSTR("offered a full log file over CAN"));
     return 0;
 }
 
@@ -125,12 +125,14 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint16_t page_buf_len)
     uint16_t wrote;
     uint8_t rc;
 
-    printf_P(PSTR("dmp pg bf %u %lu\n"), cur_log, log_write_pos);
+    printwait_P(PSTR("dmp pg bf %u %lu\n"), cur_log, log_write_pos);
 
+    /* if this log file is too full for the current page buf, then switch
+       to the next free log file */
     if (((uint32_t)log_write_pos + page_buf_len) > (uint32_t)LOG_SIZE) {
         offer_num = cur_log;
         irq_signal |= IRQ_USER;
-        printf_P(PSTR("nxtlg @ %u\n"), cur_log);
+        printwait_P(PSTR("nxtlg @ %u\n"), cur_log);
         log_write_pos = 0;
         cur_log = find_free_log_after(cur_log);
         if (cur_log == LOG_INVALID) {
@@ -142,7 +144,7 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint16_t page_buf_len)
     snprintf_P(buf, sizeof(buf), PSTR("%u.LOG"), cur_log);
     rc = pf_open(buf);
     if (rc) {
-        printf_P(PSTR("er lg op%u\n"), cur_log);
+        printwait_P(PSTR("er lg op%u\n"), cur_log);
         goto err;
     }
 
@@ -153,7 +155,7 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint16_t page_buf_len)
     }
 
     rc = pf_write(page_buf, page_buf_len, &wrote);
-    printf_P(PSTR("cb: pf_wr %u = '%u'\n"), page_buf_len, wrote);
+    printwait_P(PSTR("cb: pf_wr %u = '%u'\n"), page_buf_len, wrote);
     if (rc || wrote != page_buf_len) {
         puts_P(PSTR("er1"));
         goto err;
@@ -165,26 +167,29 @@ uint8_t dump_page_buf(uint8_t *page_buf, uint16_t page_buf_len)
         goto err;
     }
 
+    log_write_pos += page_buf_len;
+
     snprintf_P(buf, sizeof(buf), PSTR("%u.LEN"), cur_log);
     rc = pf_open(buf);
     if (rc) {
-        printf_P(PSTR("er3 %u\n"), rc);
+        printwait_P(PSTR("er3 %u\n"), rc);
         goto err;
     }
+    printwait_P(PSTR("opened '%s'\n"), buf);
 
     rc = pf_write(&log_write_pos, sizeof(log_write_pos), &wrote);
     if (rc || wrote != sizeof(log_write_pos)) {
         puts_P(PSTR("er4"));
         goto err;
     }
+    printwait_P(PSTR("wrote %d\n"), wrote);
 
     rc = pf_write(NULL, 0, &wrote);
     if (rc) {
         puts_P(PSTR("er5"));
         goto err;
     }
-
-    log_write_pos += page_buf_len;
+    printwait_P(PSTR("finalized\n"));
 
     return 0;
 
@@ -200,6 +205,8 @@ uint8_t log_packet(void)
     uint8_t rc;
     static uint8_t page_buf[512];
     static uint16_t page_buf_len = 0;
+
+    printwait_P(PSTR("log packet\n"));
 
     /* if we have room to store in cache, then copy it and we're done */
     if (((uint16_t)page_buf_len + packet.len + 1 + 1 + 1) >= 512) {
@@ -223,7 +230,7 @@ uint8_t log_packet(void)
         page_buf[page_buf_len++] = packet.data[i];
     }
 
-    printf_P(PSTR("pg bf %u\n"), page_buf_len);
+    printwait_P(PSTR("pg bf %u\n"), page_buf_len);
 
     return 0;
 }
@@ -232,6 +239,7 @@ void can_tophalf(void)
 {
     /* we're in interrupt context! */
     uint8_t rc;
+    printwait_P(PSTR("tophalf\n"));
 
     /* don't log transfer chunks */
     if (packet.type == TYPE_xfer_chunk)
@@ -240,6 +248,7 @@ void can_tophalf(void)
     rc = log_packet();
 
     if (rc) {
+        printwait_P(PSTR("log pkt err\n"));
         /* problem logging packet */
     }
 }
@@ -362,12 +371,14 @@ uint8_t uart_irq(void)
 {
     char buf[512];
     uint8_t rc;
-    
+
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
 
     if (buf[0] == 'f' && buf[1] == '\0') {
         printf_P(PSTR("%u/%u\n"), free_ram(), stack_space());
+    } else if (buf[0] == '5' && buf[1] == '\0') {
+        log_write_pos = 480;
     } else if (buf[0] == 'e' && buf[1] == '\0') {
         cli();
         empty();
@@ -393,6 +404,8 @@ uint8_t uart_irq(void)
         uint8_t dest = ID_any;
         rc = tree(dest);
         printf_P(PSTR("tree %u\n"), rc);
+    } else {
+        putchar('?');
     }
 
     PROMPT;
@@ -414,12 +427,12 @@ uint8_t fat_init(void)
     sd_init();
 
     rc = disk_initialize();
-    printf_P(PSTR("dsk %u\n"), rc);
+    printwait_P(PSTR("dsk %u\n"), rc);
     if (rc)
         return rc;
 
     rc = pf_mount();
-    printf_P(PSTR("fs %u\n"), rc);
+    printwait_P(PSTR("fs %u\n"), rc);
     if (rc)
         return rc;
 
@@ -561,7 +574,6 @@ uint8_t tree(uint8_t dest)
 
 void main(void)
 {
-    wdt_disable();
     /* clear up the SPI bus for the mcp2515 */
     spi_init();
     sd_hw_init();
@@ -570,16 +582,19 @@ void main(void)
 
     rc = fat_init();
     if (rc) {
-        puts_P(PSTR("fat err"));
+        printwait_P(PSTR("fat err\n"));
         //mcp2515_send(TYPE_file_error, ID_logger, &rc, sizeof(rc));
+        sei();
+        uart_tx_flush();
         _delay_ms(1000);
         goto reinit;
     }
 
+    sei();
+
     /* we start searching from log AFTER this one, which is num 0 */
     cur_log = find_free_log_after(NUM_LOGS - 1);
 
-    sei();
 
     if (cur_log == LOG_INVALID) {
         /* disk full? */
