@@ -16,9 +16,6 @@ uint8_t disk_initialize (void);
 disk_result_t disk_readp (uint8_t *, uint32_t, uint16_t, uint16_t);
 disk_result_t disk_writep (const uint8_t *, uint32_t);
 
-#define SD_DESELECT() PORTD |=  (1 << PORTD7)
-#define SD_SELECT()   PORTD &= ~(1 << PORTD7)
-
 #define STA_NOINIT      0x01    /* Drive not initialized */
 #define STA_NODISK      0x02    /* No medium in the drive */
 
