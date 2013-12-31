@@ -378,11 +378,15 @@ FRESULT pf_mount(void)
             }
         }
     }
-    if (fmt == 3) return FR_DISK_ERR;
+
+    if (fmt == 3)
+        return FR_DISK_ERR;
+
     if (fmt) return FR_NO_FILESYSTEM;   /* No valid FAT patition is found */
 
     /* Initialize the file system object */
-    if (disk_readp(buf, bsect, 13, sizeof(buf))) return FR_DISK_ERR;
+    if (disk_readp(buf, bsect, 13, sizeof(buf)))
+        return FR_DISK_ERR;
 
     fsize = LD_16(buf+BPB_FATSz16-13);              /* Number of sectors per FAT */
     if (!fsize) fsize = LD_32(buf+BPB_FATSz32-13);
