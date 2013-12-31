@@ -5,6 +5,8 @@
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
 #include <util/delay.h>
+#include <avr/power.h>
+#include <avr/sleep.h>
 
 #include "adc.h"
 #include "heater.h"
@@ -92,7 +94,7 @@ uint8_t send_voltage_can(uint8_t type)
     uint16_t adc_voltage = get_voltage();
     uint16_t mV;
     uint32_t V;
-    
+
     V = adc_voltage * 50000; /* 5.00V */
     V >>= 10;
     V += 100000;
@@ -213,21 +215,28 @@ uint8_t uart_irq(void)
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
 
-    heater_on(0);
-    heater_on(1);
-    heater_on(2);
-    heater_on(3);
+    if (buf[0] == '\0') {
+        uint16_t current = get_current();
+        printf("I: %u\n", current);
+    } else {
+        heater_on(0);
+        heater_on(1);
+        heater_on(2);
+        heater_on(3);
 
-    _delay_ms(250);
-    heater_off(0);
-    _delay_ms(250);
-    heater_off(1);
-    _delay_ms(250);
-    heater_off(2);
-    _delay_ms(250);
-    heater_off(3);
+        _delay_ms(5000);
 
-    send_voltage_can(TYPE_value_explicit);
+        _delay_ms(250);
+        heater_off(0);
+        _delay_ms(250);
+        heater_off(1);
+        _delay_ms(250);
+        heater_off(2);
+        _delay_ms(250);
+        heater_off(3);
+
+        send_voltage_can(TYPE_value_explicit);
+    }
 
     return 0;
 }
