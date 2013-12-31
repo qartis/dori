@@ -7,6 +7,8 @@
 #include <avr/wdt.h>
 #include <util/delay.h>
 #include <util/atomic.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
 
 #include "irq.h"
 #include "time.h"
@@ -229,7 +231,7 @@ uint8_t uart_irq(void)
             goto uart_irq_end;
         }
         id = parse_arg(arg);
-        
+
         if (id == ID_any) // disable filtering
         {
             arg = strtok(NULL, " ");
@@ -251,7 +253,9 @@ uint8_t uart_irq(void)
             }
             filter[id] = parse_arg(arg);
         }
-    }else{
+    } else if (strcmp_P(arg, PSTR("mcp")) == 0){
+        mcp2515_dump();
+    } else {
         show_usage();
     }
 uart_irq_end:
