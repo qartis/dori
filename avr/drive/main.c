@@ -5,6 +5,8 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
 #include <util/delay.h>
 #include <util/atomic.h>
 
@@ -19,7 +21,6 @@
 
 uint8_t uart_irq(void)
 {
-    int32_t i;
     int32_t goal;
     scanf("%ld", &goal);
     motor_left(goal);
@@ -29,27 +30,12 @@ uint8_t uart_irq(void)
 
 uint8_t periodic_irq(void)
 {
-    uint8_t rc;
-    
-
-    uint8_t buf[3];
-    static uint8_t counter = 0;
-
-    buf[2] = counter;
-
-    counter++;
-
-    rc = 0;
-    if (rc != 0) {
-        return rc;
-    }
-
     return 0;
 }
 
 uint8_t can_irq(void)
 {
-    uint8_t pos;
+    packet.unread = 0;
 
     switch (packet.type) {
 

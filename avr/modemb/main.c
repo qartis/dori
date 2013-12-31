@@ -5,6 +5,8 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
 #include <util/atomic.h>

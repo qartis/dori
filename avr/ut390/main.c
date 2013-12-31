@@ -5,11 +5,10 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
 #include <util/delay.h>
 #include <util/atomic.h>
-
-#define UART_BAUD 38400
-#define DEBUG
 
 #include "irq.h"
 #include "debug.h"

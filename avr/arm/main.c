@@ -5,6 +5,8 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
 #include <util/delay.h>
 #include <util/atomic.h>
 
@@ -16,6 +18,7 @@
 #include "mcp2515.h"
 #include "time.h"
 #include "arm.h"
+#include "adc.h"
 #include "node.h"
 
 uint8_t uart_irq(void)

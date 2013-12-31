@@ -4,6 +4,8 @@
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
 #include <util/delay.h>
 #include <ctype.h>
 

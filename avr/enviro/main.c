@@ -3,9 +3,9 @@
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
 #include <util/delay.h>
-
-#define UART_BAUD 38400
 
 #include "irq.h"
 #include "time.h"
@@ -14,13 +14,12 @@
 #include "mcp2515.h"
 #include "can.h"
 #include "node.h"
-
 #include "i2c.h"
 #include "bmp085.h"
-#include "uart.h"
 #include "wind.h"
 #include "humidity.h"
 #include "temp.h"
+#include "adc.h"
 
 volatile uint8_t water_tips;
 
@@ -205,6 +204,8 @@ uint8_t uart_irq(void)
 
 void main(void)
 {
+    NODE_INIT();
+
     temp_init();
     adc_init();
     i2c_init(I2C_FREQ(400000));
@@ -213,7 +214,6 @@ void main(void)
     PCICR |= (1 << PCIE2);
     PORTD |= (1 << PORTD6);
 
-    NODE_INIT();
     sei();
 
     NODE_MAIN();
