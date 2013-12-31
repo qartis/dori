@@ -10,32 +10,13 @@
 #include "irq.h"
 #include "mcp2515.h"
 
-//#define ONLCR
-
 #ifndef UART_CUSTOM_INTERRUPT
 #define ICRNL
 #endif
 
-#ifdef UBRR0H
-#define UBRRH UBRR0H 
-#define UBRRL UBRR0L 
-#define UCSRA UCSR0A 
-#define UCSRB UCSR0B 
-#define UCSRC UCSR0C 
-#define UDR UDR0 
-#define UDRIE UDRIE0 
-#define TXEN TXEN0 
-#define RXEN RXEN0 
-#define RXCIE RXCIE0 
-#define UCSZ0 UCSZ00 
-#define UDRE UDRE0 
-#define USART_RXC_vect USART_RX_vect 
-#define URSEL URSEL0
-#endif
-
 #ifndef DEBUG
 static FILE mystdout = FDEV_SETUP_STREAM(
-    (int (*)(char,FILE*))uart_putchar, 
+    (int (*)(char,FILE*))uart_putchar,
     (int (*)(FILE*))uart_getchar,
     _FDEV_SETUP_RW);
 #endif
@@ -64,29 +45,43 @@ ISR(USART_TX_vect)
 {
     uint8_t c;
 
+    /*
     if (!(UCSR0A & (1 << UDRE0))) {
         puts_P(PSTR("wtf!"));
         return;
     }
+    */
 
     if (tx_ring_in != tx_ring_out) {
         c = uart_tx_ring[tx_ring_out];
         tx_ring_out++;
+        tx_ring_out %= UART_TX_BUF_SIZE;
         UDR0 = c;
     }
 }
 
-void uart_tx_flush(void)
+void uart_tx_empty(void)
 {
-    while (tx_ring_in != tx_ring_out) { }
+    tx_ring_in = tx_ring_out;
 }
 
+void uart_tx_flush(void)
+{
+    while (tx_ring_in != tx_ring_out) {};
+}
 
 #ifndef UART_CUSTOM_INTERRUPT
-ISR(USART_RXC_vect)
+ISR(USART_RX_vect)
 {
-    uint8_t data = UDR;
+    uint8_t data = UDR0;
 
+    /*
+    if (irq_signal & IRQ_UART) {
+        return;
+    }
+    */
+
+    /*
     if (data == '\b') {
         if (bytes_in_ring() > 0) {
             if (ring_in == 0) {
@@ -101,9 +96,11 @@ ISR(USART_RXC_vect)
         }
         return;
     }
+    */
 
     uart_ring[ring_in] = data;
-    ring_in = (ring_in + 1) % UART_BUF_SIZE;
+    ring_in++;
+    ring_in %= UART_BUF_SIZE;
 
     if (data == '\r')
         data = '\n';
@@ -116,7 +113,6 @@ ISR(USART_RXC_vect)
         irq_signal |= IRQ_UART;
     }
 
-
 #ifdef ECHO
     putchar(data);
 #endif
@@ -125,17 +121,16 @@ ISR(USART_RXC_vect)
 
 void uart_init(uint16_t ubrr)
 {
-    UBRRH = ubrr >> 8;  
-    UBRRL = ubrr;  
+    UBRR0H = ubrr >> 8;
+    UBRR0L = ubrr;
 
-    UCSRB = (1 << RXEN) | (1 << TXEN) | (1 << RXCIE0) | (1 << TXCIE0);
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0) | (1 << TXCIE0);
 
 #ifndef DEBUG
     stdout = &mystdout;
     stdin = &mystdout;
 #endif
 }
-
 
 int uart_getchar(void)
 {
@@ -147,7 +142,8 @@ ignore:
     while (ring_in == ring_out){ }
 
     c = uart_ring[ring_out];
-    ring_out = (ring_out + 1) % UART_BUF_SIZE;
+    ring_out++;
+    ring_out %= UART_BUF_SIZE;
 
     if (c == '\r'){
 #ifdef ICRNL
@@ -170,26 +166,30 @@ uint8_t uart_haschar(void)
 
 int uart_putchar(char c)
 {
+#if 1
 #ifdef ONLCR
 again:
 #endif
+    while ((tx_ring_in + 1) % UART_TX_BUF_SIZE == tx_ring_out) {};
+
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         if ((UCSR0A & (1 << UDRE0)) && (tx_ring_in == tx_ring_out)) {
             UDR0 = c;
         } else {
             uart_tx_ring[tx_ring_in] = c;
             tx_ring_in++;
+            tx_ring_in %= UART_TX_BUF_SIZE;
         }
     }
-    /*
-    while (!(UCSRA & (1<<UDRE))){ }
-    UDR = c;
-    */
 #ifdef ONLCR
     if (c == '\n'){
         c = '\r';
         goto again;
     }
+#endif
+#else
+    while (!(UCSR0A & (1<<UDRE0))){ }
+    UDR0 = c;
 #endif
     return c;
 }
@@ -244,3 +244,41 @@ void print_P(const char * PROGMEM s)
         s++;
     }
 }
+
+void putchar_wait(char c)
+{
+again:
+    while (!(UCSR0A & (1<<UDRE0))) {};
+    UDR0 = c;
+
+    if (c == '\n') {
+        c = '\r';
+        goto again;
+    }
+}
+
+void printwait_P(const char * PROGMEM fmt, ...)
+{
+    uint8_t i;
+    va_list ap;
+    char buf[64];
+
+    va_start(ap, fmt);
+    vsnprintf_P(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+
+    for (i = 0; i < strlen(buf); i++)
+        putchar_wait(buf[i]);
+}
+
+/*
+void print_P(const char * PROGMEM s)
+{
+    uint8_t intr = SREG & (1 << SREG_I);
+
+    if (intr)
+        printintr_P(s);
+    else
+        printwait_P(s);
+}
+*/

@@ -11,6 +11,7 @@
 //#define getchar uart_getchar
 
 void uart_tx_flush(void);
+void uart_tx_empty(void);
 uint8_t uart_haschar(void);
 void uart_init(uint16_t);
 int uart_getchar(void);
@@ -22,6 +23,8 @@ void prints(int16_t);
 void printu(uint16_t);
 void print(const char *);
 void print_P(const char * PROGMEM);
+void printwait_P(const char * PROGMEM fmt, ...);
+//void printintr_P(const char * PROGMEM);
 void printx(uint16_t);
 #if 0
 void printb(uint16_t number, uint8_t base);
