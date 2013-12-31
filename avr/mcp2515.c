@@ -66,10 +66,46 @@ uint8_t read_register(uint8_t address)
     return result;
 }
 
+void mcp2515_dump(void)
+{
+	uint8_t tec, rec, eflg;
+
+    tec = read_register(MCP_REGISTER_TEC);
+    rec = read_register(MCP_REGISTER_REC);
+    eflg = read_register(MCP_REGISTER_EFLG);
+
+	printf_P(PSTR("TEC:x%x\n"), tec);
+	printf_P(PSTR("REC:x%x\n"), rec);
+	printf_P(PSTR("EFLG:x%x\n"), eflg);
+
+	if ((rec > 127) || (tec > 127)) {
+		puts_P(PSTR("Error: Passive or Bus-Off"));
+	}
+
+	if (eflg & MCP_EFLG_RX1OVR)
+		puts_P(PSTR("Receive Buffer 1 Overflow"));
+	if (eflg & MCP_EFLG_RX0OVR)
+		puts_P(PSTR("Receive Buffer 0 Overflow"));
+	if (eflg & MCP_EFLG_TXBO)
+		puts_P(PSTR("Bus-Off"));
+	if (eflg & MCP_EFLG_TXEP)
+		puts_P(PSTR("Receive Error Passive"));
+	if (eflg & MCP_EFLG_TXWAR)
+		puts_P(PSTR("Transmit Error Warning"));
+	if (eflg & MCP_EFLG_RXWAR)
+		puts_P(PSTR("Receive Error Warning"));
+	if (eflg & MCP_EFLG_EWARN )
+		puts_P(PSTR("Receive Error Warning"));
+
+    write_register(MCP_REGISTER_TEC, 0);
+    write_register(MCP_REGISTER_REC, 0);
+    write_register(MCP_REGISTER_EFLG, 0);
+}
+
 void write_register(uint8_t address, uint8_t value)
 {
     mcp2515_select();
-    
+
     spi_write(MCP_COMMAND_WRITE);
     spi_write(address);
     spi_write(value);
@@ -80,7 +116,7 @@ void write_register(uint8_t address, uint8_t value)
 void modify_register(uint8_t address, uint8_t mask, const uint8_t value)
 {
     mcp2515_select();
-    
+
     spi_write(MCP_COMMAND_BITMOD);
     spi_write(address);
     spi_write(mask);
@@ -97,8 +133,8 @@ uint8_t mcp2515_init(void)
     /* setup timer1 to feed mcp2515's clock on OC1A (PB1) */
     TCNT1 = 0;
     OCR1A = 0;
-    TCCR1A = (1 << COM1A0); 
-    TCCR1B = (1 << CS10) | (1 << WGM12); 
+    TCCR1A = (1 << COM1A0);
+    TCCR1B = (1 << CS10) | (1 << WGM12);
 
     /* enable mcp2515's interrupt on avr pin pcint0 (pb0) */
     PCICR |= (1 << PCIE0);
@@ -169,33 +205,28 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
 uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
 {
     uint8_t retry = 255;
-    while(mcp2515_busy && --retry) {
+    while (mcp2515_busy && --retry)
         _delay_ms(1);
-    }
 
-    if(mcp2515_busy) {
+    if (mcp2515_busy)
         return 99;
-    }
 
     mcp2515_send_sensor(type, id, data, len, sensor);
 
     retry = 255;
-    while(mcp2515_busy && --retry) {
+    while (mcp2515_busy && --retry)
         _delay_ms(1);
-    }
 
-    if(mcp2515_busy) {
+    if (mcp2515_busy)
         return 77;
-    }
 
     return 0;
 }
 
 uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
 {
-    if (stfu) {
+    if (stfu)
         return 0;
-    }
 
     if (mcp2515_busy) {
         puts_P(PSTR("tx overrun"));
@@ -315,7 +346,7 @@ void read_packet(uint8_t regnum)
     } else if (packet.type == TYPE_set_interval &&
               (packet.id == MY_ID || packet.id == ID_any)) {
         periodic_prev = now;
-        uint16_t new_periodic_interval = 
+        uint16_t new_periodic_interval =
                 (uint16_t)packet.data[0] << 8 |
                 (uint16_t)packet.data[1] << 0;
 
@@ -338,7 +369,7 @@ void read_packet(uint8_t regnum)
     } else if (packet.type == TYPE_sos_nostfu &&
                (packet.id == MY_ID || packet.id == ID_any)) {
         stfu = 0;
-    } else if (packet.id == MY_ID) {
+    } else if (packet.id == MY_ID || MY_ID == ID_logger) {
         mcp2515_tophalf();
     } else {
         //printf_P(PSTR("not mine, id was: %d\n"), packet.id);
@@ -350,7 +381,7 @@ ISR(PCINT0_vect)
     uint8_t canintf;
 
     canintf = read_register(MCP_REGISTER_CANINTF);
-    printf("int! %x\n", canintf);
+    //printf("int! %x\n", canintf);
 
     //canintf &= 0x7f;
 
@@ -388,12 +419,10 @@ ISR(PCINT0_vect)
         canintf &= ~(MCP_INTERRUPT_ERRI);
     }
 
-    if (canintf) {
-   //     printf_P(PSTR("mcp err intf %x\n"), canintf);
+    if (canintf & MCP_INTERRUPT_MERR) {
+        puts_P(PSTR("mcp: MERR"));
+        modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_MERR, 0x00);
     }
-
-    /* temporary fix: flush all received packets */
-    modify_register(MCP_REGISTER_CANINTF, 0xff, 0x00);
 }
 
 uint8_t mcp2515_check_alive(void)
