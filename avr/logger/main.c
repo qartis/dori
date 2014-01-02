@@ -454,6 +454,13 @@ uint8_t can_irq(void)
         break;
     case TYPE_file_tree:
         rc = tree(ID_logger);
+
+        // if the xfer was cancelled, then don't return
+        // an error code, because that would cause
+        // NODE_MAIN to re-init the chip
+        if (rc == MCP_ERR_XFER_CANCEL)
+            rc = 0;
+
         break;
     case TYPE_file_write:
         break;
@@ -486,7 +493,7 @@ uint8_t tree_send_chunks(const char *buf)
         putchar('\n');
         rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, buf, chunksize, 0);
         if (rc)
-            return 3;
+            return rc;
 
         buf += chunksize;
         i -= chunksize;
@@ -519,7 +526,7 @@ uint8_t tree_send_path(char *path)
         }
 
         if (rc)
-            return 2;
+            return rc;
 
         if (!fno.fname[0])
             break;
@@ -528,7 +535,9 @@ uint8_t tree_send_path(char *path)
             len = strlen(path);
 
             snprintf_P(buf, sizeof(buf), PSTR("%s/\n"), fno.fname);
-            tree_send_chunks(buf);
+            rc = tree_send_chunks(buf);
+            if (rc)
+                return rc;
 
             snprintf_P(path + len, PATH_LEN - len, PSTR("/%s"), fno.fname);
 
@@ -545,7 +554,9 @@ uint8_t tree_send_path(char *path)
             snprintf_P(buf, sizeof(buf), PSTR("%s [%lu]\n"),
                     fno.fname, fno.fsize);
 
-            tree_send_chunks(buf);
+            rc = tree_send_chunks(buf);
+            if (rc)
+                return rc;
         }
 
     }
@@ -567,7 +578,7 @@ uint8_t tree(uint8_t dest)
 
     rc = mcp2515_xfer(TYPE_xfer_chunk, dest, NULL, 0, 0);
     if (rc)
-        return 4;
+        return rc;
 
     return 0;
 }

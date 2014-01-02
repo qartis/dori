@@ -193,6 +193,9 @@ void can_tophalf(void);
 #define MCP_EFLG_RXWAR  (1 << 1)
 #define MCP_EFLG_EWARN  (1 << 0)
 
+#define MCP_ERR_XFER_TIMEOUT 1
+#define MCP_ERR_XFER_CANCEL 2
+
 uint8_t mcp2515_init(void);
 void mcp2515_reset(void);
 //void read_ff_0(uint8_t *length, uint8_t *buf, uint16_t *frame_id);

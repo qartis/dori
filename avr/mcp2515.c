@@ -458,9 +458,9 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len, 
         puts_P(PSTR("xfer: cts timeout"));
         //didn't get a response
         //expected TYPE_xfer_cts
-        return 1;
+        return MCP_ERR_XFER_TIMEOUT;
     } else if (xfer_state == XFER_CANCEL) {
-        return 2;
+        return MCP_ERR_XFER_CANCEL;
     }
 
     return 0;
