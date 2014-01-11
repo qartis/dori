@@ -29,6 +29,10 @@
     X(dcim_len, 0x1b) \
     X(disk_full, 0x1c) \
 \
+    X(ircam_read, 0x1d) \
+    X(ircam_chunk, 0x1e) \
+    X(ircam_reset, 0x1f) \
+\
     X(action_modema_powercycle, 0x20) \
     X(action_modemb_powercycle, 0x21) \
 \
