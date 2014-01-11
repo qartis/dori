@@ -20,7 +20,7 @@
 #include "can.h"
 #include "laser.h"
 
-#define MIN(a,b) a < b ? a : b
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 inline uint8_t streq(const char *a, const char *b)
 {
