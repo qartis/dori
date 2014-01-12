@@ -26,8 +26,14 @@
 volatile uint8_t rcv_buf[RCV_BUF_SIZE];
 
 volatile uint8_t read_flag;
-volatile uint8_t target_size; // how many bytes ISR should expect to receive
+
+// how many bytes ISR should expect to receive
+volatile uint8_t target_size;
 volatile uint8_t read_size;
+
+// remaining size of the frame buffer to read from the camera
+volatile uint32_t fbuf_len;
+
 
 int strstart_P(const char *s1, const char * PROGMEM s2)
 {
@@ -65,13 +71,6 @@ uint8_t periodic_irq(void)
 {
     print("uart\n");
     printf("debug\n");
-    return 0;
-}
-
-uint8_t can_irq(void)
-{
-    packet.unread = 0;
-
     return 0;
 }
 
@@ -114,8 +113,12 @@ uint8_t send_cmd(uint8_t *cmd, uint8_t cmd_nbytes, uint8_t target_nbytes)
     return !read_flag; // return zero on success
 }
 
-void take_photo(void)
+
+void init_xfer(void)
 {
+    reset_cam();
+    _delay_ms(500);
+
     uint8_t i;
     uint8_t rc;
     uint8_t stop_fbuf_cmd[] = {
@@ -155,16 +158,21 @@ void take_photo(void)
 
     printf("\n");
     // data length comes in MSB first
-    uint32_t fbuf_len =
+    fbuf_len =
         (((uint32_t)rcv_buf[5] << 24) |
          ((uint32_t)rcv_buf[6] << 16) |
          ((uint32_t)rcv_buf[7] <<  8) |
          ((uint32_t)rcv_buf[8] <<  0));
 
     printf("fbuf_len: %d\n", fbuf_len);
+}
 
-    uint32_t addr = 0;
-    uint32_t total_read = 0;
+uint8_t img_send_chunks(void)
+{
+    static uint32_t addr = 0;
+    static uint32_t total_read = 0;
+
+    uint8_t rc = 0;
 
     // 3. Ask for all the bytes of the photo in 32 byte chunks (then change to 8 byte once 32 works)
     while(fbuf_len > 0) {
@@ -179,36 +187,60 @@ void take_photo(void)
             0x00, // read current frame (0x01 is read next frame)
             0x0A, // 1111 101X where X = {0 = MCU Mode, 1 = DMA mode}
 
-            (addr >> 24) & 0xFF, // address
-            (addr >> 16) & 0xFF,
-            (addr >>  8) & 0xFF,
-            (addr >>  0) & 0xFF,
+                (addr >> 24) & 0xFF, // address
+                (addr >> 16) & 0xFF,
+                (addr >>  8) & 0xFF,
+                (addr >>  0) & 0xFF,
 
-            ((uint32_t)DATA_CHUNK_SIZE >> 24) & 0xFF, // data size
-            ((uint32_t)DATA_CHUNK_SIZE >> 16) & 0xFF,
-            ((uint32_t)DATA_CHUNK_SIZE >>  8) & 0xFF,
-            ((uint32_t)DATA_CHUNK_SIZE >>  0) & 0xFF,
+                ((uint32_t)DATA_CHUNK_SIZE >> 24) & 0xFF, // data size
+                ((uint32_t)DATA_CHUNK_SIZE >> 16) & 0xFF,
+                ((uint32_t)DATA_CHUNK_SIZE >>  8) & 0xFF,
+                ((uint32_t)DATA_CHUNK_SIZE >>  0) & 0xFF,
 
-            0x00, // delay
-            0x10
+                0x00, // delay
+                0x10
         };
 
         rc = send_cmd(photo_cmd, sizeof(photo_cmd), req_size + (2 * ACK_SIZE));
         if(rc) {
             printf("!photo_cmd\n");
-            return;
+            return 2;
         }
 
-        mcp2515_send(TYPE_ircam_chunk, ID_any, (const char*)&rcv_buf[ACK_SIZE], req_size);
+        rc = mcp2515_xfer(TYPE_ircam_chunk, MY_ID, (const char*)&rcv_buf[ACK_SIZE], req_size, 0);
+
+        if(rc)
+            return rc;
 
         addr += req_size;
         total_read += req_size;
         fbuf_len -= req_size;
-
-        _delay_ms(200);
     }
 
     printf("\nTotal read %d\n\n", total_read);
+
+    return 0;
+}
+
+uint8_t can_irq(void)
+{
+    uint8_t rc = 0;
+
+    switch(packet.type) {
+    case TYPE_ircam_read:
+        init_xfer();
+        img_send_chunks();
+        break;
+    case TYPE_xfer_cancel:
+        fbuf_len = 0;
+        break;
+    case TYPE_ircam_reset:
+        reset_cam();
+        break;
+    }
+
+    packet.unread = 0;
+    return rc;
 }
 
 uint8_t debug_irq(void)
@@ -220,8 +252,8 @@ uint8_t debug_irq(void)
     buf[strlen(buf)-1] = '\0';
 
     if(strcmp(buf, "snap") == 0) {
-        //printf("taking photo\n");
-        take_photo();
+        init_xfer();
+        img_send_chunks();
     } else if(strcmp(buf, "rst") == 0) {
         printf("reset cam\n");
         reset_cam();
