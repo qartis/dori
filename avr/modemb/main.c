@@ -290,7 +290,6 @@ uint8_t user_irq(void)
     switch (frametype) {
     case FRAME_SUBSMS_INCOMING:
         parse_sms();
-        break;
 
         volatile char *msg = msg_buf;
 
@@ -320,7 +319,7 @@ uint8_t user_irq(void)
                                         msg[11 + i]);
             }
 
-            //rc = mcp2515_send_wait(type, id, data, len, sensor);
+            rc = mcp2515_send_wait(type, id, data, len, sensor);
 
             if(msg_buflen < 10 + (len * 2)) {
                 puts_P(PSTR("inval sms"));
