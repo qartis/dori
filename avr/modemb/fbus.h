@@ -1,7 +1,7 @@
 uint8_t fbus_sendsms(const char *num, const char *msg);
 uint8_t fbus_heartbeat(void);
 uint8_t fbus_subscribe(void);
-void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc);
+uint8_t fbus_delete_sms(uint16_t loc);
 void fbus_init(void);
 
 void unbcd_phonenum(volatile uint8_t *data);

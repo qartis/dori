@@ -461,27 +461,34 @@ uint8_t fbus_sendsms(const char *num, const char *msg)
 }
 */
 
-#if 0
-unsigned char req[] = {FBUS_FRAME_HEADER, 0x04,
-0x02, /* 0x01 for SM, 0x02 for ME */
-0x00, /* folder_id */
-0x00, /* Location Hi */
-0x00, /* Location Lo */
-0x0F, 0x55};
-void fbus_delete_sms(uint8_t memory_type, uint8_t storage_loc)
+uint8_t fbus_delete_sms(uint16_t loc)
 {
-    uint8_t del_sms[] = {0x00, 0x01, 0x00, 0x0a, memory_type, storage_loc, 0x01};
+    uint8_t rc;
+    unsigned char del_sms[] = {
+        0x00, 0x01, 0x00, // FBUS_FRAME_HEADER,
+        0x04,
+        0x01, /* 0x01 for SM (inbox is on SIM), 0x02 for ME */
+        0x02, /* folder_id */
+        (loc >> 8) & 0xFF, /* Location Hi */
+        loc & 0xFF, //0x00, /* Location Lo */
+        0x0F,
+        0x55,
+        0x01,
+        0x44,
+    };
 
-    fbus_init();
-    sendframe(TYPE_SMS_MGMT, del_sms, sizeof(del_sms));
+    rc = fbus_heartbeat();
+    if (rc)
+        return 63;
+
+    return sendframe_wait(TYPE_SMS_MGMT, del_sms, sizeof(del_sms));
 }
-#endif
 
 uint8_t fbus_subscribe(void)
 {
     uint8_t rc;
-    uint8_t subscribe_channels[] = 
-        {0x00, 0x01, 0x00, 0x10, 0x06, 0x01, 0x02, 0x0a, 
+    uint8_t subscribe_channels[] =
+        {0x00, 0x01, 0x00, 0x10, 0x06, 0x01, 0x02, 0x0a,
          0x14, 0x15, 0x17, 0x01, 0x41};
 
 #define TYPE_MSG_SUBSCRIBE 0x10

@@ -28,7 +28,7 @@
 #define FBUS_MSG_OFFSET 48
 #define FBUS_MSG_SIZE_OFFSET 28
 #define FBUS_SMS_MEM_TYPE_OFFSET 10
-#define FBUS_SMS_LOCATION_OFFSET 11
+#define FBUS_SMS_LOCATION_OFFSET 13
 #define FBUS_SMS_CMD_OFFSET 9
 
 #define FBUS_SUBSMS_INCOMING 0x04
@@ -119,7 +119,13 @@ ISR(USART_RX_vect)
 
     if (type == TYPE_ACK){
         printf_P(PSTR("got ack %x\n"), buf[FBUS_HEADER_LEN]);
+        
         /*
+        uint8_t i;
+        for(i = 0; i < len; i++) {
+            printf("02%f ", buf[i]);
+        }
+        printf("\n");
         uint8_t ack_type = buf[FBUS_HEADER_LEN];
         debug_putchar(to_hex((ack_type & 0xF0) >> 4));
         debug_putchar(to_hex((ack_type & 0x0F) >> 0));
@@ -257,7 +263,9 @@ void parse_sms(void)
         block_ptr = block_ptr + block_ptr[1];
     }
 
-    //fbus_delete_sms(buf[FBUS_SMS_MEM_TYPE_OFFSET], buf[FBUS_SMS_LOCATION_OFFSET]);
+    uint8_t id = sms_buf[FBUS_SMS_LOCATION_OFFSET];
+    printf("id: %d\n", id);
+    fbus_delete_sms(id);
 }
 
 uint8_t user_irq(void)
@@ -386,7 +394,8 @@ uint8_t debug_irq(void)
             return 0;
 
         if (startswith(num_ptr, "dori"))
-            num_ptr = "6043524947";
+            num_ptr = "6046529453";
+            //num_ptr = "6043524947";
         else if (startswith(num_ptr, "v"))
             num_ptr = "7788969633";
 
@@ -400,6 +409,10 @@ uint8_t debug_irq(void)
         rc = fbus_sendsms(num_ptr, msg_ptr);
         if (rc)
             goto done;
+    } else if (startswith(buf, "del")) {
+        uint16_t loc = 0;
+        sscanf(&buf[strlen("del ")], "%d", &loc);
+        fbus_delete_sms(loc);
     } else if (strcmp(buf, "sub") == 0) {
         rc = fbus_subscribe();
         printf("rc: %d\n", rc);
@@ -465,8 +478,8 @@ uint8_t can_irq(void)
     }
 
     printf_P(PSTR("snd'%s'\n"), output);
-    //fbus_sendsms("7788969633", output);
-    rc = fbus_sendsms("7786860358", output);
+    rc = fbus_sendsms("7788969633", output);
+    //rc = fbus_sendsms("7786860358", output);
 
     if (rc) {
         puts_P(PSTR("problem sending SMS"));
