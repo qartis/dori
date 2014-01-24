@@ -264,7 +264,7 @@ void parse_sms(void)
     }
 
     uint8_t id = sms_buf[FBUS_SMS_LOCATION_OFFSET];
-    printf("id: %d\n", id);
+    printf("del msg %d\n", id);
     fbus_delete_sms(id);
 }
 
@@ -292,6 +292,7 @@ uint8_t user_irq(void)
         parse_sms();
 
         volatile char *msg = msg_buf;
+        printf("len:%d\n", msg_buflen);
 
         while (msg_buflen >= 10) {
             // convert SMS ascii hex to CAN
@@ -305,11 +306,12 @@ uint8_t user_irq(void)
 
             len = from_hex_byte(msg[8], msg[9]);
 
+            printf_P(PSTR("pkt: %02x %02x %04x %02x\n"), type, id, sensor, len);
+
             if(len > 8) { // invalid length
+                printf("inval len: %d\n", len);
                 break;
             }
-
-            printf_P(PSTR("pkt: %02x %02x %04x %02x\n"), type, id, sensor, len);
 
             uint8_t j = 0;
             for(i = 0; j < len; j++, i+=2) {
@@ -319,6 +321,7 @@ uint8_t user_irq(void)
                                         msg[11 + i]);
             }
 
+            printf("snd can\n");
             rc = mcp2515_send_wait(type, id, data, len, sensor);
 
             if(msg_buflen < 10 + (len * 2)) {
@@ -359,6 +362,14 @@ uint8_t user_irq(void)
 }
 
 
+void turn_on(void)
+{
+    PORTD &= (1 << PORTD6);
+    DDRD |= (1 << PORTD6);
+    _delay_ms(1000);
+    DDRD &= ~(1 << PORTD6);
+}
+
 uint8_t debug_irq(void)
 {
     char buf[64];
@@ -368,9 +379,11 @@ uint8_t debug_irq(void)
     buf[strlen(buf)-1] = '\0';
 
     if (strcmp(buf, "on") == 0) {
+        turn_on();
+    } else if (strcmp(buf, "off") == 0) {
         PORTD &= (1 << PORTD6);
         DDRD |= (1 << PORTD6);
-        _delay_ms(1000);
+        _delay_ms(2000);
         DDRD &= ~(1 << PORTD6);
     } else if (strcmp(buf, "pwr") == 0) {
         PORTD &= (1 << PORTD6);
@@ -493,9 +506,22 @@ done:
 
 void main(void)
 {
+    uint8_t init_rc;
     NODE_INIT();
 
     sei();
+
+    init_rc = fbus_subscribe();
+    printf("init: %d\n", init_rc);
+
+    // lazy way of troubleshooting init()
+    while(init_rc != 0) {
+        turn_on();
+        _delay_ms(1000);
+        init_rc = fbus_subscribe();
+        printf("init: %d\n", init_rc);
+    }
+
 
     NODE_MAIN();
 }

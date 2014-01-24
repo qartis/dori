@@ -442,25 +442,6 @@ uint8_t fbus_sendsms(const char *num, const char *msg)
     return uart_sendsms(num, msg);
 }
 
-/*
-uint8_t fbus_sendsms(const char *num, const char *msg)
-{
-    fbus_init();
-    uart_sendsms(num, msg);
-    timer_start();
-    for(;;){
-        if (frametype == FRAME_SMS_SENT){
-            timer_disable();
-            return 1;
-        } else if (frametype == FRAME_READ_TIMEOUT){
-            timer_disable();
-            return 0;
-        }
-        //TODO what if it's an important packet?
-    }
-}
-*/
-
 uint8_t fbus_delete_sms(uint16_t loc)
 {
     uint8_t rc;
