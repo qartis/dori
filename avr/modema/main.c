@@ -20,11 +20,15 @@
 #include "sim900.h"
 #include "debug.h"
 #include "irq.h"
+#include "free_ram.h"
 
 #define streq_P(a,b) (strcmp_P(a, b) == 0)
 #define strstart(a,b) (strncmp_P(a, PSTR(b), strlen(b)) == 0)
 
 static uint8_t at_tx_buf[64];
+
+static uint8_t tmp_buf[64];
+static uint8_t tmp_buflen;
 
 uint8_t uart_irq(void)
 {
@@ -34,6 +38,12 @@ uint8_t uart_irq(void)
 uint8_t user_irq(void)
 {
     uint8_t rc;
+
+    if (state == STATE_CONNECTED) return 0;
+
+    slow_write("AT\r", strlen("AT\r"));
+    _delay_ms(100);
+    slow_write("ATH\r", strlen("ATH\r"));
 
     _delay_ms(500);
     puts_P(PSTR("conn"));
@@ -71,10 +81,21 @@ uint8_t debug_irq(void)
         rc = TCPSend((uint8_t *)buf + 1, strlen(buf) - 1);
         if (rc)
             printf("send: %d\n", rc);
+    } else if(buf[0] == 'z') {
+        printf("%u\n", stack_space());
+        printf("%u\n", free_ram());
+    } else if(buf[0] == 't') {
+        uint8_t i;
+        printf("printing %d bytes\n", tmp_buflen);
+        for(i = 0; i < tmp_buflen; i++) {
+            printf("%d: %02x (%c)\n", i, tmp_buf[i], tmp_buf[i]);
+        }
+        tmp_buflen = 0;
     } else {
         print(buf);
         uart_putchar('\r');
     }
+
 
     _delay_ms(500);
     PROMPT;
@@ -98,10 +119,11 @@ void tcp_irq(uint8_t *buf, uint8_t len)
     //printf_P(PSTR("got TCP: '%s'\n"), buf);
 
     for (i = 0; i < len; i++) {
+        printf("%d: %02x ", i, buf[i]);
         tcp_buf[tcp_buf_len] = buf[i];
         tcp_buf_len++;
     }
-
+    printf("\n");
     switch (tcp_buf[0]) {
     case '1' ... '9':
         len = tcp_buf[0] - '0';
@@ -152,6 +174,23 @@ void tcp_irq(uint8_t *buf, uint8_t len)
         puts_P(PSTR("can er"));
 }
 
+ISR(PCINT2_vect)
+{
+    // ringing stopped
+    if(PIND & (1 << PD4))
+        return;
+
+    uint8_t i;
+    for(i = 0; i < 10; i++) {
+        _delay_ms(100);
+
+        if(PIND & (1 << PD4))
+            return;
+    }
+
+    irq_signal |= IRQ_USER;
+}
+
 ISR(USART_RX_vect)
 {
     char c;
@@ -165,8 +204,13 @@ ISR(USART_RX_vect)
 
     c = UDR0;
 
+    if (tmp_buflen < 50)
+        tmp_buf[tmp_buflen++] = c;
+
+    //putchar(c);
     /* if we're reading a tcp chunk */
-    if (tcp_toread > 0) {
+    if (0 && tcp_toread > 0) {
+        printf("\n\n\n#########\n\n\n");
         //putchar(c);
         tcp_rx_buf[tcp_rx_buf_len] = c;
         tcp_rx_buf[tcp_rx_buf_len + 1] = '\0';
@@ -186,10 +230,13 @@ ISR(USART_RX_vect)
         at_rx_buf[0] = '\0';
     } else if (c == '\n') {
         /* ignore empty lines */
-        if (at_rx_buf_len < 2) {
+        if (at_rx_buf_len < 5) {
             at_rx_buf_len = 0;
             return;
         }
+
+        puts("got ");
+        puts(at_rx_buf);
 
         if (streq_P(at_rx_buf, PSTR("OK"))) {
             flag_ok = 1;
@@ -198,8 +245,6 @@ ISR(USART_RX_vect)
             flag_error = 1;
             /* We don't care anymore */
         } else if (streq_P(at_rx_buf, PSTR("RING"))) {
-            slow_write("ATH\r", strlen("ATH\r"));
-            if (state == STATE_CONNECTED) return;
             /* trigger remote connect() */
             irq_signal |= IRQ_USER;
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP INITIAL"))) {
@@ -212,7 +257,7 @@ ISR(USART_RX_vect)
             state = STATE_IP_STATUS;
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP PROCESSING"))) {
             state = STATE_IP_PROCESSING;
-        } else if (streq_P(at_rx_buf, PSTR("CONNECT OK"))) {
+        } else if (streq_P(at_rx_buf, PSTR("STATE: CONNECT OK"))) {
             state = STATE_CONNECTED;
         } else if (streq_P(at_rx_buf, PSTR("CONNECT FAIL"))) {
             state = STATE_ERROR;
@@ -244,9 +289,13 @@ ISR(USART_RX_vect)
             putchar('@');
         }
     }
-    
+
     if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
         uint8_t len = atoi(at_rx_buf + strlen("+IPD,"));
+        uint8_t i;
+        for(i = 0; i < at_rx_buf_len; i++) {
+            printf("%d: %c %02x\n", i, at_rx_buf[i], at_rx_buf[i]);
+        }
         tcp_toread = len;
     }
 }
@@ -271,7 +320,6 @@ uint8_t write_packet(void)
     static uint8_t net_buf[64];
     static uint8_t net_buf_len = 0;
 
-#if 0
     net_buf[0] = packet.type;
     net_buf[1] = packet.id;
     net_buf[2] = packet.len;
@@ -286,9 +334,8 @@ uint8_t write_packet(void)
     }
 
     return 0;
-#endif
 
-    if (((uint16_t)net_buf_len + packet.len + 1 + 1 + 1)
+    if (((uint16_t)net_buf_len + 1 + 1 + 1 + packet.len)
             >= sizeof(net_buf)) {
         rc = TCPSend(net_buf, net_buf_len);
         if (rc) {
@@ -309,7 +356,7 @@ uint8_t write_packet(void)
         }
     }
 
-    printf_P(PSTR("+%u\n"), net_buf_len);
+    //printf_P(PSTR("+%u\n"), net_buf_len);
 
     return 0;
 }
@@ -333,7 +380,7 @@ uint8_t can_irq(void)
         slow_write(at_tx_buf, strlen((const char *)at_tx_buf));
         slow_write("\r", 1);
         break;
-    
+
     case TYPE_file_offer:
         ptr = (uint8_t *)&packet.data;
         rc = mcp2515_send(TYPE_file_read, packet.id, ptr, packet.len);
@@ -360,6 +407,11 @@ uint8_t can_irq(void)
 void main(void)
 {
     NODE_INIT();
+
+    /*
+    PCMSK2 |= (1 << PCINT20);
+    PCICR |= (1 << PCIE2);
+    */
 
     sei();
 

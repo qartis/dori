@@ -109,7 +109,7 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
 
         return 1;
     }
-  
+
     for (i = 0; i < count; i++) {
         uart_putchar(buf[i]);
     }
@@ -190,9 +190,9 @@ uint8_t TCPConnect(void)
 
     puts_P(PSTR("state: IP STATUS"));
 
-    sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"69.172.149.225\",\"53\""));
+    sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"qartis.no-ip.biz\",\"53\""));
 
-    _delay_ms(500);
+    _delay_ms(1000);
     sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {
@@ -209,5 +209,5 @@ uint8_t TCPConnect(void)
 
     puts_P(PSTR("state: CONNECTED"));
 
-    return 0; 
+    return 0;
 }

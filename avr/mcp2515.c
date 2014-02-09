@@ -5,6 +5,9 @@
 #include <util/delay.h>
 #include <avr/wdt.h>
 #include <stdio.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
+
 
 #include "sd.h"
 #include "can.h"
@@ -372,7 +375,7 @@ void read_packet(uint8_t regnum)
     } else if (packet.id == MY_ID || MY_ID == ID_logger) {
         mcp2515_tophalf();
     } else {
-        //printf_P(PSTR("not mine, id was: %d\n"), packet.id);
+        printf_P(PSTR("not mine, id was: %d\n"), packet.id);
     }
 }
 

@@ -128,13 +128,16 @@ void turn_off(void)
     _delay_ms(50);
 
 
-    // cancel any mode the laser is in
-    PRESS(OFF_BTN);
-
-    // turn the device off if it is on
-    HOLD(OFF_BTN);
-
     // if the laser is on
+    if(has_power()) {
+        // cancel any mode the laser is in
+        PRESS(OFF_BTN);
+
+        // turn the device off if it is on
+        HOLD(OFF_BTN);
+    }
+
+    // if the laser is STILL on...
     if(has_power()) {
         printf_P(PSTR("DEVICE FAILED TO TURN OFF\n"));
     }
@@ -329,7 +332,6 @@ uint8_t debug_irq(void)
 
     debug_flush();
 
-    _delay_ms(500);
     PROMPT;
 
     return 0;
@@ -341,7 +343,8 @@ uint8_t can_irq(void)
 
     switch (packet.type) {
     case TYPE_value_request:
-        turn_on_safe();
+        turn_off();
+        turn_on();
         measure_once();
         turn_off();
 

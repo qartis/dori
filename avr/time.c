@@ -31,7 +31,7 @@ ISR(TIMER0_COMPA_vect)
 
         /* heartbeat. delay should be moved out of ISR */
         PORTC &= ~(1 << PORTC3);
-        _delay_us(300);
+//        _delay_us(300);
         PORTC ^= (1 << PORTC3);
 
         if (now >= periodic_prev + periodic_interval) {

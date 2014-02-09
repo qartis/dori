@@ -11,7 +11,6 @@
 #include <netdb.h>
 #include <time.h>
 #include <signal.h>
-#include "command.h"
 #include "can.h"
 #include "can_names.h"
 
@@ -27,6 +26,23 @@
 const char *gateway_address = "localhost";
 int gateway_port = 1338;
 static int gatewayfd;
+
+
+uint8_t from_hex(char a)
+{
+    if (isupper(a)) {
+        return a - 'A' + 10;
+    } else if (islower(a)) {
+        return a - 'a' + 10;
+    } else {
+        return a - '0';
+    }
+}
+
+int strequal(const char *a, const char *b)
+{
+    return strcmp(a, b) == 0;
+}
 
 uint8_t parse_can_arg(const char *arg)
 {
@@ -233,19 +249,31 @@ void parse_can_packet_from_stdin(int num_args,
 void transmit_can_packet(uint8_t type, uint8_t id, uint8_t len, uint8_t data[MAX_DATA_LEN]) {
     uint8_t i;
 
+    printf("sending: ");
     // write the type
     write(gatewayfd, &type, sizeof(type));
+    printf("%02x ", type);
+
 
     // write the ID
     write(gatewayfd, &id, sizeof(id));
+    printf("%02x ", id);
+
+    // write the sensor
+    uint16_t sensor = 0;
+    write(gatewayfd, &sensor, sizeof(sensor));
+    printf("%04x - ", sensor);
 
     // write the generated length
     write(gatewayfd, &len, sizeof(len));
+    printf("%d bytes: ", len);
 
     // write the data
     for(i = 0; i < len; i++) {
         write(gatewayfd, &data[i], sizeof(data[i]));
+        printf("%02x ", data[i]);
     }
+    printf("\n");
 }
 
 void process_dcim_read() {

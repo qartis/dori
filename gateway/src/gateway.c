@@ -21,8 +21,9 @@
 
 #define CAN_TYPE_IDX 0
 #define CAN_ID_IDX 1
-#define CAN_LEN_IDX 2
-#define CAN_HEADER_LEN 3
+#define CAN_SENSOR_IDX 2
+#define CAN_LEN_IDX 4
+#define CAN_HEADER_LEN 5
 
 #define LOGFILE_SIZE 100
 
@@ -284,6 +285,12 @@ void process_dori_bytes(char *buf, int len)
 
 void process_shell_bytes(char *buf, int len)
 {
+    int i;
+    for(i = 0; i < len; i++) {
+        printf("%d:%02x ", i, buf[i]);
+    }
+    printf("\n");
+    printf("shellbuf_len: %d\n", shellbuf_len);
     memcpy(&shellbuf[shellbuf_len], buf, len);
     shellbuf_len += len;
 
@@ -302,11 +309,16 @@ void process_shell_bytes(char *buf, int len)
 
     uint8_t type = shellbuf[CAN_TYPE_IDX];
     uint8_t id = shellbuf[CAN_ID_IDX];
+    uint16_t sensor = (shellbuf[CAN_SENSOR_IDX] << 8) | shellbuf[CAN_SENSOR_IDX + 1];
 
-    printf("Shell sent frame: %s [%02x] %s [%02x] %d [", type_names[type], type,
-           id_names[id], id, data_len);
-
-    int i;
+    printf("Shell sent frame: %s [%02x] %s [%02x] %s [%04x] %d [",
+           type_names[type],
+           type,
+           id_names[id],
+           id,
+           sensor_names[sensor],
+           sensor,
+           data_len);
 
     for (i = 0; i < data_len; i++) {
         printf(" %02x ", shellbuf[CAN_HEADER_LEN + i]);
@@ -315,8 +327,8 @@ void process_shell_bytes(char *buf, int len)
     printf("]\n");
 
     if (active_dori_client) {
-        printf("Sending frame: %s [%02x] %s [%02x] %d [", type_names[type], type,
-               id_names[id], id, data_len);
+        printf("Sending frame: %s [%02x] %s [%02x] %s [%04x] %d [", type_names[type], type,
+               id_names[id], id, sensor_names[sensor], sensor, data_len);
 
         int i;
         for (i = 0; i < data_len; i++) {

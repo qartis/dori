@@ -74,7 +74,7 @@ reinit: \
             PROMPT;\
         } \
         if (rc) {\
-            printwait_P(PSTR("$$d"));\
+            printwait_P(PSTR("$$d\n"));\
             goto reinit;\
         }
 #else
@@ -88,7 +88,7 @@ reinit: \
             irq_signal &= ~IRQ_UART; \
         } \
         if (rc) {\
-            printwait_P(PSTR("$$u"));\
+            printwait_P(PSTR("$$u\n"));\
             goto reinit;\
         }
 #else
@@ -103,7 +103,7 @@ reinit: \
             irq_signal &= ~IRQ_USER; \
         } \
         if (rc) {\
-            printwait_P(PSTR("$$U"));\
+            printwait_P(PSTR("$$U\n"));\
             goto reinit;\
         }
 #else
@@ -131,13 +131,14 @@ inline void sleep(void)
         if (0 && reinit) goto reinit; \
 \
         sleep(); \
+        while(irq_signal == 0) {}; \
 \
         if (irq_signal & IRQ_CAN) { \
             rc = can_irq(); \
             irq_signal &= ~IRQ_CAN; \
         } \
         if (rc) {\
-            printwait_P(PSTR("$$c"));\
+            printwait_P(PSTR("$$c\n"));\
             goto reinit;\
         } \
 \
@@ -146,7 +147,7 @@ inline void sleep(void)
             irq_signal &= ~IRQ_PERIODIC; \
         } \
         if (rc) {\
-            printwait_P(PSTR("$$p"));\
+            printwait_P(PSTR("$$p\n"));\
             goto reinit;\
         }\
 \

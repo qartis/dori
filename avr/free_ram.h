@@ -28,7 +28,7 @@ uint16_t stack_space(void)
     uint8_t *p = &_end;
     uint16_t c = 0;
 
-    while (*p == STACK_CANARY && p <= &__stack) {    
+    while (*p == STACK_CANARY && p <= &__stack) {
         p++;
         c++;
     }
