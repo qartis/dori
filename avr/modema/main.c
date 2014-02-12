@@ -27,9 +27,6 @@
 
 static uint8_t at_tx_buf[64];
 
-static uint8_t tmp_buf[64];
-static uint8_t tmp_buflen;
-
 uint8_t uart_irq(void)
 {
     return 0;
@@ -38,8 +35,6 @@ uint8_t uart_irq(void)
 uint8_t user_irq(void)
 {
     uint8_t rc;
-
-    if (state == STATE_CONNECTED) return 0;
 
     slow_write("AT\r", strlen("AT\r"));
     _delay_ms(100);
@@ -84,13 +79,6 @@ uint8_t debug_irq(void)
     } else if(buf[0] == 'z') {
         printf("%u\n", stack_space());
         printf("%u\n", free_ram());
-    } else if(buf[0] == 't') {
-        uint8_t i;
-        printf("printing %d bytes\n", tmp_buflen);
-        for(i = 0; i < tmp_buflen; i++) {
-            printf("%d: %02x (%c)\n", i, tmp_buf[i], tmp_buf[i]);
-        }
-        tmp_buflen = 0;
     } else {
         print(buf);
         uart_putchar('\r');
@@ -188,6 +176,8 @@ ISR(PCINT2_vect)
             return;
     }
 
+    if(state == STATE_CONNECTED) return;
+
     irq_signal |= IRQ_USER;
 }
 
@@ -204,12 +194,9 @@ ISR(USART_RX_vect)
 
     c = UDR0;
 
-    if (tmp_buflen < 50)
-        tmp_buf[tmp_buflen++] = c;
-
     //putchar(c);
     /* if we're reading a tcp chunk */
-    if (0 && tcp_toread > 0) {
+    if (tcp_toread > 0) {
         printf("\n\n\n#########\n\n\n");
         //putchar(c);
         tcp_rx_buf[tcp_rx_buf_len] = c;
@@ -244,9 +231,11 @@ ISR(USART_RX_vect)
         } else if (streq_P(at_rx_buf, PSTR("ERROR"))) {
             flag_error = 1;
             /* We don't care anymore */
+#if 0
         } else if (streq_P(at_rx_buf, PSTR("RING"))) {
             /* trigger remote connect() */
             irq_signal |= IRQ_USER;
+#endif
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP INITIAL"))) {
             state = STATE_IP_INITIAL;
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP START"))) {
@@ -393,6 +382,7 @@ uint8_t can_irq(void)
             if (rc) {
                 puts_P(PSTR("sending failed"));
             } else {
+                printf("sending\n");
                 rc = mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
             }
         }
@@ -408,10 +398,8 @@ void main(void)
 {
     NODE_INIT();
 
-    /*
     PCMSK2 |= (1 << PCINT20);
     PCICR |= (1 << PCIE2);
-    */
 
     sei();
 
