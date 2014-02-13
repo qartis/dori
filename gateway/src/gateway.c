@@ -60,15 +60,6 @@ static int doribuf_len;
 static unsigned char shellbuf[BUFLEN];
 static int shellbuf_len;
 
-typedef enum {
-    DISCONNECTED,
-    CONNECTED
-} shell_state;
-
-static shell_state cur_shell_state = DISCONNECTED;
-static client *active_shell_client;
-static client *active_dori_client;
-
 void error(const char *str)
 {
     perror(str);
@@ -269,12 +260,16 @@ void process_dori_bytes(char *buf, int len)
             break;
         }
 
-        if (active_shell_client) {
-            write(active_shell_client->fd, &type, sizeof(type));
-            write(active_shell_client->fd, &id, sizeof(id));
-            write(active_shell_client->fd, &data_len, sizeof(data_len));
-            write(active_shell_client->fd, doribuf + CAN_HEADER_LEN, data_len);
+
+        for (i = 0; i < nclients; i++) {
+            if (clients[i].type == SHELL) {
+                write(clients[i].fd, &type, sizeof(type));
+                write(clients[i].fd, &id, sizeof(id));
+                write(clients[i].fd, &data_len, sizeof(data_len));
+                write(clients[i].fd, doribuf + CAN_HEADER_LEN, data_len);
+            }
         }
+
 
         doribuf_len -= (CAN_HEADER_LEN + data_len);
 
@@ -326,18 +321,26 @@ void process_shell_bytes(char *buf, int len)
 
     printf("]\n");
 
-    if (active_dori_client) {
-        printf("Sending frame: %s [%02x] %s [%02x] %s [%04x] %d [", type_names[type], type,
-               id_names[id], id, sensor_names[sensor], sensor, data_len);
+    for (i = 0; i < nclients; i++) {
+        if (clients[i].type == DORI) {
+            printf("Sending frame: %s [%02x] %s [%02x] %s [%04x] %d [",
+                   type_names[type],
+                   type,
+                   id_names[id],
+                   id,
+                   sensor_names[sensor],
+                   sensor,
+                   data_len);
 
-        int i;
-        for (i = 0; i < data_len; i++) {
-            printf(" %02x ", shellbuf[CAN_HEADER_LEN + i]);
+            int i;
+            for (i = 0; i < data_len; i++) {
+                printf(" %02x ", shellbuf[CAN_HEADER_LEN + i]);
+            }
+
+            printf("]\n");
+
+            write(clients[i].fd, shellbuf, shellbuf_len);
         }
-
-        printf("]\n");
-
-        write(active_dori_client->fd, shellbuf, shellbuf_len);
     }
 
     shellbuf_len -= (CAN_HEADER_LEN + data_len);
@@ -436,7 +439,6 @@ int main()
             for (i = 0; i < nclients; i++) {
                 if (clients[i].type == DORI) {
                     write(clients[i].fd, buf, strlen(buf));
-                    break;
                 }
             }
         }
@@ -478,12 +480,10 @@ int main()
                     }
                 } else if (fd == shellfd) {
                     clients[nclients].type = SHELL;
-                    active_shell_client = &clients[nclients];
                     printf("Shell connected\n");
                 } else if (fd == dorifd) {
                     printf("DORI connection established\n");
                     clients[nclients].type = DORI;
-                    active_dori_client = &clients[nclients];
                 }
 
                 nclients++;
@@ -494,18 +494,8 @@ int main()
                 rc = read(fd, buf, sizeof(buf));
                 if (rc == 0 || (rc < 0 && errno == ECONNRESET)) {
                     if (c->type == DORI) {
-                        // if DORI disconnects, then update shell's state
-                        if (cur_shell_state > CONNECTED) {
-                            cur_shell_state = CONNECTED;
-                        }
-                        active_dori_client = NULL;
                         printf("DORI disconnected\n");
                     } else if (c->type == SHELL) {
-                        if (active_shell_client && active_shell_client == c) {
-                            active_shell_client = NULL;
-                            cur_shell_state = DISCONNECTED;
-                            printf("Active ");
-                        }
                         printf("shell disconnected\n");
                     }
                     remove_client(fd);
@@ -516,7 +506,7 @@ int main()
                     int j = 0;
 
                     for (j = 0; j < rc; j++) {
-                        printf("%02x ", (unsigned char)buf[j]);
+                        printf("%02x (%c)\n", (unsigned char)buf[j], buf[j]);
                     }
 
                     printf("\n");
