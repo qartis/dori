@@ -22,7 +22,7 @@ uint8_t wait_for_state(uint8_t goal_state)
     /* 255 * 39 = 10000 ms */
     retry = 255;
     while (state != goal_state && state != STATE_ERROR && --retry)
-        _delay_ms(39);
+        _delay_ms(39/3);
 
     return state != goal_state;
 }
@@ -112,9 +112,9 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
 
     for (i = 0; i < count; i++) {
         uart_putchar(buf[i]);
+        _delay_ms(1);
     }
 
-    rc = wait_for_state(STATE_CONNECTED);
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {
         puts_P(PSTR("send err"));
@@ -162,16 +162,18 @@ uint8_t TCPConnect(void)
     sendATCommand(PSTR("AT+CIICR"));
     wait_for_ok();
 
-    _delay_ms(500);
-    sendATCommand(PSTR("AT+CIPSTATUS"));
-    wait_for_state(STATE_IP_GPRSACT);
-    _delay_ms(500);
+    _delay_ms(1000);
     sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_GPRSACT);
     if (rc != 0) {
-        puts_P(PSTR("err: GPRSACT"));
-        /* dispatch a MODEM_ERROR CAN packet and try to continue */
-        return rc;
+        _delay_ms(500);
+        sendATCommand(PSTR("AT+CIPSTATUS"));
+        rc = wait_for_state(STATE_IP_GPRSACT);
+        if (rc != 0) {
+            puts_P(PSTR("err: GPRSACT"));
+            /* dispatch a MODEM_ERROR CAN packet and try to continue */
+            return rc;
+        }
     }
 
     puts_P(PSTR("state: IP GPRSACT"));
@@ -192,9 +194,12 @@ uint8_t TCPConnect(void)
 
     sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"qartis.no-ip.biz\",\"53\""));
 
-    _delay_ms(1000);
-    sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_CONNECTED);
+    if (rc != 0) {
+        sendATCommand(PSTR("AT+CIPSTATUS"));
+        rc = wait_for_state(STATE_CONNECTED);
+    }
+
     if (rc != 0) {
         if (state == STATE_IP_PROCESSING) {
             puts_P(PSTR("conn: timeout"));

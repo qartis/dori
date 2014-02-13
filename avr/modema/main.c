@@ -50,7 +50,6 @@ uint8_t user_irq(void)
         return 0;
     }
 
-
     return rc;
 }
 
@@ -74,8 +73,7 @@ uint8_t debug_irq(void)
         state = STATE_CLOSED;
     } else if (buf[0] == 's') {
         rc = TCPSend((uint8_t *)buf + 1, strlen(buf) - 1);
-        if (rc)
-            printf("send: %d\n", rc);
+        printf("send: %d\n", rc);
     } else if(buf[0] == 'z') {
         printf("%u\n", stack_space());
         printf("%u\n", free_ram());
@@ -84,8 +82,7 @@ uint8_t debug_irq(void)
         uart_putchar('\r');
     }
 
-
-    _delay_ms(500);
+    _delay_ms(100);
     PROMPT;
 
     return 0;
@@ -104,15 +101,15 @@ void tcp_irq(uint8_t *buf, uint8_t len)
         len--;
     }
 
-    //printf_P(PSTR("got TCP: '%s'\n"), buf);
-
     for (i = 0; i < len; i++) {
         printf("%d: %02x ", i, buf[i]);
         tcp_buf[tcp_buf_len] = buf[i];
         tcp_buf_len++;
     }
     printf("\n");
+
     switch (tcp_buf[0]) {
+        /*
     case '1' ... '9':
         len = tcp_buf[0] - '0';
 
@@ -128,31 +125,30 @@ void tcp_irq(uint8_t *buf, uint8_t len)
         tcp_buf_len -= len + 1;
 
         memmove(tcp_buf, tcp_buf + len + 1, tcp_buf_len);
-
-
         break;
-    
+        */
+
     default:
-        if (tcp_buf_len < 3)
+        if (tcp_buf_len < 5)
             return;
 
-        if (tcp_buf_len < (1 + 1 + 1 + tcp_buf[2]))
-            return;
+        if (tcp_buf[4] > 8)
+            tcp_buf[4] = 8;
 
-        if (tcp_buf[2] > 8)
-            tcp_buf[2] = 8;
+        if (tcp_buf_len < (1 + 1 + 2 + 1 + tcp_buf[4]))
+            return;
 
         p.type = tcp_buf[0];
         p.id = tcp_buf[1];
-        p.len = tcp_buf[2];
+        p.sensor = (tcp_buf[2] << 8) | tcp_buf[3];
+        p.len = tcp_buf[4];
 
-        for (i = 0; i < tcp_buf[2]; i++)
-            p.data[i] = tcp_buf[3 + i];
+        for (i = 0; i < tcp_buf[4]; i++)
+            p.data[i] = tcp_buf[5 + i];
 
-        tcp_buf_len -= 3 + p.len;
+        tcp_buf_len -= 5 + p.len;
 
-        memmove(tcp_buf, tcp_buf + 3 + p.len, tcp_buf_len);
-
+        memmove(tcp_buf, tcp_buf + 5 + p.len, tcp_buf_len);
 
         break;
     }
@@ -160,25 +156,8 @@ void tcp_irq(uint8_t *buf, uint8_t len)
     rc = mcp2515_send2(&p);
     if (rc)
         puts_P(PSTR("can er"));
-}
-
-ISR(PCINT2_vect)
-{
-    // ringing stopped
-    if(PIND & (1 << PD4))
-        return;
-
-    uint8_t i;
-    for(i = 0; i < 10; i++) {
-        _delay_ms(100);
-
-        if(PIND & (1 << PD4))
-            return;
-    }
-
-    if(state == STATE_CONNECTED) return;
-
-    irq_signal |= IRQ_USER;
+    else
+        puts_P(PSTR("CAN sent"));
 }
 
 ISR(USART_RX_vect)
@@ -194,11 +173,8 @@ ISR(USART_RX_vect)
 
     c = UDR0;
 
-    //putchar(c);
     /* if we're reading a tcp chunk */
     if (tcp_toread > 0) {
-        printf("\n\n\n#########\n\n\n");
-        //putchar(c);
         tcp_rx_buf[tcp_rx_buf_len] = c;
         tcp_rx_buf[tcp_rx_buf_len + 1] = '\0';
         tcp_toread--;
@@ -207,23 +183,25 @@ ISR(USART_RX_vect)
             tcp_irq(tcp_rx_buf, tcp_rx_buf_len);
             tcp_rx_buf_len = 0;
         }
-
-        return;
-    }
-
-    if (state == STATE_EXPECTING_PROMPT && at_rx_buf[0] == '>') {
+    } else if (state == STATE_EXPECTING_PROMPT && at_rx_buf[0] == '>') {
         state = STATE_GOT_PROMPT;
+        at_rx_buf_len = 0;
+        at_rx_buf[0] = '\0';
+    } else if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
+        uint8_t len = atoi(at_rx_buf + strlen("+IPD,"));
+
+        tcp_toread = len;
+
         at_rx_buf_len = 0;
         at_rx_buf[0] = '\0';
     } else if (c == '\n') {
         /* ignore empty lines */
-        if (at_rx_buf_len < 5) {
+        /* BE CAREFUL WITH THIS NUMBER */
+        if (at_rx_buf_len < 3) {
             at_rx_buf_len = 0;
+            at_rx_buf[0] = '\0';
             return;
         }
-
-        puts("got ");
-        puts(at_rx_buf);
 
         if (streq_P(at_rx_buf, PSTR("OK"))) {
             flag_ok = 1;
@@ -231,11 +209,9 @@ ISR(USART_RX_vect)
         } else if (streq_P(at_rx_buf, PSTR("ERROR"))) {
             flag_error = 1;
             /* We don't care anymore */
-#if 0
         } else if (streq_P(at_rx_buf, PSTR("RING"))) {
             /* trigger remote connect() */
             irq_signal |= IRQ_USER;
-#endif
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP INITIAL"))) {
             state = STATE_IP_INITIAL;
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP START"))) {
@@ -247,6 +223,8 @@ ISR(USART_RX_vect)
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP PROCESSING"))) {
             state = STATE_IP_PROCESSING;
         } else if (streq_P(at_rx_buf, PSTR("STATE: CONNECT OK"))) {
+            state = STATE_CONNECTED;
+        } else if (streq_P(at_rx_buf, PSTR("CONNECT OK"))) {
             state = STATE_CONNECTED;
         } else if (streq_P(at_rx_buf, PSTR("CONNECT FAIL"))) {
             state = STATE_ERROR;
@@ -277,15 +255,6 @@ ISR(USART_RX_vect)
         } else {
             putchar('@');
         }
-    }
-
-    if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
-        uint8_t len = atoi(at_rx_buf + strlen("+IPD,"));
-        uint8_t i;
-        for(i = 0; i < at_rx_buf_len; i++) {
-            printf("%d: %c %02x\n", i, at_rx_buf[i], at_rx_buf[i]);
-        }
-        tcp_toread = len;
     }
 }
 
@@ -397,9 +366,6 @@ uint8_t can_irq(void)
 void main(void)
 {
     NODE_INIT();
-
-    PCMSK2 |= (1 << PCINT20);
-    PCICR |= (1 << PCIE2);
 
     sei();
 
