@@ -10,7 +10,6 @@ ID_LIST(X)
 SENSOR_LIST(X)
 #undef X
 
-
 const char unknown_string [] = "???";
 
 const char *type_names [] = {

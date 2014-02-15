@@ -29,10 +29,6 @@
     X(dcim_len, 0x1b) \
     X(disk_full, 0x1c) \
 \
-    X(ircam_read, 0x1d) \
-    X(ircam_chunk, 0x1e) \
-    X(ircam_reset, 0x1f) \
-\
     X(action_modema_powercycle, 0x20) \
     X(action_modemb_powercycle, 0x21) \
 \
@@ -50,6 +46,10 @@
     X(at_6_write, 0x47) \
     X(at_7_write, 0x48) \
     X(at_send,    0x49) \
+\
+    X(ircam_header, 0x50) \
+    X(ircam_read, 0x51) \
+    X(ircam_reset, 0x52) \
 \
     X(invalid, 0xff) \
 

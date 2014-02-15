@@ -1,6 +1,6 @@
 INCDIRS = ../shared/include/ ./include/ ../
-CXX=gcc
-CXXFLAGS=-g -Wno-write-strings -Wall -Wextra $(foreach DIR,$(INCDIRS), -I$(DIR))  -Wno-override-init
+CC=gcc
+CFLAGS=-g -Wno-write-strings -Wall -Wextra $(foreach DIR,$(INCDIRS), -I$(DIR))  -Wno-override-init
 LDFLAGS=
 SRCDIR=./src
 INCLUDES = $(wildcard $(foreach DIR,$(INCDIRS), $(DIR)/*))
@@ -10,13 +10,15 @@ OBJS = $(patsubst src/%,obj/%,$(SRCS))
 vpath %.c ./src
 vpath %.h ./include
 
-all: send
+all: send logger
 
-send: send.c
-	$(CXX) $(CXXFLAGS) $< -o $@
+send: send.c ../include/shell.h
+	$(CC) $(CFLAGS) $< -o $@
 
 dcim_read: dcim_read.c
-	$(CXX) $(CXXFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@
+
+logger: logger.c
 
 clean:
 	rm send
