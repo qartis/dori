@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/time.h>
 #include <time.h>
 #include "can.h"
 #include "can_names.h"
@@ -46,7 +47,6 @@ typedef struct {
 char *msg_ids[] =
 { "any", "ping", "pong", "laser", "gps", "temp", "time", "log", "invalid" };
 
-char timestamp[128];
 static client clients[128];
 static int nclients;
 static int dorifd;
@@ -196,11 +196,19 @@ void process_dori_bytes(char *buf, int len)
 
         uint8_t type = doribuf[CAN_TYPE_IDX];
         uint8_t id = doribuf[CAN_ID_IDX];
+        uint16_t sensor = (doribuf[CAN_SENSOR_IDX] << 8) |
+                           doribuf[CAN_SENSOR_IDX + 1];
 
         unsigned char *data = doribuf + CAN_HEADER_LEN;
 
-        printf("Dori sent Frame: %s [%02x] %s [%02x] %d [", type_names[type], type,
-               id_names[id], id, data_len);
+        printf("DORI sent Frame: %s [%02x] %s [%02x] %s [%02x] %d [",
+               type_names[type],
+               type,
+               id_names[id],
+               id,
+               sensor_names[sensor],
+               sensor,
+               data_len);
 
         int i;
 
@@ -246,7 +254,19 @@ void process_dori_bytes(char *buf, int len)
                     fclose(incoming_file);
                 }
 
+                // Make sure the directory exists
+                char cmd[128];
+                sprintf(cmd, "mkdir -p %s", file_path);
+                system(cmd);
                 incoming_file = fopen(file_path, "w");
+                break;
+            }
+        case TYPE_ircam_header:
+            {
+                struct timeval timestamp;
+                gettimeofday(&timestamp,NULL);
+                char file_path[128];
+                sprintf(file_path, "ircam/%ld.jpg", timestamp.tv_sec);
                 break;
             }
         case TYPE_xfer_chunk:
@@ -265,6 +285,7 @@ void process_dori_bytes(char *buf, int len)
             if (clients[i].type == SHELL) {
                 write(clients[i].fd, &type, sizeof(type));
                 write(clients[i].fd, &id, sizeof(id));
+                write(clients[i].fd, &sensor, sizeof(sensor));
                 write(clients[i].fd, &data_len, sizeof(data_len));
                 write(clients[i].fd, doribuf + CAN_HEADER_LEN, data_len);
             }
@@ -285,7 +306,6 @@ void process_shell_bytes(char *buf, int len)
         printf("%d:%02x ", i, buf[i]);
     }
     printf("\n");
-    printf("shellbuf_len: %d\n", shellbuf_len);
     memcpy(&shellbuf[shellbuf_len], buf, len);
     shellbuf_len += len;
 
@@ -302,11 +322,13 @@ void process_shell_bytes(char *buf, int len)
         return;
     }
 
+    printf("shellbuf_len: %d\n", shellbuf_len);
+
     uint8_t type = shellbuf[CAN_TYPE_IDX];
     uint8_t id = shellbuf[CAN_ID_IDX];
     uint16_t sensor = (shellbuf[CAN_SENSOR_IDX] << 8) | shellbuf[CAN_SENSOR_IDX + 1];
 
-    printf("Shell sent frame: %s [%02x] %s [%02x] %s [%04x] %d [",
+    printf("shell sent frame: %s [%02x] %s [%02x] %s [%04x] %d [",
            type_names[type],
            type,
            id_names[id],
@@ -364,6 +386,10 @@ int main()
     if (db) {
         sqlite3_exec(db, "select max(site) from records;", site_cb, NULL, NULL);
     }
+
+    // Setup some expected directories
+    system("mkdir -p files");
+    system("mkdir -p ircam");
 
     dorifd = socket(AF_INET, SOCK_STREAM, 0);
     if (dorifd == -1)
@@ -480,7 +506,7 @@ int main()
                     }
                 } else if (fd == shellfd) {
                     clients[nclients].type = SHELL;
-                    printf("Shell connected\n");
+                    printf("shell connected\n");
                 } else if (fd == dorifd) {
                     printf("DORI connection established\n");
                     clients[nclients].type = DORI;
