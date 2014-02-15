@@ -207,7 +207,7 @@ uint8_t img_send_chunks(void)
             return 2;
         }
 
-        rc = mcp2515_xfer(TYPE_ircam_chunk, MY_ID, (const char*)&rcv_buf[ACK_SIZE], req_size, 0);
+        rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, (const char*)&rcv_buf[ACK_SIZE], req_size, 0);
 
         if(rc)
             return rc;
