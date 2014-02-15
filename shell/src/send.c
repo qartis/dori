@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 {
     if(argc < 3 || argc > 11)
     {
-        printf("Usage: send [D]? [TYPE] [ID] [DATA]\n");
+        printf("Usage: send [D]? [TYPE] [ID.SENSOR] [DATA]\n");
         exit(0);
     }
 

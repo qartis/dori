@@ -1,8 +1,7 @@
 #define BUFLEN 4096
 #define TYPE_ARG_IDX 0
 #define ID_ARG_IDX 1
-#define SENSOR_ARG_IDX 2
-#define DATA_ARG_START_IDX 3
+#define DATA_ARG_START_IDX 2
 #define MAX_DATA_LEN 8
 
 #define LOG_FILE_SIZE 512
@@ -349,16 +348,19 @@ void parse_can_packet_from_stdin(int num_args,
                                  uint8_t data[MAX_DATA_LEN])
 {
     *type = parse_can_arg_fail(args[TYPE_ARG_IDX]);
-    *id = parse_can_arg_fail(args[ID_ARG_IDX]);
 
-    if(num_args < 3) {
-        *sensor = 0;
-    } else {
-        *sensor = parse_can_arg_fail(args[SENSOR_ARG_IDX]);
-        num_args -= 1;
+    char *sensor_dot = strchr(args[ID_ARG_IDX], '.');
+    if(sensor_dot) {
+        *sensor_dot = '\0';
     }
 
-    // subtract out type, id and sensor from length
+    *id = parse_can_arg_fail(args[ID_ARG_IDX]);
+    *sensor = 0;
+    if(sensor_dot) {
+        *sensor = parse_can_arg_fail(sensor_dot + 1);
+    }
+
+    // subtract out type, id (and sensor) from length
     *len = num_args - 2;
 
     int i;

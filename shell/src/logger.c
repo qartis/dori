@@ -52,7 +52,7 @@ int main()
                len);
 
         for(i = 0; i < len; i++) {
-            printf("%x ", data[i]);
+            printf("%02x ", data[i]);
         }
         printf("]\n");
     }
