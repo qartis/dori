@@ -1,6 +1,6 @@
 INCDIRS = ../shared/include/ ./include/ ../
 CC=gcc
-CFLAGS=-g -Wno-write-strings -Wall -Wextra $(foreach DIR,$(INCDIRS), -I$(DIR))  -Wno-override-init
+CFLAGS=-g3 -Wno-write-strings -Wall -Wextra $(foreach DIR,$(INCDIRS), -I$(DIR))  -Wno-override-init
 LDFLAGS=
 SRCDIR=./src
 INCLUDES = $(wildcard $(foreach DIR,$(INCDIRS), $(DIR)/*))
