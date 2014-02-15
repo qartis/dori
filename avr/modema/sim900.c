@@ -111,9 +111,11 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
     }
 
     for (i = 0; i < count; i++) {
+        printf("%02x ", buf[i]);
         uart_putchar(buf[i]);
         _delay_ms(1);
     }
+    printf("\n");
 
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {

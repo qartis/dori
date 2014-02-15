@@ -102,11 +102,11 @@ void tcp_irq(uint8_t *buf, uint8_t len)
     }
 
     for (i = 0; i < len; i++) {
-        printf("%d: %02x ", i, buf[i]);
+        printf("%d: %02x\n", i, buf[i]);
         tcp_buf[tcp_buf_len] = buf[i];
         tcp_buf_len++;
     }
-    printf("\n");
+    //printf("\n");
 
     switch (tcp_buf[0]) {
         /*
@@ -280,41 +280,18 @@ uint8_t write_packet(void)
 
     net_buf[0] = packet.type;
     net_buf[1] = packet.id;
-    net_buf[2] = packet.len;
+    net_buf[2] = (packet.sensor >> 8) & 0xFF;
+    net_buf[3] = (packet.sensor) & 0xFF;
+    net_buf[4] = packet.len;
 
     for (i = 0; i < packet.len; i++)
-        net_buf[3 + i] = packet.data[i];
+        net_buf[5 + i] = packet.data[i];
 
-    rc = TCPSend(net_buf, packet.len + 3);
+    rc = TCPSend(net_buf, packet.len + 5);
     if (rc) {
         puts_P(PSTR("snd er"));
         return rc;
     }
-
-    return 0;
-
-    if (((uint16_t)net_buf_len + 1 + 1 + 1 + packet.len)
-            >= sizeof(net_buf)) {
-        rc = TCPSend(net_buf, net_buf_len);
-        if (rc) {
-            puts_P(PSTR("snd er"));
-            return rc;
-        }
-
-        net_buf_len = 0;
-    }
-
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        net_buf[net_buf_len++] = packet.type;
-        net_buf[net_buf_len++] = packet.id;
-        net_buf[net_buf_len++] = packet.len;
-
-        for (i = 0; i < packet.len; i++) {
-            net_buf[net_buf_len++] = packet.data[i];
-        }
-    }
-
-    //printf_P(PSTR("+%u\n"), net_buf_len);
 
     return 0;
 }
@@ -351,8 +328,8 @@ uint8_t can_irq(void)
             if (rc) {
                 puts_P(PSTR("sending failed"));
             } else {
-                printf("sending\n");
-                rc = mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
+                //printf("sending\n");
+                //rc = mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
             }
         }
         break;
