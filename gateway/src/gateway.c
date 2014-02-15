@@ -34,7 +34,7 @@ sqlite3 *db;
 fd_set master;
 
 typedef enum {
-    DORI,
+    DORI = 1,
     TK,
     SHELL,
 } client_type;
@@ -66,9 +66,9 @@ void error(const char *str)
     exit(1);
 }
 
-void dberror(sqlite3 * db)
+void dberror(sqlite3 * database)
 {
-    printf("db error: %s\n", sqlite3_errmsg(db));
+    printf("db error: %s\n", sqlite3_errmsg(database));
 }
 
 int strprefix(const char *a, const char *b)
@@ -239,7 +239,6 @@ void process_dori_bytes(char *buf, int len)
                 uint16_t folder = data[0] | (data[1] << 8);
                 uint16_t file = data[2] | (data[3] << 8);
 
-                int i;
                 char extension[9];
                 // Read the remaining data bytes
                 for(i = 0; i < len - 4; i++) {
@@ -301,11 +300,13 @@ void process_dori_bytes(char *buf, int len)
 
 void process_shell_bytes(char *buf, int len)
 {
+    /*
     int i;
     for(i = 0; i < len; i++) {
         printf("%d:%02x ", i, buf[i]);
     }
     printf("\n");
+    */
     memcpy(&shellbuf[shellbuf_len], buf, len);
     shellbuf_len += len;
 
@@ -322,8 +323,6 @@ void process_shell_bytes(char *buf, int len)
         return;
     }
 
-    printf("shellbuf_len: %d\n", shellbuf_len);
-
     uint8_t type = shellbuf[CAN_TYPE_IDX];
     uint8_t id = shellbuf[CAN_ID_IDX];
     uint16_t sensor = (shellbuf[CAN_SENSOR_IDX] << 8) | shellbuf[CAN_SENSOR_IDX + 1];
@@ -337,6 +336,7 @@ void process_shell_bytes(char *buf, int len)
            sensor,
            data_len);
 
+    int i;
     for (i = 0; i < data_len; i++) {
         printf(" %02x ", shellbuf[CAN_HEADER_LEN + i]);
     }
@@ -354,11 +354,10 @@ void process_shell_bytes(char *buf, int len)
                    sensor,
                    data_len);
 
-            int i;
-            for (i = 0; i < data_len; i++) {
-                printf(" %02x ", shellbuf[CAN_HEADER_LEN + i]);
+            int j;
+            for (j = 0; j < data_len; j++) {
+                printf(" %02x ", shellbuf[CAN_HEADER_LEN + j]);
             }
-
             printf("]\n");
 
             write(clients[i].fd, shellbuf, shellbuf_len);
@@ -508,7 +507,7 @@ int main()
                     clients[nclients].type = SHELL;
                     printf("shell connected\n");
                 } else if (fd == dorifd) {
-                    printf("DORI connection established\n");
+                    printf("DORI connected\n");
                     clients[nclients].type = DORI;
                 }
 
@@ -529,13 +528,14 @@ int main()
                 } else if (rc < 0) {
                     error("read");
                 } else {
-                    int j = 0;
 
+                    /*
+                    int j = 0;
                     for (j = 0; j < rc; j++) {
                         printf("%02x (%c)\n", (unsigned char)buf[j], buf[j]);
                     }
-
                     printf("\n");
+                    */
 
                     if (c == NULL) {
                         printf("couldn't find client!\n");

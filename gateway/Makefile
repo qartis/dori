@@ -1,6 +1,6 @@
 INCDIRS=../shared/include ../
 CC=gcc
-CFLAGS=-g -Wall -Wextra $(foreach DIR,$(INCDIRS), -I$(DIR)) -Wno-override-init
+CFLAGS=-g -Wall -Wextra -Wshadow $(foreach DIR,$(INCDIRS), -I$(DIR)) -Wno-override-init
 LDFLAGS=-lsqlite3
 SRCDIR=./src
 
