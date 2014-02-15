@@ -1,3 +1,4 @@
+
 1  13
 2  14
 3  15
@@ -38,3 +39,18 @@
 
 Arm red: relay board channel 1 common
 Arm black: relay board channel 2 common
+
+
+
+
+
+PD6 - Laser ON
+PD3 - Laser OFF
+
+UART RX (PD0) - Laser TX
+UART TX (PD1) - Laser RX
+
+PC0 - debug RX
+PC1 - debug TX
+
+PC7 (ADC) - laser V+ to detect whether it's on
