@@ -10,31 +10,27 @@
 #include <util/delay.h>
 #include <util/atomic.h>
 
-#include "uart.h"
 #include "stepper.h"
 #include "can.h"
 #include "irq.h"
 #include "spi.h"
 #include "mcp2515.h"
 #include "time.h"
+#include "uart.h"
+#include "debug.h"
 #include "arm.h"
 #include "adc.h"
 #include "node.h"
-
-uint8_t uart_irq(void)
-{
-    return 0;
-}
+#include "laser.h"
 
 uint8_t send_arm_angle(uint8_t type)
 {
     uint8_t rc;
     uint16_t angle;
-    
-    angle = get_arm_angle();
-
     uint8_t buf[3];
     static uint8_t counter = 0;
+
+    angle = get_arm_angle();
 
     buf[0] = angle >> 8;
     buf[1] = angle & 0xff;
@@ -43,9 +39,8 @@ uint8_t send_arm_angle(uint8_t type)
     counter++;
 
     rc = mcp2515_send_sensor(type, ID_arm, buf, 3, SENSOR_arm);
-    if (rc != 0) {
+    if (rc != 0)
         puts_P(PSTR("err: arm: mcp2515_send_sensor"));
-    }
 
     return rc;
 }
@@ -54,11 +49,10 @@ uint8_t send_stepper_angle(uint8_t type)
 {
     uint8_t rc;
     uint16_t angle;
-    
-    angle = get_stepper_angle();
-
     uint8_t buf[3];
     static uint8_t counter = 0;
+
+    angle = get_stepper_angle();
 
     buf[0] = angle >> 8;
     buf[1] = angle & 0xff;
@@ -67,9 +61,8 @@ uint8_t send_stepper_angle(uint8_t type)
     counter++;
 
     rc = mcp2515_send_sensor(type, ID_arm, buf, 3, SENSOR_stepper);
-    if (rc != 0) {
+    if (rc != 0)
         puts_P(PSTR("err: stepper: mcp2515_send_sensor"));
-    }
 
     return rc;
 }
@@ -77,10 +70,16 @@ uint8_t send_stepper_angle(uint8_t type)
 
 uint8_t periodic_irq(void)
 {
-    uint8_t rc = send_arm_angle(TYPE_value_periodic);
-    if(rc != 0) return rc;
+    return 0;
+
+    uint8_t rc;
+
+    rc = send_arm_angle(TYPE_value_periodic);
+    if (rc != 0)
+        return rc;
 
     rc = send_stepper_angle(TYPE_value_periodic);
+
     return rc;
 }
 
@@ -88,7 +87,7 @@ uint8_t process_value_request(void)
 {
     uint8_t rc = 0;
 
-    switch(packet.sensor) {
+    switch (packet.sensor) {
     case SENSOR_arm:
         rc = send_arm_angle(TYPE_value_explicit);
         break;
@@ -104,24 +103,21 @@ uint8_t process_value_request(void)
 uint8_t can_irq(void)
 {
     uint8_t rc = 0;
+    uint16_t val;
 
     switch (packet.type) {
     case TYPE_value_request:
         rc = process_value_request();
         break;
     case TYPE_action_arm_spin:
-        {
-            uint8_t val = packet.data[0];
-            set_arm_percent(val);
-            break;
-        }
+        val = packet.data[0];
+        set_arm_percent(val);
+        break;
     case TYPE_action_arm_angle:
-        {
-            uint16_t val = packet.data[0] << 8;
-            val |= packet.data[1] & 0xff;
-            set_stepper_angle(val);
-            break;
-        }
+        val = (packet.data[0] << 8) |
+              (packet.data[1] & 0xff);
+        set_stepper_angle(val);
+        break;
     default:
         break;
     }
@@ -130,10 +126,40 @@ uint8_t can_irq(void)
     return rc;
 }
 
+uint8_t debug_irq(void)
+{
+    char buf[DEBUG_BUF_SIZE];
+    uint16_t dist;
+
+    fgets(buf, sizeof(buf), stdin);
+    buf[strlen(buf)-1] = '\0';
+
+    switch (buf[0]) {
+    case 'o':
+        laser_on();
+        break;
+    case 'f':
+        laser_off();
+        break;
+    case 'm':
+        dist = measure_once();
+
+        if (dist == 0)
+            printf("laser error\n");
+        else
+            printf("dist: %umm\n", dist);
+
+        break;
+    }
+
+    return 0;
+}
+
 void main(void)
 {
     NODE_INIT();
     adc_init();
+    laser_init();
 
     DDRC |= (1 << PORTC2);
     PORTC |= (1 << PORTC2);
