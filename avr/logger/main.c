@@ -429,6 +429,7 @@ uint8_t fat_init(void)
 
 uint8_t can_irq(void)
 {
+    printf("can_irq\n");
     uint8_t rc = 0;
 
     switch (packet.type) {
@@ -454,8 +455,17 @@ uint8_t can_irq(void)
         break;
 #endif
     case TYPE_ircam_read:
-        ircam_init_xfer();
-        ircam_read_fbuf();
+        // Turn on the cam
+        PORTD |= (1 << PORTD7);
+        _delay_ms(1000);
+
+        rc = ircam_init_xfer();
+        if(rc == 0) {
+            rc =ircam_read_fbuf();
+            printf("read_fbuf rc = %d\n", rc);
+        }
+        // Turn off the cam
+        PORTD &= ~(1 << PORTD7);
         break;
     case TYPE_xfer_cancel:
         fbuf_len = 0;
@@ -607,7 +617,6 @@ uint8_t debug_irq(void)
     } else if (strcmp(buf, "off") == 0) {
         PORTD &= ~(1 << PORTD7);
     } else if (strcmp(buf, "snap") == 0) {
-        _delay_ms(5000);
         ircam_init_xfer();
         ircam_read_fbuf();
     } else if (strcmp(buf, "rst") == 0) {
