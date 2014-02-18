@@ -6,6 +6,7 @@
 #include <string.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
+#include <util/atomic.h>
 
 #include "sim900.h"
 #include "uart.h"
@@ -110,12 +111,14 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
         return 1;
     }
 
-    for (i = 0; i < count; i++) {
-        printf("%02x ", buf[i]);
-        uart_putchar(buf[i]);
-        _delay_ms(1);
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        for (i = 0; i < count; i++) {
+            printf("%02x ", buf[i]);
+            uart_putchar(buf[i]);
+            _delay_ms(10);
+        }
+        printf("\n");
     }
-    printf("\n");
 
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {

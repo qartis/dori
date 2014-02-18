@@ -28,6 +28,8 @@
 static uint8_t at_tx_buf[64];
 static uint16_t net_buf_len;
 
+volatile uint32_t modem_alive_time;
+
 uint8_t uart_irq(void)
 {
     return 0;
@@ -82,7 +84,8 @@ uint8_t debug_irq(void)
         net_buf_len = 0;
         printf("net_buf clr\n");
     } else {
-        printf("got: %s\n", buf);
+        print(buf);
+        uart_putchar('\r');
     }
 
     _delay_ms(100);
@@ -176,6 +179,8 @@ ISR(USART_RX_vect)
 
     c = UDR0;
 
+    modem_alive_time = now;
+
     /* if we're reading a tcp chunk */
     if (tcp_toread > 0) {
         tcp_rx_buf[tcp_rx_buf_len] = c;
@@ -261,15 +266,47 @@ ISR(USART_RX_vect)
     }
 }
 
+void powercycle_modem(void)
+{
+    printf("pwrcycl\n");
+    DDRD |= (1 << PORTD2);
+    PORTD |= (1 << PORTD2);
+
+    _delay_ms(4000);
+
+    PORTD &= ~(1 << PORTD2);
+    DDRD &= ~(1 << PORTD2);
+
+    _delay_ms(1000);
+
+    slow_write("AT\r", strlen("AT\r"));
+    _delay_ms(100);
+    slow_write("AT\r", strlen("AT\r"));
+    _delay_ms(100);
+}
+
 uint8_t periodic_irq(void)
 {
-    /* send a heartbeat to let modemb know we're alive */
-#if 0
-    rc = mcp2515_send(TYPE_value_periodic, ID_modemb, buf, 3);
-    if (rc != 0) {
-        return rc;
+    if(state == STATE_EXPECTING_PROMPT ||
+       state == STATE_GOT_PROMPT) {
+        printf("expecting prompt\n");
+        return 0;
     }
-#endif
+
+    if(now - modem_alive_time >= 10) {
+        slow_write("AT\r", strlen("AT\r"));
+        _delay_ms(100);
+        slow_write("AT\r", strlen("AT\r"));
+        _delay_ms(500);
+
+        if(now - modem_alive_time >= 10) {
+            powercycle_modem();
+        } else {
+            printf("j5 is alive\n");
+        }
+    } else {
+        printf("not yet...\n");
+    }
 
     return 0;
 }
