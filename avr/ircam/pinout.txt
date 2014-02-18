@@ -1,0 +1,1 @@
+connection at base of logger: V+, GND, White, Green
