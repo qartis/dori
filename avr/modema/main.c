@@ -26,6 +26,7 @@
 #define strstart(a,b) (strncmp_P(a, PSTR(b), strlen(b)) == 0)
 
 static uint8_t at_tx_buf[64];
+static uint16_t net_buf_len;
 
 uint8_t uart_irq(void)
 {
@@ -77,9 +78,11 @@ uint8_t debug_irq(void)
     } else if(buf[0] == 'z') {
         printf("%u\n", stack_space());
         printf("%u\n", free_ram());
+    } else if(buf[0] == 'n') {
+        net_buf_len = 0;
+        printf("net_buf clr\n");
     } else {
-        print(buf);
-        uart_putchar('\r');
+        printf("got: %s\n", buf);
     }
 
     _delay_ms(100);
@@ -275,23 +278,32 @@ uint8_t write_packet(void)
 {
     uint8_t i;
     uint8_t rc;
-    static uint8_t net_buf[64];
-    static uint8_t net_buf_len = 0;
+    static uint8_t net_buf[512];
 
-    net_buf[0] = packet.type;
-    net_buf[1] = packet.id;
-    net_buf[2] = (packet.sensor >> 8) & 0xFF;
-    net_buf[3] = (packet.sensor) & 0xFF;
-    net_buf[4] = packet.len;
+    if (((uint16_t)net_buf_len + 5 + packet.len)
+        >= sizeof(net_buf)) {
+        rc = TCPSend(net_buf, net_buf_len);
+        if (rc) {
+            puts_P(PSTR("snd er"));
+            return rc;
+        }
 
-    for (i = 0; i < packet.len; i++)
-        net_buf[5 + i] = packet.data[i];
-
-    rc = TCPSend(net_buf, packet.len + 5);
-    if (rc) {
-        puts_P(PSTR("snd er"));
-        return rc;
+        net_buf_len = 0;
     }
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        net_buf[net_buf_len++] = packet.type;
+        net_buf[net_buf_len++] = packet.id;
+        net_buf[net_buf_len++] = (packet.sensor >> 8);
+        net_buf[net_buf_len++] = (packet.sensor & 0xFF);
+        net_buf[net_buf_len++] = packet.len;
+
+        for (i = 0; i < packet.len; i++) {
+            net_buf[net_buf_len++] = packet.data[i];
+        }
+    }
+
+    //printf_P(PSTR("+%u\n"), net_buf_len);
 
     return 0;
 }
@@ -327,9 +339,10 @@ uint8_t can_irq(void)
             rc = write_packet();
             if (rc) {
                 puts_P(PSTR("sending failed"));
+            } else if (packet.type == TYPE_xfer_chunk) {
+                printf("sending cts\n");
+                rc = mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
             } else {
-                //printf("sending\n");
-                //rc = mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
             }
         }
         break;
