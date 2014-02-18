@@ -10,9 +10,15 @@
 #include <util/atomic.h>
 #include <util/delay.h>
 
+#define ENABLE_DCIM 0
+#define ENABLE_SD 0
+
+#if ENABLE_SD
 #include "sd.h"
-#include "irq.h"
 #include "fat.h"
+#endif
+
+#include "irq.h"
 #include "uart.h"
 #include "spi.h"
 #include "mcp2515.h"
@@ -20,6 +26,8 @@
 #include "node.h"
 #include "free_ram.h"
 #include "can.h"
+#include "ircam.h"
+#include "debug.h"
 
 #define NUM_LOGS 4
 #define LOG_INVALID 0xff
@@ -43,6 +51,7 @@ uint8_t cur_log;
 uint32_t tmp_write_pos;
 uint32_t log_write_pos;
 
+#if ENABLE_DCIM
 struct can_dcim {
     uint16_t dir;
     uint16_t dscf;
@@ -50,7 +59,27 @@ struct can_dcim {
 };
 
 uint8_t tree(uint8_t dest);
+#endif
 
+ISR(USART_RX_vect)
+{
+    uint8_t c;
+
+    c = UDR0;
+
+    if (read_flag)
+        return;
+
+    if (read_size < sizeof(rcv_buf) - 1)
+        rcv_buf[read_size++] = c;
+
+    if (read_size < target_size)
+        return;
+
+    read_flag = 1;
+}
+
+#if ENABLE_SD
 void empty(void)
 {
     char buf[8];
@@ -74,17 +103,6 @@ void empty(void)
         if (rc)
             continue;
     }
-}
-
-volatile uint8_t offer_num;
-
-uint8_t user_irq(void)
-{
-    char buf[8];
-    snprintf_P(buf, sizeof(buf), PSTR("%u.LOG"), offer_num);
-    mcp2515_send(TYPE_file_offer, ID_logger, buf, strlen(buf));
-    puts_P(PSTR("offered a full log file over CAN"));
-    return 0;
 }
 
 uint8_t find_free_log_after(uint8_t start)
@@ -235,8 +253,24 @@ uint8_t log_packet(void)
     return 0;
 }
 
+volatile uint8_t offer_num;
+
+#endif
+uint8_t user_irq(void)
+{
+#if ENABLE_SD
+    char buf[8];
+    snprintf_P(buf, sizeof(buf), PSTR("%u.LOG"), offer_num);
+    mcp2515_send(TYPE_file_offer, ID_logger, buf, strlen(buf));
+    puts_P(PSTR("offered a full log file over CAN"));
+#endif
+    return 0;
+}
+
+
 void can_tophalf(void)
 {
+#if ENABLE_SD
     /* we're in interrupt context! */
     uint8_t rc;
     printwait_P(PSTR("tophalf\n"));
@@ -251,8 +285,10 @@ void can_tophalf(void)
         printwait_P(PSTR("log pkt err\n"));
         /* problem logging packet */
     }
+#endif
 }
 
+#if ENABLE_DCIM
 void dcim_read(void)
 {
     uint8_t rc;
@@ -320,7 +356,9 @@ void dcim_read(void)
 
     return;
 }
+#endif
 
+#if ENABLE_SD
 void file_read(void)
 {
     uint8_t rc;
@@ -367,59 +405,6 @@ void file_read(void)
     return;
 }
 
-uint8_t uart_irq(void)
-{
-    char buf[512];
-    uint8_t rc;
-
-    fgets(buf, sizeof(buf), stdin);
-    buf[strlen(buf) - 1] = '\0';
-
-    if (buf[0] == 'f' && buf[1] == '\0') {
-        printf_P(PSTR("%u/%u\n"), free_ram(), stack_space());
-    } else if (buf[0] == '5' && buf[1] == '\0') {
-        log_write_pos = 480;
-    } else if (buf[0] == 'e' && buf[1] == '\0') {
-        cli();
-        empty();
-        sei();
-    } else if (buf[0] == '?' && buf[1] == '\0') {
-        printf_P(PSTR("wtf %x %x\n"), PCICR, PCMSK0);
-    } else if (buf[0] == 's' && buf[1] == 'd' && buf[2] == '\0') {
-        packet.data[0] = 't';
-        packet.data[1] = 'm';
-        packet.data[2] = 'p';
-        packet.len = 3;
-        file_read();
-    } else if (strcmp_P(buf, PSTR("dcim")) == 0) {
-        volatile struct can_dcim *dcim = (volatile void *)&packet.data;
-        dcim->dir = 113;
-        dcim->dscf = 1234;
-        dcim->ext[0] = 'J';
-        dcim->ext[1] = 'P';
-        dcim->ext[2] = 'G';
-        packet.len = 2 + 2 + 3;
-        dcim_read();
-    } else if (buf[0] == 't' && buf[1] == '\0') {
-        uint8_t dest = ID_any;
-        rc = tree(dest);
-        printf_P(PSTR("tree %u\n"), rc);
-    } else {
-        putchar('?');
-    }
-
-    PROMPT;
-
-    return 0;
-}
-
-uint8_t periodic_irq(void)
-{
-    //puts("tick");
-
-    return 0;
-}
-
 uint8_t fat_init(void)
 {
     uint8_t rc;
@@ -440,17 +425,16 @@ uint8_t fat_init(void)
 
     return 0;
 }
+#endif
 
 uint8_t can_irq(void)
 {
     uint8_t rc = 0;
 
     switch (packet.type) {
+#if ENABLE_SD
     case TYPE_file_read:
         file_read();
-        break;
-    case TYPE_dcim_read:
-        dcim_read();
         break;
     case TYPE_file_tree:
         rc = tree(ID_logger);
@@ -460,9 +444,24 @@ uint8_t can_irq(void)
         // NODE_MAIN to re-init the chip
         if (rc == MCP_ERR_XFER_CANCEL)
             rc = 0;
-
         break;
     case TYPE_file_write:
+        break;
+#endif
+#if ENABLE_DCIM
+    case TYPE_dcim_read:
+        dcim_read();
+        break;
+#endif
+    case TYPE_ircam_read:
+        ircam_init_xfer();
+        ircam_read_fbuf();
+        break;
+    case TYPE_xfer_cancel:
+        fbuf_len = 0;
+        break;
+    case TYPE_ircam_reset:
+        ircam_reset();
         break;
     }
 
@@ -470,6 +469,7 @@ uint8_t can_irq(void)
     return rc;
 }
 
+#if ENABLE_SD
 uint8_t tree_send_chunks(const char *buf)
 {
     uint8_t i;
@@ -582,15 +582,95 @@ uint8_t tree(uint8_t dest)
 
     return 0;
 }
+#endif
+
+
+uint8_t periodic_irq(void)
+{
+    //puts("tick");
+
+    return 0;
+}
+
+
+uint8_t debug_irq(void)
+{
+    char buf[32];
+
+    fgets(buf, sizeof(buf), stdin);
+    buf[strlen(buf)-1] = '\0';
+
+    debug_flush();
+
+    if (strcmp(buf, "on") == 0) {
+        PORTD |= (1 << PORTD7);
+    } else if (strcmp(buf, "off") == 0) {
+        PORTD &= ~(1 << PORTD7);
+    } else if (strcmp(buf, "snap") == 0) {
+        _delay_ms(5000);
+        ircam_init_xfer();
+        ircam_read_fbuf();
+    } else if (strcmp(buf, "rst") == 0) {
+        printf("reset cam\n");
+        ircam_reset();
+    } else if (strcmp(buf, "mcp") == 0) {
+        mcp2515_dump();
+        //mcp2515_init();
+    }
+#if ENABLE_SD
+    else if (buf[0] == 'f' && buf[1] == '\0') {
+        printf_P(PSTR("%u/%u\n"), free_ram(), stack_space());
+    } else if (buf[0] == '5' && buf[1] == '\0') {
+        log_write_pos = 480;
+    } else if (buf[0] == 'e' && buf[1] == '\0') {
+        cli();
+        empty();
+        sei();
+    } else if (buf[0] == '?' && buf[1] == '\0') {
+        printf_P(PSTR("wtf %x %x\n"), PCICR, PCMSK0);
+    } else if (buf[0] == 's' && buf[1] == 'd' && buf[2] == '\0') {
+        packet.data[0] = 't';
+        packet.data[1] = 'm';
+        packet.data[2] = 'p';
+        packet.len = 3;
+        file_read();
+    } else if (strcmp_P(buf, PSTR("dcim")) == 0) {
+        volatile struct can_dcim *dcim = (volatile void *)&packet.data;
+        dcim->dir = 113;
+        dcim->dscf = 1234;
+        dcim->ext[0] = 'J';
+        dcim->ext[1] = 'P';
+        dcim->ext[2] = 'G';
+        packet.len = 2 + 2 + 3;
+        dcim_read();
+    } else if (buf[0] == 't' && buf[1] == '\0') {
+        uint8_t dest = ID_any;
+        rc = tree(dest);
+        printf_P(PSTR("tree %u\n"), rc);
+    } else {
+        putchar('?');
+    }
+#endif
+    else {
+        printf("got '%s'\n", buf);
+    }
+
+    PROMPT;
+
+    return 0;
+}
 
 void main(void)
 {
+#if ENABLE_SD
     /* clear up the SPI bus for the mcp2515 */
     spi_init();
     sd_hw_init();
+#endif
 
     NODE_INIT();
 
+#if ENABLE_SD
     rc = fat_init();
     if (rc) {
         printwait_P(PSTR("fat err\n"));
@@ -600,9 +680,11 @@ void main(void)
         _delay_ms(1000);
         goto reinit;
     }
+#endif
 
     sei();
 
+#if ENABLE_SD
     /* we start searching from log AFTER this one, which is num 0 */
     cur_log = find_free_log_after(NUM_LOGS - 1);
 
@@ -617,6 +699,10 @@ void main(void)
         goto reinit;
         */
     }
+#endif
+
+    // For the ircam
+    DDRD |= (1 << PORTD7);
 
     NODE_MAIN();
 }
