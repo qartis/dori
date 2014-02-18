@@ -81,9 +81,8 @@ void mcp2515_dump(void)
 	printf_P(PSTR("REC:x%x\n"), rec);
 	printf_P(PSTR("EFLG:x%x\n"), eflg);
 
-	if ((rec > 127) || (tec > 127)) {
+	if ((rec > 127) || (tec > 127))
 		puts_P(PSTR("Error: Passive or Bus-Off"));
-	}
 
 	if (eflg & MCP_EFLG_RX1OVR)
 		puts_P(PSTR("Receive Buffer 1 Overflow"));
@@ -130,6 +129,9 @@ void modify_register(uint8_t address, uint8_t mask, const uint8_t value)
 
 uint8_t mcp2515_init(void)
 {
+    uint8_t rc;
+    uint8_t retry;
+
     /* mcp2515's clock feed */
     DDRB |= (1 << PORTB1);
 
@@ -151,10 +153,9 @@ uint8_t mcp2515_init(void)
     //--    Set mode to configuration operation.
     modify_register(MCP_REGISTER_CANCTRL, 0xe0, 0x80);
 
-    uint8_t result = read_register(MCP_REGISTER_CANSTAT);
-    if ((result & 0xe0) != 0x80) {
+    rc = read_register(MCP_REGISTER_CANSTAT);
+    if ((rc & 0xe0) != 0x80)
         return 1;
-    }
 
 #if (F_CPU == 8000000L)
     write_register(MCP_REGISTER_CNF1, 0x01);
@@ -174,8 +175,8 @@ uint8_t mcp2515_init(void)
 
     modify_register(MCP_REGISTER_CANCTRL, 0xff, 0b00000000);
 
-    uint8_t retry = 10;
-    while ((read_register(MCP_REGISTER_CANSTAT) & 0xe0) != 0b00000000 && --retry){};
+    retry = 10;
+    while ((read_register(MCP_REGISTER_CANSTAT) & 0xe0) != 0b00000000 && --retry) {};
     if (retry == 0) {
         //printf_P(PSTR("canstat: %x\n"), read_register(MCP_REGISTER_CANSTAT));
         return 1;
@@ -232,7 +233,7 @@ uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t 
         return 0;
 
     if (mcp2515_busy) {
-        puts_P(PSTR("tx overrun"));
+        //puts_P(PSTR("tx overrun"));
         return 66;
     }
 
@@ -304,7 +305,7 @@ void read_packet(uint8_t regnum)
     packet.len = spi_recv() & 0x0f;
 
     if (packet.len > 8) {
-        printf_P(PSTR("mcp ln%u t%u!\n"), packet.len, packet.type);
+        //printf_P(PSTR("mcp ln%u t%u!\n"), packet.len, packet.type);
         packet.len = 8;
     }
 
@@ -334,7 +335,8 @@ void read_packet(uint8_t regnum)
         return;
     } else if (packet.type == TYPE_xfer_chunk) {
         if (xfer_state == XFER_WAIT_CHUNK) {
-            puts_P(PSTR("xf_chk"));
+            //puts_P(PSTR("xf_chk"));
+            
             //xfer_got_chunk();
             /* finish this */
             xfer_state = 0;
@@ -344,7 +346,7 @@ void read_packet(uint8_t regnum)
                             (uint32_t)packet.data[1] << 16 |
                             (uint32_t)packet.data[2] << 8  |
                             (uint32_t)packet.data[3] << 0;
-        printf_P(PSTR("mcp time=%lu\n"), new_time);
+        //printf_P(PSTR("mcp time=%lu\n"), new_time);
         time_set(new_time);
     } else if (packet.type == TYPE_set_interval &&
               (packet.id == MY_ID || packet.id == ID_any)) {
@@ -354,13 +356,13 @@ void read_packet(uint8_t regnum)
                 (uint16_t)packet.data[1] << 0;
 
         if (new_periodic_interval < 5) {
-            puts_P(PSTR("small!"));
+            //puts_P(PSTR("small!"));
             return;
         }
 
         periodic_interval = new_periodic_interval;
 
-        printf_P(PSTR("period=%u\n"), periodic_interval);
+        //printf_P(PSTR("period=%u\n"), periodic_interval);
     } else if (packet.type == TYPE_sos_reboot &&
               (packet.id == MY_ID || packet.id == ID_any)) {
         cli();
@@ -409,6 +411,9 @@ ISR(PCINT0_vect)
     if (canintf & MCP_INTERRUPT_ERRI) {
         uint8_t eflg = read_register(MCP_REGISTER_EFLG);
         printf_P(PSTR("eflg%x\n"), eflg);
+
+        mcp2515_reset();
+        return;
 
         /* TEC > 96 */
         if (eflg & 0b00000100) {
