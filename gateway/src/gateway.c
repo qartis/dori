@@ -199,6 +199,37 @@ void process_dori_bytes(char *buf, int len)
         uint16_t sensor = (doribuf[CAN_SENSOR_IDX] << 8) |
                            doribuf[CAN_SENSOR_IDX + 1];
 
+        // Sanity checks here to prevent future crashes
+        if(type >= TYPE_invalid) {
+            printf("Invalid type: %02x\n", type);
+
+            doribuf_len -= (CAN_HEADER_LEN + data_len);
+
+            memmove(doribuf, doribuf + CAN_HEADER_LEN + data_len,
+                    (doribuf_len) * sizeof(unsigned char));
+            break;
+        }
+
+        if(id >= ID_invalid) {
+            printf("Invalid id: %02x\n", id);
+
+            doribuf_len -= (CAN_HEADER_LEN + data_len);
+
+            memmove(doribuf, doribuf + CAN_HEADER_LEN + data_len,
+                    (doribuf_len) * sizeof(unsigned char));
+            break;
+        }
+
+        if(sensor >= SENSOR_invalid) {
+            printf("Invalid sensor: %02x\n", sensor);
+            doribuf_len -= (CAN_HEADER_LEN + data_len);
+
+            memmove(doribuf, doribuf + CAN_HEADER_LEN + data_len,
+                    (doribuf_len) * sizeof(unsigned char));
+            break;
+        }
+
+
         unsigned char *data = doribuf + CAN_HEADER_LEN;
 
         printf("DORI sent Frame: %s [%02x] %s [%02x] %s [%02x] %d [",
