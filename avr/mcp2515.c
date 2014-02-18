@@ -319,11 +319,7 @@ void read_packet(uint8_t regnum)
 
     mcp2515_unselect();
 
-    if (MY_ID == ID_any) {
-        mcp2515_tophalf();
-    } else if (MY_ID == ID_modema || MY_ID == ID_modemb) {
-        mcp2515_tophalf();
-    } else if (packet.type == TYPE_xfer_cancel && packet.id == MY_ID) {
+    if (packet.type == TYPE_xfer_cancel && packet.id == MY_ID) {
         puts_P(PSTR("ccl"));
         xfer_state = XFER_CANCEL;
         return;
@@ -333,7 +329,7 @@ void read_packet(uint8_t regnum)
             xfer_state = XFER_GOT_CTS;
         }
         return;
-    } else if (packet.type == TYPE_xfer_chunk) {
+    } else if (packet.type == TYPE_xfer_chunk && packet.id == MY_ID) {
         if (xfer_state == XFER_WAIT_CHUNK) {
             //puts_P(PSTR("xf_chk"));
             
@@ -341,6 +337,13 @@ void read_packet(uint8_t regnum)
             /* finish this */
             xfer_state = 0;
         }
+        return;
+    }
+
+    if (MY_ID == ID_any) {
+        mcp2515_tophalf();
+    } else if (MY_ID == ID_modema || MY_ID == ID_modemb) {
+        mcp2515_tophalf();
     } else if (packet.type == TYPE_value_periodic && packet.sensor == SENSOR_time) {
         uint32_t new_time = (uint32_t)packet.data[0] << 24 |
                             (uint32_t)packet.data[1] << 16 |
