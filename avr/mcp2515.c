@@ -183,7 +183,6 @@ uint8_t mcp2515_init(void)
     }
 
     mcp2515_busy = 0;
-    stfu = 0;
 
     return 0;
 }
@@ -415,7 +414,7 @@ ISR(PCINT0_vect)
         uint8_t eflg = read_register(MCP_REGISTER_EFLG);
         printf_P(PSTR("eflg%x\n"), eflg);
 
-        mcp2515_reset();
+        mcp2515_init();
         return;
 
         /* TEC > 96 */
