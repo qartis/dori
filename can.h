@@ -55,7 +55,7 @@
 
 
 #define ID_LIST(X) \
-    X(invalid, 0x00) \
+    X(none,    0x00) \
     X(any,     0x01) \
     X(imaging, 0x02) \
     X(logger,  0x03) \
@@ -65,7 +65,9 @@
     X(modema,  0x07) \
     X(modemb,  0x08) \
     X(enviro,  0x09) \
-    X(drive,   0x0a)
+    X(drive,   0x0a) \
+\
+    X(invalid, 0xff)
 
 #define SENSOR_LIST(X) \
     X(none,     0x00) \
@@ -93,7 +95,8 @@
     X(temp6,    0x16) \
     X(temp7,    0x17) \
     X(temp8,    0x18) \
-
+\
+    X(invalid, 0xff)
 
 enum type {
 #define X(name, value) TYPE_ ## name = value, \
