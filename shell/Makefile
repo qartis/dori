@@ -12,7 +12,7 @@ vpath %.h ./include
 
 all: send logger
 
-send: send.c ../include/shell.h
+send: send.c ../include/shell.h ../can.h
 	$(CC) $(CFLAGS) $< -o $@
 
 dcim_read: dcim_read.c
@@ -21,4 +21,4 @@ dcim_read: dcim_read.c
 logger: logger.c
 
 clean:
-	rm send
+	rm send logger

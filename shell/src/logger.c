@@ -47,7 +47,7 @@ int main()
                type,
                id_names[id],
                id,
-               sensor_names[id],
+               sensor_names[sensor],
                sensor,
                len);
 
