@@ -1,0 +1,37 @@
+SCK: SCK via level converter's channel 1
+MISO: MISO via level converter's channel 2
+MOSI: MOSI via level converter's channel 3
+CS: D7 via level converter's channel 4
+SNAP: D6 via level converter's channel 5
+POWER: D5 via diodes
+D4: relay control, LOW enables sd power, HIGH enables camera power
+
+when D4 is high:
+    relay turns off
+    3.3v power rail turns off
+    I want to power the sd card with 3.3v
+    camera gets no power
+    level converter gets power
+    
+when D4 is low:
+    relay turns on
+    3.3v power rail turns on
+    I want to power the camera with 3.3v, not the sd card at all
+    camera gets power
+    level converter gets no power
+
+
+
+camera:
+    camera gets power
+    sd gets no power
+    level converter gets no voltage input
+
+    SPI lines are HI-Z
+
+node:
+    camera gets no power
+    sd card gets power
+    levelconverter gets voltage input
+
+    SPI lines go through levelconverter
