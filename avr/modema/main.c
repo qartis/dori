@@ -315,7 +315,7 @@ uint8_t write_packet(void)
 {
     uint8_t i;
     uint8_t rc;
-    static uint8_t net_buf[512];
+    static uint8_t net_buf[256];
 
     if (((uint16_t)net_buf_len + 5 + packet.len)
         >= sizeof(net_buf)) {
