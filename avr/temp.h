@@ -1,4 +1,4 @@
-extern uint8_t num_sensors;
+extern uint8_t temp_num_sensors;
 
 void temp_init(void);
 uint8_t temp_begin(void);
