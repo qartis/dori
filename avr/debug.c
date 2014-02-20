@@ -6,9 +6,6 @@
 #include "debug.h"
 #include "irq.h"
 
-#define DEBUG_BUF_SIZE 64
-#define DEBUG_TX_BUF_SIZE 128
-
 volatile uint8_t debug_buf[DEBUG_BUF_SIZE];
 volatile uint8_t debug_buf_in;
 volatile uint8_t debug_buf_out;
@@ -49,11 +46,13 @@ void debug_init(void)
 
 void debug_putchar(char c)
 {
-    while ((debug_tx_ring_in + 1 % DEBUG_TX_BUF_SIZE) == debug_tx_ring_out) {}
 redo:
-    debug_tx_ring[debug_tx_ring_in] = c;
-    debug_tx_ring_in = (debug_tx_ring_in + 1);
-    debug_tx_ring_in %= DEBUG_TX_BUF_SIZE;
+    //while ((debug_tx_ring_in + 1 % DEBUG_TX_BUF_SIZE) == debug_tx_ring_out) {}
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        debug_tx_ring[debug_tx_ring_in] = c;
+        debug_tx_ring_in = (debug_tx_ring_in + 1);
+        debug_tx_ring_in %= DEBUG_TX_BUF_SIZE;
+    }
 
     if (c == '\n') {
         c = '\r';
@@ -181,7 +180,6 @@ uint8_t debug_getchar(void)
 
 void debug_flush(void)
 {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        debug_buf_in = debug_buf_out;
-    }
+    debug_buf_in = 0;
+    debug_buf_out = 0;
 }
