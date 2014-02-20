@@ -21,16 +21,19 @@ static FILE mystdout = FDEV_SETUP_STREAM(
     _FDEV_SETUP_RW);
 #endif
 
+#ifndef UART_CUSTOM_INTERRUPT
 /* must be 2^n */
 volatile uint8_t uart_ring[UART_BUF_SIZE];
 volatile uint8_t ring_in;
 volatile uint8_t ring_out;
+#endif
 
 /* must be 2^n */
 volatile uint8_t uart_tx_ring[UART_TX_BUF_SIZE];
 volatile uint8_t tx_ring_in;
 volatile uint8_t tx_ring_out;
 
+#ifndef UART_CUSTOM_INTERRUPT
 uint8_t bytes_in_ring(void)
 {
     if (ring_in > ring_out)
@@ -40,6 +43,7 @@ uint8_t bytes_in_ring(void)
     else
         return 0;
 }
+#endif
 
 ISR(USART_TX_vect)
 {
@@ -132,6 +136,7 @@ void uart_init(uint16_t ubrr)
 #endif
 }
 
+#ifndef UART_CUSTOM_INTERRUPT
 int uart_getchar(void)
 {
    int c;
@@ -163,6 +168,7 @@ uint8_t uart_haschar(void)
 {
     return (ring_in != ring_out);
 }
+#endif
 
 int uart_putchar(char c)
 {
