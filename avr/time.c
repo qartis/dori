@@ -7,6 +7,27 @@
 #include "time.h"
 #include "irq.h"
 
+
+#if F_CPU == 8000000L
+/* 8000000 / 256 = 31250
+    31250 / 125 = 250.
+    so if we overflow every 125 ticks,
+    then every 250 overflows is 1 second */
+#define TIMER0_PRESCALER (1 << CS02) /* clk/256 */
+#define OVERFLOW_TICKS 250
+
+#elif F_CPU == 18432000L
+/* 18432000 / 1024 = 18000
+    18000 / 125 = 144 .
+    so if we overflow every 125 ticks,
+    then every 144 overflows is 1 second */
+#define TIMER0_PRESCALER (1 << CS02) | (1 << CS00) /* clk/1024 */
+#define OVERFLOW_TICKS 144
+
+#else
+#error no TIMER0 definition for baud rate
+#endif
+
 volatile uint32_t now;
 volatile uint32_t periodic_prev;
 volatile uint16_t periodic_interval;
@@ -21,18 +42,29 @@ void periodic_tophalf(void)
     irq_signal |= IRQ_PERIODIC;
 }
 
-ISR(TIMER0_COMPA_vect)
+ISR(TIMER0_COMPB_vect)
 {
     overflows++;
 
-    if (overflows >= 250) {
+    if (overflows >= OVERFLOW_TICKS) {
+        /* heartbeat light ON. COMPA will occur in several ms and
+        turn it back off */
+        PORTC &= ~(1 << PORTC3);
+    }
+}
+
+ISR(TIMER0_COMPA_vect)
+{
+    if (overflows >= OVERFLOW_TICKS) {
         overflows = 0;
         now++;
 
-        /* heartbeat. delay should be moved out of ISR */
-        PORTC &= ~(1 << PORTC3);
-//        _delay_us(300);
+        /* heartbeat light OFF */
         PORTC ^= (1 << PORTC3);
+
+#ifdef TIMER_TOPHALF
+        timer_tophalf();
+#endif
 
         if (now >= periodic_prev + periodic_interval) {
             periodic_tophalf();
@@ -48,30 +80,11 @@ void time_init(void)
     now = 0;
 
     /* timer0 is used as global timer for periodic messages */
-
-
-
-#if F_CPU == 8000000L
-    /* 8000000 / 256 = 31250
-       31250 / 125 = 250.
-       so if we overflow every 125 ticks,
-       then every 250 overflows is 1 second */
     OCR0A = (125 - 1);
+    OCR0B = (50 - 1);
     TCCR0A = (1 << WGM01);
-    TCCR0B = (1 << CS02); /* clk/256 */
-    TIMSK0 = (1 << OCIE0A);
-#elif F_CPU == 18432000L
-    /* 18432000 / 1024 = 18000
-       18000 / 125 = 144 .
-       so if we overflow every 125 ticks,
-       then every 144 overflows is 1 second */
-    OCR0A = (144 - 1);
-    TCCR0A = (1 << WGM01);
-    TCCR0B = (1 << CS02) | (1 << CS00); /* clk/1024 */
-    TIMSK0 = (1 << OCIE0A);
-#else
-#error no TIMER0 definition for baud rate
-#endif
+    TCCR0B = TIMER0_PRESCALER;
+    TIMSK0 = (1 << OCIE0A) | (1 << OCIE0B);
 
     /* heartbeat light */
     PORTC |= (1 << PORTC3);
