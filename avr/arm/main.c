@@ -68,6 +68,26 @@ uint8_t send_stepper_angle(uint8_t type)
 }
 
 
+uint8_t send_laser_dist(uint8_t type)
+{
+    uint8_t rc;
+    uint16_t dist;
+    uint8_t buf[2];
+
+    dist = measure_once();
+
+    if (dist == 0) {
+        rc = mcp2515_send_sensor(TYPE_sensor_error, ID_arm, buf, sizeof(buf), SENSOR_laser);
+        return rc;
+    }
+
+    buf[0] = (dist >> 8) & 0xFF;
+    buf[1] = (dist >> 0) & 0xFF;
+
+    rc = mcp2515_send_sensor(type, ID_arm, buf, sizeof(buf), SENSOR_laser);
+    return rc;
+}
+
 uint8_t periodic_irq(void)
 {
     return 0;
@@ -93,6 +113,10 @@ uint8_t process_value_request(void)
         break;
     case SENSOR_stepper:
         rc = send_stepper_angle(TYPE_value_explicit);
+        break;
+    case SENSOR_laser:
+        rc = send_laser_dist(TYPE_value_explicit);
+        break;
     default:
         break;
     }
@@ -161,10 +185,12 @@ void main(void)
     adc_init();
     laser_init();
 
+    /*
     DDRC |= (1 << PORTC2);
     PORTC |= (1 << PORTC2);
 
     stepper_init();
+    */
 
     sei();
 
