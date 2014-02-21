@@ -15,28 +15,41 @@ void motor_init(void)
     PORTD = 0;
 }
 
-void motor_left(int16_t ms)
+void _delay_ms_long(uint16_t arg)
 {
-    if (ms > 0)
-        PORTD |=  (1 << PORTD4);
-    else
-        PORTD |=  (1 << PORTD5);
+    while (arg > 6000) {
+        _delay_ms(6000);
+        arg -= 6000;
+    }
 
-    while (--ms)
-        _delay_ms(1);
-
-    PORTD &= ~((1 << PORTD4) | (1 << PORTD5));
+    _delay_ms(arg);
 }
 
-void motor_right(int16_t ms)
+void motor_drive(int16_t left_ms, int16_t right_ms)
 {
-    if (ms > 0)
+    if (left_ms > 0) {
+        PORTD |=  (1 << PORTD4);
+    } else if (left_ms < 0) {
+        left_ms = -left_ms;
+        PORTD |=  (1 << PORTD5);
+    }
+
+    if (right_ms > 0) {
         PORTD |=  (1 << PORTD6);
-    else
+    } else if (right_ms < 0) {
+        right_ms = -right_ms;
         PORTD |=  (1 << PORTD7);
+    }
 
-    while (--ms)
-        _delay_ms(1);
+    if (left_ms > right_ms) {
+        _delay_ms_long(right_ms);
+        PORTD &= ~((1 << PORTD6) | (1 << PORTD7));
+        _delay_ms_long(left_ms - right_ms);
+    } else {
+        _delay_ms_long(left_ms);
+        PORTD &= ~((1 << PORTD4) | (1 << PORTD5));
+        _delay_ms_long(right_ms - left_ms);
+    }
 
-    PORTD &= ~((1 << PORTD6) | (1 << PORTD7));
+    PORTD &= ~((1 << PORTD4) | (1 << PORTD5) | (1 << PORTD6) | (1 << PORTD7));
 }
