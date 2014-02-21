@@ -64,16 +64,37 @@ uint8_t debug_irq(void)
     debug_flush();
     buf[strlen(buf)-1] = '\0';
 
-    if (buf[0] == 'c' && buf[1] == '\0') {
-        irq_signal |= IRQ_USER;
-    } else if (buf[0] == '?') {
-        printf_P(PSTR("state: %d\n"), state);
-    } else if (buf[0] == 'x' && buf[1] == '\0') {
-        state = STATE_CONNECTED;
-        puts_P(PSTR("conn!\n"));
-    } else if (buf[0] == 'd' && buf[1] == '\0') {
-        TCPDisconnect();
-        state = STATE_CLOSED;
+    if (buf[1] == '\0') {
+        switch (buf[0]) {
+        case 'p':
+            /* power cycle modem */
+            PORTD |= (1 << PORTD2);
+            DDRD |= (1 << PORTD2);
+            _delay_ms(500);
+            DDRD &= ~(1 << PORTD2);
+            PORTD &= ~(1 << PORTD2);
+            _delay_ms(750);
+            slow_write("AT\r", strlen("AT\r"));
+            break;
+        case 'c':
+            irq_signal |= IRQ_USER;
+            break;
+        case '?':
+            printf_P(PSTR("state: %d\n"), state);
+            break;
+        case 'x':
+            state = STATE_CONNECTED;
+            puts_P(PSTR("conn!\n"));
+            break;
+        case 'd':
+            TCPDisconnect();
+            state = STATE_CLOSED;
+            break;
+        case 'z':
+            printf("%u\n", stack_space());
+            printf("%u\n", free_ram());
+            break;
+        }
     } else if (buf[0] == 's') {
         rc = TCPSend((uint8_t *)buf + 1, strlen(buf) - 1);
         printf("send: %d\n", rc);
@@ -205,7 +226,7 @@ ISR(USART_RX_vect)
     } else if (c == '\n') {
         /* ignore empty lines */
         /* BE CAREFUL WITH THIS NUMBER */
-        if (at_rx_buf_len < 3) {
+        if (at_rx_buf_len < 2) {
             at_rx_buf_len = 0;
             at_rx_buf[0] = '\0';
             return;
