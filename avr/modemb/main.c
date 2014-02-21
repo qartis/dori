@@ -40,6 +40,8 @@
 volatile uint8_t sms_buf[FBUS_SMS_MAX_LEN];
 volatile uint8_t sms_buflen;
 
+volatile uint32_t modem_alive_time;
+
 uint8_t from_hex(char a)
 {
     if (isupper(a)) {
@@ -75,18 +77,10 @@ ISR(USART_RX_vect)
 {
     static uint8_t buf[140];
     static uint8_t buflen;
-    static uint32_t lastchartime;
 
     enum fbus_frametype incoming_frametype;
 
-    /*
-    if (buflen > 0 && now - lastchartime > 3) {
-        putchar('`');
-        buflen = 0;
-    }
-
-    lastchartime = now;
-    */
+    modem_alive_time = now;
 
     buf[buflen] = UDR0;
 
@@ -361,14 +355,14 @@ uint8_t user_irq(void)
     return rc;
 }
 
-
-void turn_on(void)
+void powercycle(void)
 {
     PORTD &= (1 << PORTD6);
     DDRD |= (1 << PORTD6);
-    _delay_ms(1000);
+    _delay_ms(2000);
     DDRD &= ~(1 << PORTD6);
 }
+
 
 uint8_t debug_irq(void)
 {
@@ -379,12 +373,9 @@ uint8_t debug_irq(void)
     buf[strlen(buf)-1] = '\0';
 
     if (strcmp(buf, "on") == 0) {
-        turn_on();
+        powercycle();
     } else if (strcmp(buf, "off") == 0) {
-        PORTD &= (1 << PORTD6);
-        DDRD |= (1 << PORTD6);
-        _delay_ms(2000);
-        DDRD &= ~(1 << PORTD6);
+        powercycle();
     } else if (strcmp(buf, "pwr") == 0) {
         PORTD &= (1 << PORTD6);
         DDRD |= (1 << PORTD6);
@@ -445,8 +436,26 @@ done:
     return 0;
 }
 
+
 uint8_t periodic_irq(void)
 {
+    uint8_t rc;
+
+    if(now - modem_alive_time >= 10) {
+        rc = fbus_subscribe();
+
+        if (rc != 0) {
+            powercycle();
+
+            _delay_ms(4000);
+            fbus_subscribe();
+        } else {
+            printf("fbus is alive\n");
+        }
+    } else {
+        printf("not yet...\n");
+    }
+
     return 0;
 }
 
@@ -455,6 +464,12 @@ uint8_t can_irq(void)
     uint8_t rc;
 
     printf_P(PSTR("can_irq\n"));
+
+    if (packet.type == TYPE_action_modemb_powercycle) {
+        powercycle();
+        goto done;
+    }
+
     char output[140];
 
     output[0] = to_hex((packet.type & 0xf0) >> 4);
@@ -506,22 +521,9 @@ done:
 
 void main(void)
 {
-    uint8_t init_rc;
     NODE_INIT();
 
     sei();
-
-    init_rc = fbus_subscribe();
-    printf("init: %d\n", init_rc);
-
-    // lazy way of troubleshooting init()
-    while(init_rc != 0) {
-        turn_on();
-        _delay_ms(1000);
-        init_rc = fbus_subscribe();
-        printf("init: %d\n", init_rc);
-    }
-
 
     NODE_MAIN();
 }
