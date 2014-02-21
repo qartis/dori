@@ -201,7 +201,6 @@ uint8_t uart_irq(void)
             sensor = parse_arg(sensor_dot + 1);
         }
 
-
         i = 0;
         for (;;) {
             arg = strtok(NULL, " ");
@@ -211,6 +210,19 @@ uint8_t uart_irq(void)
             sendbuf[i] = parse_arg(arg);
             i++;
         }
+
+        if(type == TYPE_value_periodic &&
+           sensor == SENSOR_time) {
+            uint32_t new_time;
+            new_time =
+                (uint32_t)sendbuf[0] << 24 |
+                (uint32_t)sendbuf[1] << 16 |
+                (uint32_t)sendbuf[2] << 8  |
+                (uint32_t)sendbuf[3] << 0;
+            time_set(new_time);
+        }
+
+
         if (squelch != 2){
             squelch = 0;  // so we can hear the reply.
         }
