@@ -173,6 +173,8 @@ uint16_t measure_once(void)
     // cancel any mode the laser got into
     PRESS(OFF_BTN);
 
+    laser_off();
+
     if (has_new_dist) {
         printf_P(PSTR("meas_once dist %d\n"), dist_mm);
         return dist_mm;
