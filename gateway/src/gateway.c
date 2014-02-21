@@ -557,7 +557,7 @@ int main()
                     remove_client(fd);
 
                 } else if (rc < 0) {
-                    error("read");
+                    perror("Client disconnected");
                 } else {
 
                     /*
