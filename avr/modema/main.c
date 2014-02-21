@@ -415,7 +415,9 @@ uint8_t can_irq(void)
         ptr = (uint8_t *)&packet.data;
         rc = mcp2515_send(TYPE_file_read, packet.id, ptr, packet.len);
         break;
-
+    case TYPE_action_modema_powercycle:
+        powercycle_modem();
+        break;
     default:
         if (state == STATE_CONNECTED) {
             if (packet.type == TYPE_value_periodic) break;
