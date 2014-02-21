@@ -217,8 +217,10 @@ ISR(USART_RX_vect)
         at_rx_buf_len = 0;
         at_rx_buf[0] = '\0';
     } else if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
-        uint8_t len = atoi(at_rx_buf + strlen("+IPD,"));
+        // If we got some data, we must be connected
+        state = STATE_CONNECTED;
 
+        uint8_t len = atoi(at_rx_buf + strlen("+IPD,"));
         tcp_toread = len;
 
         at_rx_buf_len = 0;
@@ -338,6 +340,29 @@ uint8_t write_packet(void)
     uint8_t rc;
     static uint8_t net_buf[256];
 
+    // if the packet isn't a big transfer
+    // send it right away
+    if(packet.type != TYPE_ircam_header &&
+       packet.type != TYPE_xfer_chunk) {
+        uint8_t buf[13];
+        buf[0] = packet.type;
+        buf[1] = packet.id;
+        buf[2] = (packet.sensor >> 8) & 0x0FF;
+        buf[3] = (packet.sensor >> 0) & 0x0FF;
+        buf[4] = packet.len;
+
+        uint8_t j;
+        for(j = 0 ; j < packet.len; j++) {
+            buf[5 + j] = packet.data[j];
+        }
+        rc = TCPSend(buf, packet.len + 5);
+        if (rc) {
+            puts_P(PSTR("snd er"));
+        }
+
+        return rc;
+    }
+
     if (((uint16_t)net_buf_len + 5 + packet.len)
         >= sizeof(net_buf)) {
         rc = TCPSend(net_buf, net_buf_len);
@@ -397,7 +422,8 @@ uint8_t can_irq(void)
             rc = write_packet();
             if (rc) {
                 puts_P(PSTR("sending failed"));
-            } else if (packet.type == TYPE_xfer_chunk) {
+            } else if (packet.type == TYPE_xfer_chunk ||
+                       packet.type == TYPE_ircam_header) {
                 printf("sending cts\n");
                 rc = mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
             } else {
