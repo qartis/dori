@@ -2,10 +2,15 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <util/atomic.h>
 #include <stdio.h>
 
 #include "time.h"
 #include "irq.h"
+
+#ifndef DEFAULT_PERIOD
+#define DEFAULT_PERIOD 9000
+#endif
 
 
 #if F_CPU == 8000000L
@@ -75,7 +80,7 @@ ISR(TIMER0_COMPA_vect)
 
 void time_init(void)
 {
-    periodic_interval = 9000;
+    periodic_interval = DEFAULT_PERIOD;
     periodic_prev = 0;
     now = 0;
 
@@ -93,11 +98,20 @@ void time_init(void)
 
 void time_set(uint32_t new_time)
 {
+    uint8_t run_periodic;
+
+    run_periodic = 0;
+
     if (new_time > now
-      && (new_time - now) > (periodic_prev + periodic_interval)) {
-        periodic_tophalf();
+      && (new_time - now) > (periodic_prev + periodic_interval))
+        run_periodic = 1;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        now = new_time;
+        overflows = 0;
+        TCNT0 = 0;
     }
 
-    now = new_time;
-    overflows = 0;
+    if (run_periodic)
+        periodic_tophalf();
 }

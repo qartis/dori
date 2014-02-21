@@ -318,6 +318,21 @@ void read_packet(uint8_t regnum)
 
     mcp2515_unselect();
 
+    if (packet.type == TYPE_value_periodic && packet.sensor == SENSOR_time) {
+        uint32_t new_time = (uint32_t)packet.data[0] << 24 |
+            (uint32_t)packet.data[1] << 16 |
+            (uint32_t)packet.data[2] << 8  |
+            (uint32_t)packet.data[3] << 0;
+        //printf_P(PSTR("mcp time=%lu\n"), new_time);
+        time_set(new_time);
+    }
+
+    if (MY_ID == ID_any) {
+        mcp2515_tophalf();
+        return;
+    }
+
+    // Should both modems handle this??
     if (packet.type == TYPE_xfer_cancel && packet.id == MY_ID) {
         puts_P(PSTR("ccl"));
         xfer_state = XFER_CANCEL;
@@ -331,7 +346,7 @@ void read_packet(uint8_t regnum)
     } else if (packet.type == TYPE_xfer_chunk && packet.id == MY_ID) {
         if (xfer_state == XFER_WAIT_CHUNK) {
             //puts_P(PSTR("xf_chk"));
-            
+
             //xfer_got_chunk();
             /* finish this */
             xfer_state = 0;
@@ -339,18 +354,11 @@ void read_packet(uint8_t regnum)
         return;
     }
 
-    if (MY_ID == ID_any) {
+    if (MY_ID == ID_modema || MY_ID == ID_modemb) {
         mcp2515_tophalf();
-    } else if (MY_ID == ID_modema || MY_ID == ID_modemb) {
-        mcp2515_tophalf();
-    } else if (packet.type == TYPE_value_periodic && packet.sensor == SENSOR_time) {
-        uint32_t new_time = (uint32_t)packet.data[0] << 24 |
-                            (uint32_t)packet.data[1] << 16 |
-                            (uint32_t)packet.data[2] << 8  |
-                            (uint32_t)packet.data[3] << 0;
-        //printf_P(PSTR("mcp time=%lu\n"), new_time);
-        time_set(new_time);
-    } else if (packet.type == TYPE_set_interval &&
+    }
+
+    if (packet.type == TYPE_set_interval &&
               (packet.id == MY_ID || packet.id == ID_any)) {
         periodic_prev = now;
         uint16_t new_periodic_interval =
