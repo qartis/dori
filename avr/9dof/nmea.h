@@ -1,3 +1,6 @@
+/* 80 lines of text, plus possible \r\n, plus NULL */
+#define BUFLEN 80+2+1
+
 enum nmea_value {
     NMEA_UNKNOWN = 0,
     NMEA_TIMESTAMP,

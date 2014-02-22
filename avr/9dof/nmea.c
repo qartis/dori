@@ -46,10 +46,7 @@ uint32_t mktime(struct tm *t)
     return result;
 }
 
-uint8_t strstart(const char *a, const char *b)
-{
-    return strncmp(a, b, strlen(b)) == 0;
-}
+#define strstart_P(a, b) (strncmp_P(a, b, strlen_P(b)) == 0)
 
 uint8_t parsedec2(const char *buf)
 {
@@ -140,7 +137,7 @@ struct nmea_data_t parse_nmea(const char *buf)
 
     struct nmea_data_t data;
 
-    if (strstart(buf, "$GPRMC")) {
+    if (strstart_P(buf, PSTR("$GPRMC"))) {
         if (!checksum(buf)) {
             //puts_P(PSTR("nmea err"));
             data.tag = NMEA_UNKNOWN;
@@ -162,7 +159,7 @@ struct nmea_data_t parse_nmea(const char *buf)
         data.tag = NMEA_COORDS;
         return data;
 
-    } else if (strstart(buf, "$GPGSV")) {
+    } else if (strstart_P(buf, PSTR("$GPGSV"))) {
         //$GPGSV,3,1,10,21,46,218,,27,50,041,,26,01,069,,22,31,316,*79
         if (!checksum(buf)) {
             //puts_P(PSTR("nmea xor"));
@@ -178,7 +175,7 @@ struct nmea_data_t parse_nmea(const char *buf)
         data.tag = NMEA_NUM_SATS;
         return data;
         //printf("num sat: %d\n", num_satellites);
-    } else if (strstart(buf, "$GPZDA")) {
+    } else if (strstart_P(buf, PSTR("$GPZDA"))) {
         /*$GPZDA,hhmmss.ss,dd,mm,yyyy,xx,yy*CC */
         if (!checksum(buf)) {
             //puts_P(PSTR("nmea xor"));
