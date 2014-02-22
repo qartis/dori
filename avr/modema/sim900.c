@@ -84,7 +84,7 @@ uint8_t TCPDisconnect(void)
 //    wait_for_state(STATE_CLOSED);
 
 //    state = STATE_UNKNOWN;
-    _delay_ms(500);
+    _delay_ms(1000);
 
     sendATCommand(PSTR("AT+CIPSHUT"));
 //    wait_for_state(STATE_CLOSED);
@@ -167,7 +167,7 @@ uint8_t TCPConnect(void)
     sendATCommand(PSTR("AT+CIICR"));
     wait_for_ok();
 
-    _delay_ms(1000);
+    _delay_ms(100);
     sendATCommand(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_GPRSACT);
     if (rc != 0) {
