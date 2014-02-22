@@ -57,15 +57,14 @@
 #define ID_LIST(X) \
     X(none,    0x00) \
     X(any,     0x01) \
-    X(imaging, 0x02) \
-    X(logger,  0x03) \
-    X(arm,     0x04) \
-    X(diag,    0x05) \
-    X(9dof,    0x06) \
-    X(modema,  0x07) \
-    X(modemb,  0x08) \
-    X(enviro,  0x09) \
-    X(drive,   0x0a) \
+    X(logger,  0x02) \
+    X(arm,     0x03) \
+    X(diag,    0x04) \
+    X(9dof,    0x05) \
+    X(modema,  0x06) \
+    X(modemb,  0x07) \
+    X(enviro,  0x08) \
+    X(drive,   0x09) \
 \
     X(invalid, 0xff)
 
