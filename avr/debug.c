@@ -6,6 +6,10 @@
 #include "debug.h"
 #include "irq.h"
 
+/* NOTE: debug's interrupt fires very often, and will
+   slow down any loop-based delays by as much as 2x.
+   be careful with this */
+
 volatile uint8_t debug_buf[DEBUG_BUF_SIZE];
 volatile uint8_t debug_buf_in;
 volatile uint8_t debug_buf_out;
