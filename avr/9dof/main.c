@@ -21,36 +21,56 @@
 #include "nunchuck.h"
 #include "nmea.h"
 #include "can.h"
+#include "debug.h"
 
-#define streq_P(a,b) (strcmp_P(a,b) == 0)
+#define TIME_SYNC_INTERVAL 60
+
 
 volatile uint32_t coords_read_time;
+volatile uint32_t last_time_sync;
 volatile uint32_t num_sats_read_time;
 
 volatile int32_t cur_lat;
 volatile int32_t cur_lon;
 volatile uint8_t num_sats;
 
-extern volatile uint8_t uart_ring[UART_BUF_SIZE];
-extern volatile uint8_t ring_in;
-extern volatile uint8_t ring_out;
-
-#define UDR UDR0
+volatile uint8_t nmea_buf[BUFLEN];
+volatile uint8_t nmea_buf_len;
 
 ISR(USART_RX_vect)
 {
-    uint8_t data = UDR;
-    uart_ring[ring_in] = data;
-    ring_in = (ring_in + 1) % UART_BUF_SIZE;
-    irq_signal |= IRQ_USER;
+    uint8_t c = UDR0;
+
+    /* if we've got an unread line */
+    if (irq_signal & IRQ_USER)
+        return;
+
+    if (c == '\r') {
+        irq_signal |= IRQ_USER;
+        return;
+    }
+
+    if (!isprint(c)) {
+        nmea_buf_len = 0;
+        return;
+    }
+
+    if (c == '$')
+        nmea_buf_len = 0;
+
+
+    nmea_buf[nmea_buf_len] = c;
+
+    if (nmea_buf_len < BUFLEN - 1)
+        nmea_buf_len++;
 }
 
-uint8_t send_time_can(void)
+uint8_t send_time_can(uint8_t type)
 {
     struct mcp2515_packet_t p;
     uint8_t rc;
 
-    p.type = TYPE_value_periodic;
+    p.type = type;
     p.id = ID_9dof;
     p.sensor = SENSOR_time;
     p.data[0] = now >> 24;
@@ -63,66 +83,101 @@ uint8_t send_time_can(void)
     return rc;
 }
 
-/* 80 lines of text, plus possible \r\n, plus NULL */
-#define BUFLEN 80+2+1
-
 uint8_t user_irq(void)
 {
-    static char buffer[BUFLEN];
-    static uint8_t buflen = 0;
+    struct nmea_data_t result;
+    char buf[BUFLEN];
+    uint8_t i;
 
-    while (uart_haschar()) {
-        if (buflen > sizeof(buffer)) {
-            buflen = 0;
-            continue;
+    nmea_buf[nmea_buf_len] = '\0';
+
+    for (i = 0; i < sizeof(buf); i++)
+        buf[i] = nmea_buf[i];
+
+    result = parse_nmea(buf);
+
+    nmea_buf_len = 0;
+
+    switch (result.tag) {
+    case NMEA_TIMESTAMP:
+        if (result.timestamp > last_time_sync + TIME_SYNC_INTERVAL) {
+            time_set(result.timestamp);
+            last_time_sync = result.timestamp;
+            send_time_can(TYPE_value_explicit);
         }
-
-        char c = getchar();
-
-        if (c == '$') {
-            buflen = 0;
-        }
-
-        if (!isprint(c) && c != '\n') {
-            continue;
-        }
-
-        if (c == '\n') {
-            if (buflen > 0) {
-                buffer[buflen] = '\0';
-
-                struct nmea_data_t result = parse_nmea(buffer);
-
-                switch (result.tag) {
-                case NMEA_TIMESTAMP:
-                    time_set(result.timestamp);
-                    send_time_can();
-                    break;
-                case NMEA_COORDS:
-                    coords_read_time = now;
-                    cur_lat = result.cur_lat;
-                    cur_lon = result.cur_lon;
-                    break;
-                case NMEA_NUM_SATS:
-                    num_sats_read_time = now;
-                    num_sats = result.num_sats;
-                    break;
-                default:
-                    break;
-                }
-
-            }
-            buflen = 0;
-            continue;
-        }
-        buffer[buflen++] = c;
+        break;
+    case NMEA_COORDS:
+        coords_read_time = now;
+        cur_lat = result.cur_lat;
+        cur_lon = result.cur_lon;
+        break;
+    case NMEA_NUM_SATS:
+        num_sats_read_time = now;
+        num_sats = result.num_sats;
+        break;
+    default:
+        break;
     }
+
 
     return 0;
 }
 
 uint8_t uart_irq(void)
 {
+    return 0;
+}
+
+uint8_t debug_irq(void)
+{
+    return 0;
+
+
+
+
+
+
+    char buf[64];
+    fgets(buf, sizeof(buf), stdin);
+
+    struct nunchuck_t nunchuck;
+    uint8_t rc;
+
+    nunchuck.accel_x = 255;
+    nunchuck.accel_y = 255;
+    nunchuck.accel_z = 255;
+
+    rc = nunchuck_read(&nunchuck);
+    if (rc) {
+        /* sensor error, reinit */
+        //printf("err\n");
+        return 0;
+    }
+
+    //printf("nun: %d %d %d\n", nunchuck.accel_x, nunchuck.accel_y, nunchuck.accel_z);
+
+    struct hmc5883_t hmc;
+
+    hmc.x = -1;
+    hmc.y = -1;
+    hmc.z = -1;
+
+    rc = hmc_read(&hmc);
+    if (rc) {
+        /* sensor error, reinit */
+        return rc;
+    }
+
+    //printf("hmc: %d %d %d\n", hmc.x, hmc.y, hmc.z);
+
+
+
+    /* nmea */
+    if (now - coords_read_time > 5)
+        return 0;
+
+    //printf("%ld %ld\n", cur_lat, cur_lon);
+
     return 0;
 }
 
@@ -273,6 +328,7 @@ uint8_t send_all_can(uint8_t type)
 
 uint8_t periodic_irq(void)
 {
+    return 0;
     return send_all_can(TYPE_value_periodic);
 }
 
@@ -292,6 +348,9 @@ uint8_t can_irq(void)
         case SENSOR_coords:
             rc = send_coords_can(TYPE_value_explicit);
             break;
+        case SENSOR_time:
+            rc = send_time_can(TYPE_value_explicit);
+            break;
         default:
             rc = send_all_can(TYPE_value_explicit);
         }
@@ -301,28 +360,30 @@ uint8_t can_irq(void)
     return rc;
 }
 
-void main(void)
+int main(void)
 {
     NODE_INIT();
 
-    sei();
+    i2c_init(I2C_FREQ(400000));
 
     rc = hmc_init();
     if (rc) {
-        puts_P(PSTR("hmc init"));
+        //puts_P(PSTR("hmc init"));
     }
 
     rc = mpu_init();
     if (rc) {
-        puts_P(PSTR("mpu init"));
+        //puts_P(PSTR("mpu init"));
     }
 
     rc = nunchuck_init();
     if (rc) {
-        puts_P(PSTR("nunch init"));
+        //puts_P(PSTR("nunch init"));
     }
 
     hmc_set_continuous();
+
+    sei();
 
     NODE_MAIN();
 }
