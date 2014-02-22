@@ -29,6 +29,16 @@
 #define TIMER0_PRESCALER (1 << CS02) | (1 << CS00) /* clk/1024 */
 #define OVERFLOW_TICKS 144
 
+
+#elif F_CPU == 1843200L
+/* 1843200 / 256 = 17000
+    17000 / 125 = 136 .
+    so if we overflow every 125 ticks,
+    then every 136 overflows is 1 second */
+#define TIMER0_PRESCALER (1 << CS02) /* clk/256 */
+#define OVERFLOW_TICKS 136
+
+
 #else
 #error no TIMER0 definition for baud rate
 #endif
