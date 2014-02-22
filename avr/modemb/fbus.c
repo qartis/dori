@@ -210,12 +210,7 @@ uint8_t pack7(uint8_t *dest, const char *s)
 
 void sendframe(uint8_t type, uint8_t *data, uint8_t size)
 {
-    // !!!! Don't use a buffer here
-    // !!!! Compute the checksum on the fly instead
-    uint8_t at, len, n;
-    //uint16_t check;
     uint8_t check[2];
-    uint16_t *p;
     uint8_t i;
 
     uart_putchar(0x1e);
@@ -241,40 +236,6 @@ void sendframe(uint8_t type, uint8_t *data, uint8_t size)
 
     uart_putchar(check[0]);
     uart_putchar(check[1]);
-
-    /*
-    at = 0;
-
-    // build header
-    buf[at++] = 0x1e;       // message startbyte
-    buf[at++] = 0x00;       // dest: phone
-    buf[at++] = 0x0c;       // source: PC
-    buf[at++] = type;
-    buf[at++] = 0x00;
-    buf[at++] = size;
-
-    // add data
-    memcpy(buf+6, data, size);
-    at += size;
-
-    // if odd numbered, add filler byte
-    if(size % 2) {
-        buf[at++] = 0x00;
-    }
-
-    // calculate checksums
-    check = 0;
-    p = (uint16_t *)buf;
-    len = at / 2;
-    for(n = 0; n < len; ++n)
-        check ^= p[n];
-    p[n] = check;
-    at += 2;
-
-
-    // send the message!
-    print_len(buf, at);
-    */
 }
 
 uint8_t sendframe_wait(uint8_t type, uint8_t *data, uint8_t size)
