@@ -178,7 +178,6 @@ uint8_t mcp2515_init(void)
     retry = 10;
     while ((read_register(MCP_REGISTER_CANSTAT) & 0xe0) != 0b00000000 && --retry) {};
     if (retry == 0) {
-        //printf_P(PSTR("canstat: %x\n"), read_register(MCP_REGISTER_CANSTAT));
         return 1;
     }
 
@@ -330,7 +329,7 @@ void read_packet(uint8_t regnum)
             (uint32_t)packet.data[1] << 16 |
             (uint32_t)packet.data[2] << 8  |
             (uint32_t)packet.data[3] << 0;
-        printf_P(PSTR("mcp time=%lu\n"), new_time);
+        //printf_P(PSTR("mcp time=%lu\n"), new_time);
         time_set(new_time);
     }
 
@@ -394,7 +393,7 @@ void read_packet(uint8_t regnum)
     } else if (packet.id == MY_ID) {
         mcp2515_tophalf();
     } else {
-        printf_P(PSTR("not mine, id was: %d\n"), packet.id);
+        //printf_P(PSTR("not mine, id was: %d\n"), packet.id);
     }
 }
 
@@ -427,7 +426,7 @@ ISR(PCINT0_vect)
 
     if (canintf & MCP_INTERRUPT_ERRI) {
         uint8_t eflg = read_register(MCP_REGISTER_EFLG);
-        printf_P(PSTR("eflg%x\n"), eflg);
+        //printf_P(PSTR("eflg%x\n"), eflg);
 
         mcp2515_init();
         return;
