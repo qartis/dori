@@ -386,7 +386,7 @@ void read_packet(uint8_t regnum)
     } else if (packet.type == TYPE_sos_nostfu &&
                (packet.id == MY_ID || packet.id == ID_any)) {
         stfu = 0;
-    } else if (packet.id == MY_ID || MY_ID == ID_logger) {
+    } else if (packet.id == MY_ID) {
         mcp2515_tophalf();
     } else {
         printf_P(PSTR("not mine, id was: %d\n"), packet.id);
@@ -455,33 +455,45 @@ uint8_t mcp2515_check_alive(void)
     return (rc == 0b00100111);
 }
 
-
 uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len, uint16_t sensor)
 {
     uint8_t retry;
     uint8_t rc;
+    uint8_t i;
 
-    xfer_state = XFER_CHUNK_SENT;
+    for (i = 0; i < 3; i++) {
+        xfer_state = XFER_CHUNK_SENT;
 
-    rc = mcp2515_send_wait(type, dest, data, len, sensor);
-    if (rc) {
-        puts_P(PSTR("xfsd er"));
-        return rc;
+        rc = mcp2515_send_wait(type, dest, data, len, sensor);
+        if (rc) {
+            puts_P(PSTR("xfsd er"));
+            return rc;
+        }
+
+        /* if we resend this packet, this will flag it as a duplicate */
+        dest = ID_none;
+
+        /* TODO change this timeout when DORI is launched */
+        /* 255 * 80ms = 20400ms */
+        retry = 255;
+        while (xfer_state == XFER_CHUNK_SENT && --retry)
+            _delay_ms(80);
+
+        if (retry == 0) {
+            xfer_state = XFER_CANCEL;
+            puts_P(PSTR("xfer: cts timeout"));
+            //didn't get a response
+            //expected TYPE_xfer_cts
+    //        return MCP_ERR_XFER_TIMEOUT;
+        } else if (xfer_state == XFER_CANCEL) {
+            return MCP_ERR_XFER_CANCEL;
+        } else {
+            break;
+        }
     }
 
-    retry = 255;
-    while (xfer_state == XFER_CHUNK_SENT && --retry)
-        _delay_ms(400);
-
-    if (retry == 0) {
-        xfer_state = XFER_CANCEL;
-        puts_P(PSTR("xfer: cts timeout"));
-        //didn't get a response
-        //expected TYPE_xfer_cts
+    if (retry == 0)
         return MCP_ERR_XFER_TIMEOUT;
-    } else if (xfer_state == XFER_CANCEL) {
-        return MCP_ERR_XFER_CANCEL;
-    }
 
     return 0;
 }
