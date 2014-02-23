@@ -1,10 +1,10 @@
 PD6 - Laser ON
-PD6 - Laser OFF
+PD3 - Laser OFF
 
 UART RX (PD0) - Laser TX
 UART TX (PD1) - Laser RX
 
-PC0 - Computer UART RX
-PC1 - Computer UART TX
+PC0 - debug RX
+PC1 - debug TX
 
 PC7 (ADC) - V+

@@ -19,6 +19,7 @@
 #include "node.h"
 #include "can.h"
 #include "laser.h"
+#include "adc.h"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -29,6 +30,7 @@ inline uint8_t streq(const char *a, const char *b)
 
 volatile uint16_t dist_mm;
 volatile uint8_t read_flag;
+volatile uint8_t error_flag;
 
 volatile int8_t laser_alive;
 
@@ -59,15 +61,13 @@ extern volatile uint8_t uart_ring[UART_BUF_SIZE];
 extern volatile uint8_t ring_in;
 extern volatile uint8_t ring_out;
 
-#define UDR UDR0
-
 ISR(USART_RX_vect)
 {
-    uint8_t data = UDR;
+    uint8_t data = UDR0;
 
     laser_alive = 1;
 
-    if(read_flag)
+    if (read_flag)
         return;
 
     if (data == '\r')
@@ -82,9 +82,23 @@ ISR(USART_RX_vect)
         return;
     }
 
+    if (strstart_P((const char *)uart_ring, PSTR("OUT_RAN"))) {
+        printf("OUTRAN\n");
+        error_flag = 1;
+        ring_in = 0;
+        ring_out = 0;
+        return;
+    } else if (strstart_P((const char *)uart_ring, PSTR("MEDIUM")) || strstart_P((const char *)uart_ring, PSTR("THICK"))) {
+        printf("MEDIUM THICK\n");
+        error_flag = 1;
+        ring_in = 0;
+        ring_out = 0;
+        return;
+    }
 
-    if(ring_in < strlen("Dist: ") || !strstart_P((const char*)uart_ring, PSTR("Dist: "))) {
-        ring_in = ring_out = 0;
+    if (ring_in < strlen("Dist: ") || !strstart_P((const char*)uart_ring, PSTR("Dist: "))) {
+        ring_in = 0;
+        ring_out = 0;
         return;
     }
 
@@ -94,31 +108,26 @@ ISR(USART_RX_vect)
 }
 
 
-void adc_init(void)
-{
-    ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
-}
-
-uint16_t adc_read(uint8_t channel)
-{
-    ADMUX = (1 << REFS0) | channel; /* internal vref */
-
-    ADCSRA |= (1 << ADSC);
-    while (ADCSRA & (1 << ADSC)) {};
-
-    uint8_t low = ADCL;
-    uint8_t high = ADCH;
-    return ((uint16_t)(high<<8)) | low;
-}
-
 uint8_t has_power(void)
 {
-    uint16_t v_ref = adc_read(7);
+    uint16_t v_ref = adc_read(6);
     return v_ref > 400;
 }
 
 void turn_off(void)
 {
+    /*
+#define ON_BTN  DDRD, PORTD, PIND5
+#define OFF_BTN DDRD, PORTD, PIND6
+
+    PORTD |= (1 << PORTD6);
+    DDRD |= (1 << PORTD6);
+    _delay_ms(750);
+    DDRD &= ~(1 << PORTD6);
+    PORTD &= ~(1 << PORTD6);
+    return;
+    */
+
     // turn off the laser in case it was in the frozen state
     uart_putchar('r');
     _delay_ms(50);
@@ -129,7 +138,7 @@ void turn_off(void)
 
 
     // if the laser is on
-    if(has_power()) {
+    if (has_power()) {
         // cancel any mode the laser is in
         PRESS(OFF_BTN);
 
@@ -148,6 +157,14 @@ void turn_off(void)
 
 void turn_on(void)
 {
+    /*
+    PORTD |= (1 << PORTD5);
+    DDRD |= (1 << PORTD5);
+    _delay_ms(400);
+    DDRD &= ~(1 << PORTD5);
+    PORTD &= ~(1 << PORTD5);
+    return;
+    */
     // turn on the device
     HOLD(ON_BTN);
 
@@ -170,24 +187,28 @@ void turn_on_safe(void)
 // assumes laser is already on
 void measure_once(void)
 {
+    uint8_t retry;
+
     read_flag = 0;
-    ring_out = ring_in = 0;
+    error_flag = 0;
+    ring_in = 0;
+    ring_out = 0;
 
     PRESS(ON_BTN);
 
     PRESS(ON_BTN);
 
-    uint16_t retry = 16384;// 0xFFFF;
-    while(--retry && !read_flag)
-    {
-        _delay_us(300);
-    }
+    /* 255 * 10 = 2550 ms */
+    retry = 255;
+    while (!read_flag && !error_flag && --retry)
+        _delay_ms(10);
 
-    if(read_flag) {
+    if (read_flag) {
         printf_P(PSTR("LASER DIST %d\n"), dist_mm);
-    }
-    else {
-        printf_P(PSTR("LASER FAIL TO MEASURE\n"));
+    } else if (error_flag) {
+        printf_P(PSTR("LASER ERROR\n"));
+    } else {
+        printf_P(PSTR("LASER TIMEOUT\n"));
     }
 
     // cancel any mode the laser got into
@@ -315,6 +336,31 @@ uint8_t debug_irq(void)
         turn_on_safe();
     } else if(streq(buf, "m")) {
         measure_once();
+    } else if (streq(buf, "can")) {
+        measure_once();
+
+        if(read_flag)
+        {
+            buf[0] = dist_mm >> 8;
+            buf[1] = dist_mm & 0xff;
+            mcp2515_send_sensor(TYPE_value_explicit,
+                                packet.id,
+                                buf,
+                                2,
+                                SENSOR_laser);
+
+        }
+        else {
+            printf("sensor error\n");
+            mcp2515_send_sensor(TYPE_sensor_error,
+                                packet.id,
+                                "lol",
+                                3,
+                                SENSOR_laser);
+        }
+
+        read_flag = 0;
+
     } else if(buf[0] == 'r') {
         unsigned int max_count = 20;
 
@@ -343,6 +389,8 @@ uint8_t can_irq(void)
 
     switch (packet.type) {
     case TYPE_value_request:
+        read_flag = 0;
+
         turn_off();
         turn_on();
         measure_once();
@@ -351,7 +399,7 @@ uint8_t can_irq(void)
         if(read_flag)
         {
             buf[0] = dist_mm >> 8;
-            buf[1] = (dist_mm & 0x00FF);
+            buf[1] = dist_mm & 0xff;
             mcp2515_send_sensor(TYPE_value_explicit,
                                 packet.id,
                                 buf,
@@ -360,6 +408,7 @@ uint8_t can_irq(void)
 
         }
         else {
+            printf("sensor error\n");
             mcp2515_send_sensor(TYPE_sensor_error,
                                 packet.id,
                                 buf,
@@ -387,15 +436,12 @@ uint8_t periodic_irq(void)
 void input_init(void)
 {
     // make ON button input pin
-    DDRD &= ~(1 << PIND5);
+    DDRD &= ~(1 << PORTD6);
 
     // make OFF button input pin
-    DDRD &= ~(1 << PIND6);
+    DDRD &= ~(1 << PORTD3);
 
-    // make V+ input pin
-    DDRD &= ~(1 << PIND7);
-
-    // no pullup
+    // no pullups
     PORTD = 0;
 }
 
