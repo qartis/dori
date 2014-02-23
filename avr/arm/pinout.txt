@@ -14,7 +14,7 @@
 
 
 
-1 - analog in
+1 - analog in (PINC4, ADC4)
 2 - N/C
 3 - GND
 4 - PC2 (turn on to measure arm)
