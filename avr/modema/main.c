@@ -135,6 +135,7 @@ void tcp_irq(uint8_t *buf, uint8_t len)
     }
     //printf("\n");
 
+#if 0
     switch (tcp_buf[0]) {
         /*
     case '1' ... '9':
@@ -154,31 +155,29 @@ void tcp_irq(uint8_t *buf, uint8_t len)
         memmove(tcp_buf, tcp_buf + len + 1, tcp_buf_len);
         break;
         */
+#endif
 
-    default:
-        if (tcp_buf_len < 5)
-            return;
+    if (tcp_buf_len < 5)
+        return;
 
-        if (tcp_buf[4] > 8)
-            tcp_buf[4] = 8;
+    if (tcp_buf[4] > 8)
+        tcp_buf[4] = 8;
 
-        if (tcp_buf_len < (1 + 1 + 2 + 1 + tcp_buf[4]))
-            return;
+    if (tcp_buf_len < (1 + 1 + 2 + 1 + tcp_buf[4]))
+        return;
 
-        p.type = tcp_buf[0];
-        p.id = tcp_buf[1];
-        p.sensor = (tcp_buf[2] << 8) | tcp_buf[3];
-        p.len = tcp_buf[4];
+    p.type = tcp_buf[0];
+    p.id = tcp_buf[1];
+    p.sensor = (tcp_buf[2] << 8) | tcp_buf[3];
+    p.len = tcp_buf[4];
 
-        for (i = 0; i < tcp_buf[4]; i++)
-            p.data[i] = tcp_buf[5 + i];
+    for (i = 0; i < tcp_buf[4]; i++)
+        p.data[i] = tcp_buf[5 + i];
 
-        tcp_buf_len -= 5 + p.len;
+    tcp_buf_len -= 5 + p.len;
 
-        memmove(tcp_buf, tcp_buf + 5 + p.len, tcp_buf_len);
+    memmove(tcp_buf, tcp_buf + 5 + p.len, tcp_buf_len);
 
-        break;
-    }
 
     rc = mcp2515_send2(&p);
     if (rc)
