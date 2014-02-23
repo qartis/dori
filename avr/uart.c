@@ -168,6 +168,11 @@ uint8_t uart_haschar(void)
 {
     return (ring_in != ring_out);
 }
+#else /* UART_CUSTOM_INTERRUPT */
+int uart_getchar(void)
+{
+    return 0;
+}
 #endif
 
 int uart_putchar(char c)
