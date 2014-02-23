@@ -338,6 +338,7 @@ void process_shell_bytes(char *buf, int len)
     }
     printf("\n");
     */
+
     memcpy(&shellbuf[shellbuf_len], buf, len);
     shellbuf_len += len;
 
@@ -561,9 +562,10 @@ int main()
                 } else {
 
                     /*
+                    printf("Got %d bytes: ", rc);
                     int j = 0;
                     for (j = 0; j < rc; j++) {
-                        printf("%02x (%c)\n", (unsigned char)buf[j], buf[j]);
+                        printf("%02x(%c) ", (unsigned char)buf[j], buf[j]);
                     }
                     printf("\n");
                     */
@@ -575,11 +577,6 @@ int main()
                     if (c->type == DORI) {
                         process_dori_bytes(buf, rc);
                     } else {
-                        if (buf[rc - 1] == '\n')
-                            buf[rc - 1] = '\0';
-                        else
-                            buf[rc] = '\0';
-
                         if (c->type == SHELL) {
                             process_shell_bytes(buf, rc);
                         } else if (c->type == TK) {
