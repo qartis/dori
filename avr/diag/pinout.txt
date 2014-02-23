@@ -1,5 +1,5 @@
 1WIRE:
-PC3
+PC2
 PULLUP
 GND
 
