@@ -30,5 +30,12 @@ uint16_t get_current(void)
 
     val = adc_read(7);
 
+    /* 512 = 0mA, <512 means negative current. we don't
+       care what direction so we take the abs() */
+    if (val < 512)
+        val = 512 - val;
+    else
+        val -= 512;
+
     return val;
 }
