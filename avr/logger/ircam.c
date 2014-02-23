@@ -47,6 +47,8 @@ void ircam_reset(void)
 
     for (i = 0; i < sizeof(reset_cmd); i++)
         uart_putchar(reset_cmd[i]);
+
+    fbuf_len = 0;
 }
 
 uint8_t ircam_send_cmd(uint8_t *cmd, uint8_t cmd_nbytes, uint8_t target_nbytes)

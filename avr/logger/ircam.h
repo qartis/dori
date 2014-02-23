@@ -1,3 +1,6 @@
+#define IRCAM_ON()  PORTD |=  (1 << PORTD7)
+#define IRCAM_OFF() PORTD &= ~(1 << PORTD7)
+
 uint8_t ircam_send_cmd(uint8_t *cmd, uint8_t cmd_nbytes, uint8_t target_nbytes);
 void ircam_reset(void);
 

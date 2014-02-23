@@ -429,46 +429,22 @@ uint8_t fat_init(void)
 
 uint8_t can_irq(void)
 {
-    printf("can_irq\n");
     uint8_t rc = 0;
 
     switch (packet.type) {
-#if ENABLE_SD
-    case TYPE_file_read:
-        file_read();
-        break;
-    case TYPE_file_tree:
-        rc = tree(ID_logger);
-
-        // if the xfer was cancelled, then don't return
-        // an error code, because that would cause
-        // NODE_MAIN to re-init the chip
-        if (rc == MCP_ERR_XFER_CANCEL)
-            rc = 0;
-        break;
-    case TYPE_file_write:
-        break;
-#endif
-#if ENABLE_DCIM
-    case TYPE_dcim_read:
-        dcim_read();
-        break;
-#endif
     case TYPE_ircam_read:
-        // Turn on the cam
-        PORTD |= (1 << PORTD7);
+        IRCAM_ON();
+
         _delay_ms(1000);
 
         rc = ircam_init_xfer();
         if(rc == 0) {
-            rc =ircam_read_fbuf();
+            rc = ircam_read_fbuf();
             printf("read_fbuf rc = %d\n", rc);
         }
-        // Turn off the cam
-        PORTD &= ~(1 << PORTD7);
-        break;
-    case TYPE_xfer_cancel:
-        fbuf_len = 0;
+
+        IRCAM_OFF();
+
         break;
     case TYPE_ircam_reset:
         ircam_reset();
@@ -476,6 +452,7 @@ uint8_t can_irq(void)
     }
 
     packet.unread = 0;
+
     return rc;
 }
 
