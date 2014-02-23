@@ -91,25 +91,22 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 {
     uint8_t buf[2];
     uint8_t rc;
+    int16_t temp;
+    uint8_t i;
 
     temp_begin();
     temp_wait();
 
-    int16_t temp;
-
-    // -1 means send all temperature sensor readings
-    if (index == -1) {
-        uint8_t i = 0;
+    if (index == TEMP_ALL_CHANNELS) {
         for (i = 0; i < temp_num_sensors; i++) {
             rc = temp_read(i, &temp);
             if (rc) {
                 rc = mcp2515_send_wait(
                         TYPE_sensor_error, MY_ID,
                         NULL, 0, SENSOR_temp5 + i);
-                /* what should we do here? sensor
-                measurement screwed up, but we
-                reported it successfully. */
-                return rc;
+
+                if (rc)
+                    return rc;
             }
 
             buf[0] = temp >> 8;
@@ -119,6 +116,7 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 
             rc = mcp2515_send_wait(type, MY_ID,
                     buf, 2, SENSOR_temp5 + i);
+
             if (rc)
                 return rc;
         }
@@ -126,12 +124,11 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
         rc = temp_read(index, &temp);
         if (rc) {
             rc = mcp2515_send_wait(TYPE_sensor_error,
-                    MY_ID, NULL, 0, 
+                    MY_ID, NULL, 0,
                     SENSOR_temp5 + index);
-            /* what should we do here? sensor
-               measurement screwed up, but we
-               reported it successfully. */
-            return rc;
+
+            if (rc)
+                return rc;
         }
 
         buf[0] = temp >> 8;
@@ -139,9 +136,9 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 
         rc = mcp2515_send_wait(type, MY_ID, buf,
                 2, SENSOR_temp5 + index);
-        if (rc) {
+
+        if (rc)
             return rc;
-        }
     }
 
     return 0;
@@ -150,34 +147,38 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 uint8_t send_voltage_can(uint8_t type)
 {
     char buf[8];
-    uint16_t adc_voltage = get_voltage();
+    uint16_t adc_voltage;
     uint16_t mV;
     uint32_t V;
 
-    V = adc_voltage * 50000; /* 5.00V */
+    adc_voltage = get_voltage();
+
+    V = adc_voltage * 50000; /* 5.0V */
     V >>= 10;
-    V += 100000;
+    V += 100000; /* 10.0V */
     mV = V % 10000;
     V = V / 10000;
 
     buf[0] = adc_voltage >> 8;
     buf[1] = (adc_voltage & 0x00FF);
 
-    snprintf(buf + 2, sizeof(buf) - 2, 
+    snprintf(buf + 2, sizeof(buf) - 2,
             "%lu.%u", V, mV);
 
-    printf("voltage: %lu.%uV (%u)\n", V, mV, 
+    printf("voltage: %lu.%uV (%u)\n", V, mV,
             adc_voltage);
 
     return mcp2515_send_wait(type, MY_ID, buf,
             sizeof(buf), SENSOR_voltage);
 }
 
-
 uint8_t send_current_can(uint8_t type)
 {
     uint8_t buf[2];
-    uint16_t current = get_current();
+    uint16_t current;
+
+    current = get_current();
+
     buf[0] = current >> 8;
     buf[1] = (current & 0x00FF);
 
@@ -188,61 +189,29 @@ uint8_t send_current_can(uint8_t type)
 uint8_t send_all_can(uint8_t type)
 {
     uint8_t rc;
-    printf("send all can\n");
-    // -1 means send all temperature sensor readings
-    rc = send_temp_can(-1, type);
-    if (rc) {
-        return rc;
-    }
 
-    _delay_ms(150);
+    rc = send_temp_can(TEMP_ALL_CHANNELS, type);
+    if (rc)
+        return rc;
+
+    _delay_ms(500);
 
     rc = send_voltage_can(type);
-    if (rc) {
+    if (rc)
         return rc;
-    }
 
-    _delay_ms(150);
-    rc = send_current_can(type);
-    return rc;
+    _delay_ms(500);
+
+    return send_current_can(type);
 }
 
 uint8_t periodic_irq(void)
 {
-    uint8_t rc;
-
-    printf("hey\n");
-
-    return 0;
-
-    // -1 means send all temperature sensor readings
-    rc = send_temp_can(-1, TYPE_value_periodic);
-    if (rc) {
-        printf("send_temp_can()\n");
-        return rc;
-    }
-
-    _delay_ms(550);
-
-    rc = send_voltage_can(TYPE_value_periodic);
-    if (rc) {
-        printf("send_voltage_can() = %u\n", rc);
-        return rc;
-    }
-
-#if 0
-    _delay_ms(150);
-    rc = send_current_can(TYPE_value_periodic);
-    return rc;
-#endif
-
-    return 0;
+    return send_all_can(TYPE_value_periodic);
 }
 
 uint8_t can_irq(void)
 {
-    printf("can irq\n");
-
     switch(packet.type) {
     case TYPE_value_request:
         switch(packet.sensor) {
@@ -278,7 +247,7 @@ uint8_t uart_irq(void)
     buf[strlen(buf) - 1] = '\0';
 
     if (buf[0] == '\0') {
-        send_temp_can(-1, 0);
+        send_temp_can(TEMP_ALL_CHANNELS, 0);
         uint16_t current = get_current();
         printf("I: %u\n", current);
 
@@ -298,27 +267,6 @@ uint8_t uart_irq(void)
 
         printf("voltage: %lu.%uV (%u)\n", V, mV, 
                 adc_voltage);
-
-
-
-    } else {
-        heater_on(0);
-        heater_on(1);
-        heater_on(2);
-        heater_on(3);
-
-        _delay_ms(5000);
-
-        _delay_ms(250);
-        heater_off(0);
-        _delay_ms(250);
-        heater_off(1);
-        _delay_ms(250);
-        heater_off(2);
-        _delay_ms(250);
-        heater_off(3);
-
-        send_voltage_can(TYPE_value_explicit);
     }
 
     return 0;
