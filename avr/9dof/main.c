@@ -23,7 +23,7 @@
 #include "can.h"
 #include "debug.h"
 
-#define TIME_SYNC_INTERVAL 60
+#define TIME_SYNC_INTERVAL 60 * 60 * 2
 
 volatile uint32_t coords_read_time;
 volatile uint32_t last_time_sync;
@@ -67,9 +67,6 @@ ISR(USART_RX_vect)
 uint8_t send_time_can(uint8_t type)
 {
     struct mcp2515_packet_t p;
-    uint8_t rc;
-
-    printf("SENDING TIME\n");
 
     p.type = type;
     p.id = ID_9dof;
@@ -82,8 +79,7 @@ uint8_t send_time_can(uint8_t type)
 
     time_set(now);
 
-    rc = mcp2515_send2(&p);
-    return rc;
+    return mcp2515_sendpacket_wait(&p);
 }
 
 uint8_t user_irq(void)
@@ -109,71 +105,21 @@ uint8_t user_irq(void)
             send_time_can(TYPE_value_explicit);
         }
         break;
+
     case NMEA_COORDS:
         coords_read_time = now;
         cur_lat = result.cur_lat;
         cur_lon = result.cur_lon;
         break;
+
     case NMEA_NUM_SATS:
         num_sats_read_time = now;
         num_sats = result.num_sats;
         break;
+
     default:
         break;
     }
-
-
-    return 0;
-}
-
-uint8_t uart_irq(void)
-{
-    return 0;
-}
-
-uint8_t debug_irq(void)
-{
-    char buf[64];
-    fgets(buf, sizeof(buf), stdin);
-
-    struct nunchuck_t nunchuck;
-    uint8_t rc;
-
-    nunchuck.accel_x = 255;
-    nunchuck.accel_y = 255;
-    nunchuck.accel_z = 255;
-
-    rc = nunchuck_read(&nunchuck);
-    if (rc) {
-        /* sensor error, reinit */
-        //printf("err\n");
-        return 0;
-    }
-
-    //printf("nun: %d %d %d\n", nunchuck.accel_x, nunchuck.accel_y, nunchuck.accel_z);
-
-    struct hmc5883_t hmc;
-
-    hmc.x = -1;
-    hmc.y = -1;
-    hmc.z = -1;
-
-    rc = hmc_read(&hmc);
-    if (rc) {
-        /* sensor error, reinit */
-        return rc;
-    }
-
-    //printf("hmc: %d %d %d\n", hmc.x, hmc.y, hmc.z);
-
-
-
-    /* nmea */
-    if (now - coords_read_time > 5)
-        return 0;
-
-    printf("%ld %ld\n", cur_lat, cur_lon);
-    send_time_can(TYPE_value_explicit);
 
     return 0;
 }
@@ -190,7 +136,7 @@ uint8_t send_gyro_can(uint8_t type)
 
     rc = hmc_read(&hmc);
     if (rc) {
-        /* sensor error, reinit */
+        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, &rc, sizeof(rc), SENSOR_gyro);
         return rc;
     }
 
@@ -205,8 +151,7 @@ uint8_t send_gyro_can(uint8_t type)
     p.data[5] = hmc.z;
     p.len = 6;
 
-    rc = mcp2515_send2(&p);
-    return rc;
+    return mcp2515_sendpacket_wait(&p);
 }
 
 uint8_t send_compass_can(uint8_t type)
@@ -221,7 +166,7 @@ uint8_t send_compass_can(uint8_t type)
 
     rc = mpu_read(&mpu);
     if (rc) {
-        /* sensor error, reinit */
+        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, &rc, sizeof(rc), SENSOR_compass);
         return rc;
     }
 
@@ -236,8 +181,7 @@ uint8_t send_compass_can(uint8_t type)
     p.data[5] = mpu.z;
     p.len = 6;
 
-    rc = mcp2515_send2(&p);
-    return rc;
+    return mcp2515_sendpacket_wait(&p);
 }
 
 uint8_t send_accel_can(uint8_t type)
@@ -252,7 +196,7 @@ uint8_t send_accel_can(uint8_t type)
 
     rc = nunchuck_read(&nunchuck);
     if (rc) {
-        /* sensor error, reinit */
+        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, &rc, sizeof(rc), SENSOR_accel);
         return rc;
     }
 
@@ -267,18 +211,15 @@ uint8_t send_accel_can(uint8_t type)
     p.data[5] = nunchuck.accel_z;
     p.len = 6;
 
-    rc = mcp2515_send2(&p);
-    return rc;
+    return mcp2515_sendpacket_wait(&p);
 }
 
 uint8_t send_coords_can(uint8_t type)
 {
     struct mcp2515_packet_t p;
-    uint8_t rc;
 
-    if (now - coords_read_time > 5) {
+    if (now - coords_read_time > 5)
         return 0;
-    }
 
     p.type = type;
     p.id = ID_9dof;
@@ -293,8 +234,7 @@ uint8_t send_coords_can(uint8_t type)
     p.data[7] = cur_lon & 0xFF;
     p.len = 8;
 
-    rc = mcp2515_send2(&p);
-    return rc;
+    return mcp2515_sendpacket_wait(&p);
 }
 
 uint8_t send_all_can(uint8_t type)
@@ -323,9 +263,24 @@ uint8_t send_all_can(uint8_t type)
     return rc;
 }
 
-uint8_t periodic_irq(void)
+uint8_t uart_irq(void)
 {
     return 0;
+}
+
+uint8_t debug_irq(void)
+{
+    char buf[64];
+
+    fgets(buf, sizeof(buf), stdin);
+
+    send_all_can(TYPE_value_explicit);
+
+    return 0;
+}
+
+uint8_t periodic_irq(void)
+{
     return send_all_can(TYPE_value_periodic);
 }
 
@@ -354,6 +309,7 @@ uint8_t can_irq(void)
     }
 
     packet.unread = 0;
+
     return rc;
 }
 
@@ -361,26 +317,25 @@ int main(void)
 {
     NODE_INIT();
 
+    sei();
     i2c_init(I2C_FREQ(400000));
 
     rc = hmc_init();
     if (rc) {
-        //puts_P(PSTR("hmc init"));
+        puts_P(PSTR("hmc init"));
     }
 
     rc = mpu_init();
     if (rc) {
-        //puts_P(PSTR("mpu init"));
+        puts_P(PSTR("mpu init"));
     }
 
     rc = nunchuck_init();
     if (rc) {
-        //puts_P(PSTR("nunch init"));
+        puts_P(PSTR("nunch init"));
     }
 
     hmc_set_continuous();
-
-    sei();
 
     NODE_MAIN();
 }
