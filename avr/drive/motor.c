@@ -17,12 +17,8 @@ void motor_init(void)
 
 void _delay_ms_long(uint16_t arg)
 {
-    while (arg > 6000) {
-        _delay_ms(6000);
-        arg -= 6000;
-    }
-
-    _delay_ms(arg);
+    while (arg--)
+        _delay_ms(1);
 }
 
 void motor_drive(int16_t left_ms, int16_t right_ms)
