@@ -200,6 +200,11 @@ uint8_t mcp2515_send2(struct mcp2515_packet_t *p)
     return mcp2515_send_sensor(p->type, p->id, p->data, p->len, p->sensor);
 }
 
+uint8_t mcp2515_sendpacket_wait(struct mcp2515_packet_t *p)
+{
+    return mcp2515_send_wait(p->type, p->id, p->data, p->len, p->sensor);
+}
+
 uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
 {
     return mcp2515_send_sensor(type, id, data, len, 0);
