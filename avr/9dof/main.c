@@ -25,7 +25,6 @@
 
 #define TIME_SYNC_INTERVAL 60
 
-
 volatile uint32_t coords_read_time;
 volatile uint32_t last_time_sync;
 volatile uint32_t num_sats_read_time;
@@ -70,14 +69,18 @@ uint8_t send_time_can(uint8_t type)
     struct mcp2515_packet_t p;
     uint8_t rc;
 
+    printf("SENDING TIME\n");
+
     p.type = type;
     p.id = ID_9dof;
     p.sensor = SENSOR_time;
-    p.data[0] = now >> 24;
-    p.data[1] = now >> 16;
-    p.data[2] = now >> 8;
-    p.data[3] = now & 0xFF;
+    p.data[0] = (now >> 24) & 0xff;
+    p.data[1] = (now >> 16) & 0xff;
+    p.data[2] = (now >> 8) & 0xff;
+    p.data[3] = (now >> 0) & 0xff;
     p.len = 4;
+
+    time_set(now);
 
     rc = mcp2515_send2(&p);
     return rc;
@@ -130,13 +133,6 @@ uint8_t uart_irq(void)
 
 uint8_t debug_irq(void)
 {
-    return 0;
-
-
-
-
-
-
     char buf[64];
     fgets(buf, sizeof(buf), stdin);
 
@@ -176,7 +172,8 @@ uint8_t debug_irq(void)
     if (now - coords_read_time > 5)
         return 0;
 
-    //printf("%ld %ld\n", cur_lat, cur_lon);
+    printf("%ld %ld\n", cur_lat, cur_lon);
+    send_time_can(TYPE_value_explicit);
 
     return 0;
 }
