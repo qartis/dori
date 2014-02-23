@@ -5,7 +5,7 @@
 
 #include "i2c.h"
 #include "bmp085.h"
- 
+
 #define BMP085_ADDR 0xEE
 
 #define BMP085_AC1_REG 0xAA
