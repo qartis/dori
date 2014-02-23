@@ -133,29 +133,6 @@ void tcp_irq(uint8_t *buf, uint8_t len)
         tcp_buf[tcp_buf_len] = buf[i];
         tcp_buf_len++;
     }
-    //printf("\n");
-
-#if 0
-    switch (tcp_buf[0]) {
-        /*
-    case '1' ... '9':
-        len = tcp_buf[0] - '0';
-
-        if (tcp_buf_len <= len)
-            return;
-
-        p.type = TYPE_file_read;
-        p.id = ID_logger;
-        p.len = len;
-        for (i = 0; i < len; i++)
-            p.data[i] = tcp_buf[i + 1];
-
-        tcp_buf_len -= len + 1;
-
-        memmove(tcp_buf, tcp_buf + len + 1, tcp_buf_len);
-        break;
-        */
-#endif
 
     if (tcp_buf_len < 5)
         return;
@@ -426,7 +403,7 @@ uint8_t can_irq(void)
             } else if (packet.type == TYPE_xfer_chunk ||
                        packet.type == TYPE_ircam_header) {
                 printf("sending cts\n");
-                rc = mcp2515_send(TYPE_xfer_cts, ID_logger, NULL, 0);
+                rc = mcp2515_send(TYPE_xfer_cts, ID_cam, NULL, 0);
             } else {
             }
         }

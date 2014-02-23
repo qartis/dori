@@ -57,7 +57,7 @@
 #define ID_LIST(X) \
     X(none,    0x00) \
     X(any,     0x01) \
-    X(logger,  0x02) \
+    X(cam,     0x02) \
     X(arm,     0x03) \
     X(diag,    0x04) \
     X(9dof,    0x05) \

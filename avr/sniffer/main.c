@@ -176,7 +176,7 @@ uint8_t uart_irq(void)
     arg = strtok(buf, " ");
 
     if (arg == NULL) {
-        mcp2515_send_wait(TYPE_xfer_cts, ID_logger, NULL, 0, 0);
+        mcp2515_send_wait(TYPE_xfer_cts, ID_cam, NULL, 0, 0);
     } else if (strcmp_P(arg, PSTR("send")) == 0) {
         arg = strtok(NULL, " ");
         if (arg == NULL) {
