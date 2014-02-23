@@ -72,10 +72,10 @@ reinit: \
             rc = debug_irq(); \
             irq_signal &= ~IRQ_DEBUG; \
             PROMPT;\
-        } \
-        if (rc) {\
-            printwait_P(PSTR("$$d\n"));\
-            goto reinit;\
+            if (rc) {\
+                printwait_P(PSTR("$$d\n"));\
+                goto reinit;\
+            } \
         }
 #else
 #define CHECK_DEBUG
@@ -86,10 +86,10 @@ reinit: \
         if (irq_signal & IRQ_UART) { \
             rc = uart_irq(); \
             irq_signal &= ~IRQ_UART; \
-        } \
-        if (rc) {\
-            printwait_P(PSTR("$$u\n"));\
-            goto reinit;\
+            if (rc) {\
+                printwait_P(PSTR("$$u\n"));\
+                goto reinit;\
+            } \
         }
 #else
 #define CHECK_UART
@@ -101,10 +101,10 @@ reinit: \
         if (irq_signal & IRQ_USER) { \
             rc = user_irq(); \
             irq_signal &= ~IRQ_USER; \
-        } \
-        if (rc) {\
-            printwait_P(PSTR("$$U\n"));\
-            goto reinit;\
+            if (rc) {\
+                printwait_P(PSTR("$$U\n"));\
+                goto reinit;\
+            } \
         }
 #else
 #define CHECK_USER
@@ -131,25 +131,25 @@ inline void sleep(void)
         if (0 && reinit) goto reinit; \
 \
         sleep(); \
-        while(irq_signal == 0) {}; \
+        while (irq_signal == 0) {}; \
 \
         if (irq_signal & IRQ_CAN) { \
             rc = can_irq(); \
             irq_signal &= ~IRQ_CAN; \
-        } \
-        if (rc) {\
-            printwait_P(PSTR("$$c\n"));\
-            goto reinit;\
+            if (rc) {\
+                printwait_P(PSTR("$$c\n"));\
+                goto reinit; \
+            } \
         } \
 \
         if (irq_signal & IRQ_PERIODIC) { \
             rc = periodic_irq(); \
             irq_signal &= ~IRQ_PERIODIC; \
+            if (rc) {\
+                printwait_P(PSTR("$$p\n"));\
+                goto reinit; \
+            }\
         } \
-        if (rc) {\
-            printwait_P(PSTR("$$p\n"));\
-            goto reinit;\
-        }\
 \
         CHECK_UART; \
         CHECK_DEBUG; \
