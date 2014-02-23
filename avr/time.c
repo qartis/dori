@@ -120,6 +120,7 @@ void time_set(uint32_t new_time)
         now = new_time;
         overflows = 0;
         TCNT0 = 0;
+        PORTC &= ~(1 << PORTC3);
     }
 
     if (run_periodic)
