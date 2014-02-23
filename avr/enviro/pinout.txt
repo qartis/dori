@@ -40,6 +40,6 @@ wind dat | #15 34# |   BAROM EOC
 humid v+ | #17 36# |   BAROM SCL
 humid gn | #18 37# |   BAROM SDA
 humid da | #19 38# |   BAROM 5V
-               40# |   BAROM GND
+               39# |   BAROM GND
 
 
