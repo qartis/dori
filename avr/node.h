@@ -17,7 +17,6 @@ ISR(BADISR_vect)
 {
     uart_tx_empty();
     printwait_P(PSTR("BADISR\n"));
-    printwait_P(PSTR("BADISR\n"));
 }
 
 #ifdef DEBUG
@@ -112,16 +111,15 @@ reinit: \
 
 inline void sleep(void)
 {
-#if 0
     ACSR |= (1 << ACD); /* analog comparator disabled */
     ADCSRA &= ~(1 << ADEN); /* adc off */
-    PRR |= (1 << PRTWI) | (1 << PRTIM2) | (1 << PRADC);
+    PRR |= (1 << PRADC);
     sleep_enable();
     sleep_bod_disable();
     sei();
     sleep_cpu();
     sleep_disable();
-#endif
+    PRR &= ~(1 << PRADC);
 }
 
 #define NODE_MAIN() \
@@ -130,8 +128,7 @@ inline void sleep(void)
     for (;;) { \
         if (0 && reinit) goto reinit; \
 \
-        sleep(); \
-        while (irq_signal == 0) {}; \
+        while (irq_signal == 0) { /*sleep();*/ } \
 \
         if (irq_signal & IRQ_CAN) { \
             rc = can_irq(); \
