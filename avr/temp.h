@@ -1,3 +1,5 @@
+#define TEMP_ALL_CHANNELS (-1)
+
 extern uint8_t temp_num_sensors;
 
 void temp_init(void);
