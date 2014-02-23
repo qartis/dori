@@ -133,11 +133,11 @@ uint8_t can_irq(void)
     case TYPE_value_request:
         rc = process_value_request();
         break;
-    case TYPE_action_arm_spin:
+    case TYPE_action_arm_angle:
         val = packet.data[0];
         set_arm_percent(val);
         break;
-    case TYPE_action_arm_angle:
+    case TYPE_action_arm_spin:
         val = (packet.data[0] << 8) |
               (packet.data[1] & 0xff);
         set_stepper_angle(val);
