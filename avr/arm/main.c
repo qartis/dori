@@ -152,6 +152,7 @@ uint8_t can_irq(void)
 
 uint8_t debug_irq(void)
 {
+    uint8_t pos;
     char buf[DEBUG_BUF_SIZE];
     uint16_t dist;
 
@@ -174,23 +175,26 @@ uint8_t debug_irq(void)
             printf("dist: %umm\n", dist);
 
         break;
+    case 'a':
+        pos = atoi(buf + 1);
+        set_arm_percent(pos);
+        break;
+
     }
 
     return 0;
 }
 
-void main(void)
+int main(void)
 {
     NODE_INIT();
     adc_init();
     laser_init();
 
-    /*
     DDRC |= (1 << PORTC2);
     PORTC |= (1 << PORTC2);
 
     stepper_init();
-    */
 
     sei();
 
