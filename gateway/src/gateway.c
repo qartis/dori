@@ -559,6 +559,7 @@ int main()
 
                 } else if (rc < 0) {
                     perror("Client disconnected");
+                    remove_client(fd);
                 } else {
 
                     /*
