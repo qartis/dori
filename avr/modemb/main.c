@@ -519,7 +519,7 @@ done:
     return 0;
 }
 
-void main(void)
+int main(void)
 {
     NODE_INIT();
 

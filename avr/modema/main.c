@@ -439,7 +439,7 @@ uint8_t can_irq(void)
     return 0;
 }
 
-void main(void)
+int main(void)
 {
     NODE_INIT();
 

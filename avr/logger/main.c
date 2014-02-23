@@ -669,7 +669,7 @@ uint8_t debug_irq(void)
     return 0;
 }
 
-void main(void)
+int main(void)
 {
 #if ENABLE_SD
     /* clear up the SPI bus for the mcp2515 */
