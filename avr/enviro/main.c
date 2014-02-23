@@ -1,11 +1,11 @@
 #include <stdio.h>
-#include <util/atomic.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <util/delay.h>
+#include <util/atomic.h>
 
 #include "irq.h"
 #include "time.h"
@@ -36,10 +36,6 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
     uint8_t buf[2];
     uint8_t rc;
 
-    if (num_sensors == 0) {
-        temp_init();
-    }
-
     temp_begin();
     temp_wait();
 
@@ -48,17 +44,19 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
     // -1 means send all temperature sensor readings
     if (index == -1) {
         uint8_t i = 0;
-        for (i = 0; i < num_sensors; i++) {
+        for (i = 0; i < temp_num_sensors; i++) {
             temp_read(i, &temp);
             buf[0] = temp >> 8;
             buf[1] = temp & 0xFF;
 
+            /*
             rc = mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_temp0 + i);
             if (rc) {
                 return rc;
             }
+            */
 
-            _delay_ms(150);
+            //_delay_ms(150);
         }
     } else {
         temp_read(index, &temp);
@@ -76,6 +74,7 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 
 uint8_t send_rain_can(uint8_t type)
 {
+    return 0;
     uint8_t buf[1];
     uint8_t rc;
 
@@ -93,6 +92,7 @@ uint8_t send_rain_can(uint8_t type)
 
 uint8_t send_wind_can(uint8_t type)
 {
+    return 0;
     uint8_t buf[2];
     uint16_t wind;
 
@@ -101,20 +101,25 @@ uint8_t send_wind_can(uint8_t type)
     buf[1] = (wind & 0x00FF);
 
     return mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_wind);
+    return 0;
 }
 
 uint8_t send_humidity_can(uint8_t type)
 {
+    return 0;
+
     uint8_t buf[2];
     uint16_t humidity = get_humidity();
     buf[0] = humidity >> 8;
     buf[1] = (humidity & 0x00FF);
 
     return mcp2515_send_sensor(type, MY_ID, buf, 2, SENSOR_humidity);
+    return 0;
 }
 
 uint8_t send_pressure_can(uint8_t type)
 {
+    return 0;
     uint8_t buf[4];
     struct bmp085_sample s;
 
@@ -132,6 +137,7 @@ uint8_t send_pressure_can(uint8_t type)
 
 uint8_t send_all_can(uint8_t type)
 {
+    return 0;
     uint8_t rc;
     // -1 means send all temperature sensor readings
     rc = send_temp_can(-1, type);
@@ -199,10 +205,44 @@ uint8_t can_irq(void)
 
 uint8_t uart_irq(void)
 {
+    int16_t temp;
+    uint16_t wind;
+
+    wind = get_wind_speed();
+    printf("wind %u\n", wind);
+
+    temp_begin();
+    temp_wait();
+
+    temp_read(0, &temp);
+    printf("temp %d\n", temp);
+
+
+    struct bmp085_sample s;
+
+    bmp085_get_cal_param();
+
+    s = bmp085_read();
+    uint32_t pressure = s.pressure;
+
+    printf("pressure %lu\n", pressure);
+
+    uint16_t humidity = get_humidity();
+    printf("humid %u\n", humidity);
+
+    uint8_t buf[1];
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        buf[0] = water_tips;
+        water_tips = 0;
+    }
+
+    printf("rain: %u\n", buf[0]);
+
     return 0;
 }
 
-void main(void)
+int main(void)
 {
     NODE_INIT();
 
