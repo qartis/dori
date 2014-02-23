@@ -318,7 +318,7 @@ void read_packet(uint8_t regnum)
 
     mcp2515_unselect();
 
-    if (packet.type == TYPE_value_periodic && packet.sensor == SENSOR_time) {
+    if (packet.sensor == SENSOR_time) {
         uint32_t new_time = (uint32_t)packet.data[0] << 24 |
             (uint32_t)packet.data[1] << 16 |
             (uint32_t)packet.data[2] << 8  |
