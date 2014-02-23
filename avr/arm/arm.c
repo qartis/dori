@@ -17,7 +17,8 @@ uint16_t get_arm_angle(void)
 
 void set_arm_percent(uint8_t pos)
 {
-    DDRC |= (1 << PORTC1) | (1 << PORTC0);
+    DDRD |= (1 << PORTD2) | (1 << PORTD7);
+
     /* pos is 0..9 */
     uint16_t goal = map(pos, 0, 9, 530, 1000);
 
@@ -28,12 +29,14 @@ void set_arm_percent(uint8_t pos)
         puts_P(PSTR("done"));
         //nothing
     } else if (now > goal) {
-        PORTC |=  (1 << PORTC1);
+        printf("d2\n");
+        PORTD |=  (1 << PORTD2);
         while (get_arm_angle() > goal) { _delay_ms(10); };
-        PORTC &= ~(1 << PORTC1);
+        PORTD &= ~(1 << PORTD2);
     } else {
-        PORTC |=  (1 << PORTC0);
+        printf("d7\n");
+        PORTD |=  (1 << PORTD7);
         while (get_arm_angle() < goal) { _delay_ms(10); };
-        PORTC &= ~(1 << PORTC0);
+        PORTD &= ~(1 << PORTD7);
     }
 }
