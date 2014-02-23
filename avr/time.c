@@ -96,7 +96,7 @@ void time_init(void)
 
     /* timer0 is used as global timer for periodic messages */
     OCR0A = (125 - 1);
-    OCR0B = (50 - 1);
+    OCR0B = (80 - 1);
     TCCR0A = (1 << WGM01);
     TCCR0B = TIMER0_PRESCALER;
     TIMSK0 = (1 << OCIE0A) | (1 << OCIE0B);
