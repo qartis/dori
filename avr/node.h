@@ -3,6 +3,8 @@
 
 volatile uint8_t reinit;
 
+void sleep(void);
+
 uint8_t boot_mcusr __attribute__ ((section (".noinit")));
 
 void get_mcusr(void) __attribute__((section(".init3"), naked, used));
@@ -109,18 +111,6 @@ reinit: \
 #define CHECK_USER
 #endif
 
-inline void sleep(void)
-{
-    ACSR |= (1 << ACD); /* analog comparator disabled */
-    ADCSRA &= ~(1 << ADEN); /* adc off */
-    PRR |= (1 << PRADC);
-    sleep_enable();
-    sleep_bod_disable();
-    sei();
-    sleep_cpu();
-    sleep_disable();
-    PRR &= ~(1 << PRADC);
-}
 
 #define NODE_MAIN() \
     PROMPT \
@@ -128,7 +118,7 @@ inline void sleep(void)
     for (;;) { \
         if (0 && reinit) goto reinit; \
 \
-        while (irq_signal == 0) { /*sleep();*/ } \
+        while (irq_signal == 0) { sleep(); } \
 \
         if (irq_signal & IRQ_CAN) { \
             rc = can_irq(); \

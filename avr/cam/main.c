@@ -107,6 +107,15 @@ uint8_t debug_irq(void)
     return 0;
 }
 
+void sleep(void)
+{
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
+}
+
 int main(void)
 {
     NODE_INIT();
