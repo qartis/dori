@@ -10,7 +10,9 @@
 
 #include "sim900.h"
 #include "uart.h"
-#include "debug.h"
+#include "can.h"
+//#include "debug.h"
+#include "mcp2515.h"
 
 volatile enum state state;
 volatile uint8_t flag_ok;
@@ -20,10 +22,10 @@ uint8_t wait_for_state(uint8_t goal_state)
 {
     uint8_t retry;
 
-    /* 255 * 39 = 10000 ms */
+    /* 255 * 10 = 2550 ms */
     retry = 255;
     while (state != goal_state && state != STATE_ERROR && --retry)
-        _delay_ms(39/3);
+        _delay_ms(10);
 
     return state != goal_state;
 }
@@ -99,6 +101,7 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
 {
     uint8_t rc;
     uint16_t i;
+    uint16_t err_num;
 
     state = STATE_EXPECTING_PROMPT;
     sendATCommand(PSTR("AT+CIPSEND=%d"), count);
@@ -106,18 +109,18 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
     rc = wait_for_state(STATE_GOT_PROMPT);
     if (rc != 0) {
         printf_P(PSTR("wanted to send data, but didn't get prompt (state now %d)\n"), state);
-        /* send CAN error, but continue regardless */
+
+        err_num = __LINE__;
+        mcp2515_send_wait(TYPE_sensor_error, MY_ID, 0, &err_num, sizeof(err_num));
 
         return 1;
     }
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         for (i = 0; i < count; i++) {
-            printf("%02x ", buf[i]);
             uart_putchar(buf[i]);
-            _delay_ms(10);
+            _delay_ms(5);
         }
-        printf("\n");
     }
 
     rc = wait_for_state(STATE_CONNECTED);
