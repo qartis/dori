@@ -196,20 +196,20 @@ void mcp2515_reset(void)
 
 uint8_t mcp2515_send2(struct mcp2515_packet_t *p)
 {
-    return mcp2515_send_sensor(p->type, p->id, p->data, p->len, p->sensor);
+    return mcp2515_send_sensor(p->type, p->id, p->sensor, p->data, p->len);
 }
 
 uint8_t mcp2515_sendpacket_wait(struct mcp2515_packet_t *p)
 {
-    return mcp2515_send_wait(p->type, p->id, p->data, p->len, p->sensor);
+    return mcp2515_send_wait(p->type, p->id, p->sensor, p->data, p->len);
 }
 
 uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
 {
-    return mcp2515_send_sensor(type, id, data, len, 0);
+    return mcp2515_send_sensor(type, id, 0, data, len);
 }
 
-uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
+uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, uint16_t sensor, const void *data, uint8_t len)
 {
     uint8_t retry = 255;
     while (mcp2515_busy && --retry)
@@ -218,7 +218,7 @@ uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t le
     if (mcp2515_busy)
         return 99;
 
-    mcp2515_send_sensor(type, id, data, len, sensor);
+    mcp2515_send_sensor(type, id, sensor, data, len);
 
     retry = 255;
     while (mcp2515_busy && --retry)
@@ -230,7 +230,7 @@ uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, const void *data, uint8_t le
     return 0;
 }
 
-uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t len, uint16_t sensor)
+uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const void *data, uint8_t len)
 {
     if (stfu)
         return 0;
@@ -241,7 +241,7 @@ uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t 
     }
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        load_tx0(type, id, (const uint8_t *)data, len, sensor);
+        load_tx0(type, id, sensor, (const uint8_t *)data, len);
         mcp2515_busy = 1;
 
         modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
@@ -253,7 +253,7 @@ uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, const void *data, uint8_t 
     return 0;
 }
 
-void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16_t sensor)
+void load_tx0(uint8_t type, uint8_t id, uint16_t sensor, const uint8_t *data, uint8_t len)
 {
     uint8_t i;
 
@@ -267,7 +267,7 @@ void load_tx0(uint8_t type, uint8_t id, const uint8_t *data, uint8_t len, uint16
     spi_write(sensor >> 8);
     spi_write(sensor & 0xFF);
 
-    if(len > 8)
+    if (len > 8)
         len = 8;
 
     spi_write(len);
@@ -459,7 +459,7 @@ uint8_t mcp2515_check_alive(void)
     return (rc == 0b00100111);
 }
 
-uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len, uint16_t sensor)
+uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint16_t sensor, const void *data, uint8_t len)
 {
     uint8_t retry;
     uint8_t rc;
@@ -468,7 +468,7 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len, 
     for (i = 0; i < 3; i++) {
         xfer_state = XFER_CHUNK_SENT;
 
-        rc = mcp2515_send_wait(type, dest, data, len, sensor);
+        rc = mcp2515_send_wait(type, dest, sensor, data, len);
         if (rc) {
             puts_P(PSTR("xfsd er"));
             return rc;
@@ -498,58 +498,6 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, const void *data, uint8_t len, 
 
     if (retry == 0)
         return MCP_ERR_XFER_TIMEOUT;
-
-    return 0;
-}
-
-uint8_t mcp2515_receive_xfer_wait(uint8_t type, uint8_t sender_id,
-    mcp2515_xfer_callback_t xfer_cb)
-{
-    uint8_t retry;
-    uint8_t rc;
-
-    expecting_xfer_type = type;
-    xfer_state = XFER_WAIT_CHUNK;
-
-    puts_P(PSTR("sent CTS"));
-    mcp2515_send(TYPE_xfer_cts, sender_id, NULL, 0);
-
-    for (;;) {
-        retry = 255;
-        while (xfer_state == XFER_WAIT_CHUNK && --retry)
-            _delay_ms(40);
-
-        puts_P(PSTR("done"));
-        if (retry == 0) {
-            /* timed out waiting for xfer */
-            xfer_state = XFER_CANCEL;
-            puts_P(PSTR("wt_rx_xf: timeout"));
-            return 1;
-        }
-
-        if (xfer_state == XFER_CANCEL) {
-            puts_P(PSTR("wt_rx_xf: cancelled"));
-            return 1;
-        }
-
-        /* handle this new chunk */
-        rc = xfer_cb();
-        if (rc) {
-            puts_P(PSTR("xfer_cb error, cancelled"));
-            xfer_state = XFER_CANCEL;
-            return rc;
-        }
-
-        xfer_state = XFER_WAIT_CHUNK;
-
-        mcp2515_send(TYPE_xfer_cts, sender_id, NULL, 0);
-
-        if (packet.len < 8) {
-            /* we just sent our last (partial) chunk. success. */
-            puts_P(PSTR("rx_xf_wt: success"));
-            break;
-        }
-    }
 
     return 0;
 }

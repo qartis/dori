@@ -38,7 +38,7 @@ uint8_t send_arm_angle(uint8_t type)
 
     counter++;
 
-    rc = mcp2515_send_sensor(type, ID_arm, buf, 3, SENSOR_arm);
+    rc = mcp2515_send_sensor(type, ID_arm, SENSOR_arm, buf, 3);
     if (rc != 0)
         puts_P(PSTR("err: arm: mcp2515_send_sensor"));
 
@@ -60,7 +60,7 @@ uint8_t send_stepper_angle(uint8_t type)
 
     counter++;
 
-    rc = mcp2515_send_sensor(type, ID_arm, buf, 3, SENSOR_stepper);
+    rc = mcp2515_send_sensor(type, ID_arm, SENSOR_stepper, buf, 3);
     if (rc != 0)
         puts_P(PSTR("err: stepper: mcp2515_send_sensor"));
 
@@ -77,14 +77,14 @@ uint8_t send_laser_dist(uint8_t type)
     dist = measure_once();
 
     if (dist == 0) {
-        rc = mcp2515_send_sensor(TYPE_sensor_error, ID_arm, buf, sizeof(buf), SENSOR_laser);
+        rc = mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_laser, buf, sizeof(buf));
         return rc;
     }
 
     buf[0] = (dist >> 8) & 0xFF;
     buf[1] = (dist >> 0) & 0xFF;
 
-    rc = mcp2515_send_sensor(type, ID_arm, buf, sizeof(buf), SENSOR_laser);
+    rc = mcp2515_send_sensor(type, ID_arm, SENSOR_laser, buf, sizeof(buf));
     return rc;
 }
 
@@ -183,6 +183,15 @@ uint8_t debug_irq(void)
     }
 
     return 0;
+}
+
+void sleep(void)
+{
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
 }
 
 int main(void)

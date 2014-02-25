@@ -27,6 +27,7 @@
 
 static uint8_t at_tx_buf[64];
 static uint16_t net_buf_len;
+static uint8_t tcp_toread;
 
 volatile uint32_t modem_alive_time;
 
@@ -77,7 +78,7 @@ uint8_t debug_irq(void)
             slow_write("AT\r", strlen("AT\r"));
             break;
         case 'c':
-            irq_signal |= IRQ_USER;
+            TRIGGER_USER_IRQ();
             break;
         case '?':
             printf_P(PSTR("state: %d\n"), state);
@@ -172,7 +173,6 @@ ISR(USART_RX_vect)
     static uint8_t tcp_rx_buf[64];
     static uint8_t tcp_rx_buf_len = 0;
 
-    static uint8_t tcp_toread = 0;
 
     c = UDR0;
 
@@ -188,10 +188,12 @@ ISR(USART_RX_vect)
             tcp_irq(tcp_rx_buf, tcp_rx_buf_len);
             tcp_rx_buf_len = 0;
         }
-    } else if (state == STATE_EXPECTING_PROMPT && at_rx_buf[0] == '>') {
-        state = STATE_GOT_PROMPT;
-        at_rx_buf_len = 0;
-        at_rx_buf[0] = '\0';
+    } else if (state == STATE_EXPECTING_PROMPT) {
+        if (at_rx_buf[0] == '>') {
+            state = STATE_GOT_PROMPT;
+            at_rx_buf_len = 0;
+            at_rx_buf[0] = '\0';
+        }
     } else if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
         // If we got some data, we must be connected
         state = STATE_CONNECTED;
@@ -212,13 +214,10 @@ ISR(USART_RX_vect)
 
         if (streq_P(at_rx_buf, PSTR("OK"))) {
             flag_ok = 1;
-            /* We don't care anymore */
         } else if (streq_P(at_rx_buf, PSTR("ERROR"))) {
             flag_error = 1;
-            /* We don't care anymore */
         } else if (streq_P(at_rx_buf, PSTR("RING"))) {
-            /* trigger remote connect() */
-            irq_signal |= IRQ_USER;
+            TRIGGER_USER_IRQ();
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP INITIAL"))) {
             state = STATE_IP_INITIAL;
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP START"))) {
@@ -286,13 +285,16 @@ void powercycle_modem(void)
 
 uint8_t periodic_irq(void)
 {
-    if(state == STATE_EXPECTING_PROMPT ||
+    if (state == STATE_EXPECTING_PROMPT ||
        state == STATE_GOT_PROMPT) {
         printf("expecting prompt\n");
         return 0;
     }
 
-    if(now - modem_alive_time >= 10) {
+    if (now - modem_alive_time >= 10) {
+        if (tcp_toread > 0)
+            tcp_toread = 0;
+
         slow_write("AT\r", strlen("AT\r"));
         _delay_ms(100);
         slow_write("AT\r", strlen("AT\r"));
@@ -415,9 +417,20 @@ uint8_t can_irq(void)
     return 0;
 }
 
+void sleep(void)
+{
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
+}
+
 int main(void)
 {
     NODE_INIT();
+
+    PRR |= (1 << PRTWI) | (1 << PRADC);
 
     sei();
 

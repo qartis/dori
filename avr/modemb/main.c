@@ -55,12 +55,10 @@ uint8_t from_hex(char a)
 
 char to_hex(uint8_t val)
 {
-    if (val < 10) {
+    if (val < 10)
         return '0' + val;
-    }
-    else {
+    else
         return 'a' + (val - 10);
-    }
 }
 
 uint8_t startswith(const char *a, const char *b)
@@ -89,7 +87,7 @@ ISR(USART_RX_vect)
         (buflen == 1 && buf[buflen] != 0x0c) ||
         (buflen == 2 && buf[buflen] != 0x00) ||
         (buflen == 5 && buf[buflen] > 128)) {
-        putchar('!');
+        //putchar('!');
         buflen = 0;
         return;
     }
@@ -113,7 +111,7 @@ ISR(USART_RX_vect)
 
     if (type == TYPE_ACK){
         printf_P(PSTR("got ack %x\n"), buf[FBUS_HEADER_LEN]);
-        
+
         /*
         uint8_t i;
         for(i = 0; i < len; i++) {
@@ -159,10 +157,8 @@ ISR(USART_RX_vect)
         incoming_frametype = FRAME_NONE;
         uint8_t status = buf[14]; // could be 0, 1, (unknown = failure)
         printf_P(PSTR("@@@@@@sms status: %d\n"), status);
-        if(status == 0) {
+        if (status == 0) {
             fbus_sms_sent_flag = 1;
-            // success
-            //uint8_t ref_num = buf[16]; // sms reference
         }
     } else if (type == TYPE_ID){
         incoming_frametype = FRAME_NONE;
@@ -170,7 +166,7 @@ ISR(USART_RX_vect)
         fbus_id_flag = 1;
     } else if (type == TYPE_SMS && sms_cmd == FBUS_SUBSMS_INCOMING){
         incoming_frametype = FRAME_SUBSMS_INCOMING;
-    } else if (type == TYPE_NET_STATUS){
+    } else if (type == TYPE_NET_STATUS) {
         incoming_frametype = FRAME_NET_STATUS;
     }
 
@@ -316,7 +312,7 @@ uint8_t user_irq(void)
             }
 
             printf("snd can\n");
-            rc = mcp2515_send_wait(type, id, data, len, sensor);
+            rc = mcp2515_send_wait(type, id, sensor, data, len);
 
             if(msg_buflen < 10 + (len * 2)) {
                 puts_P(PSTR("inval sms"));
@@ -505,8 +501,8 @@ uint8_t can_irq(void)
     }
 
     printf_P(PSTR("snd'%s'\n"), output);
-    rc = fbus_sendsms("7788969633", output);
-    //rc = fbus_sendsms("7786860358", output);
+    //rc = fbus_sendsms("7788969633", output);
+    rc = fbus_sendsms("7786860358", output);
 
     if (rc) {
         puts_P(PSTR("problem sending SMS"));
@@ -517,6 +513,15 @@ uint8_t can_irq(void)
 done:
     packet.unread = 0;
     return 0;
+}
+
+void sleep(void)
+{
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
 }
 
 int main(void)

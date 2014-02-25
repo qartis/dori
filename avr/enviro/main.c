@@ -45,9 +45,8 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
         for (i = 0; i < temp_num_sensors; i++) {
             rc = temp_read(i, &temp);
             if (rc) {
-                rc = mcp2515_send_wait(
-                        TYPE_sensor_error, MY_ID,
-                        NULL, 0, SENSOR_temp0 + i);
+                rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID,
+                                       SENSOR_temp0 + i, NULL, 0);
 
                 if (rc)
                     return rc;
@@ -56,8 +55,7 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
             buf[0] = temp >> 8;
             buf[1] = temp & 0xFF;
 
-            rc = mcp2515_send_wait(type, MY_ID,
-                    buf, 2, SENSOR_temp0 + i);
+            rc = mcp2515_send_wait(type, MY_ID, SENSOR_temp0 + i, buf, 2);
 
             if (rc)
                 return rc;
@@ -65,9 +63,8 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
     } else {
         rc = temp_read(index, &temp);
         if (rc) {
-            rc = mcp2515_send_wait(TYPE_sensor_error,
-                    MY_ID, NULL, 0,
-                    SENSOR_temp0 + index);
+            rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID,
+                                   SENSOR_temp0 + index, NULL, 0);
 
             if (rc)
                 return rc;
@@ -76,8 +73,7 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
         buf[0] = temp >> 8;
         buf[1] = temp & 0xFF;
 
-        rc = mcp2515_send_wait(type, MY_ID, buf,
-                2, SENSOR_temp0 + index);
+        rc = mcp2515_send_wait(type, MY_ID, SENSOR_temp0 + index, buf, 2);
 
         if (rc)
             return rc;
@@ -95,7 +91,7 @@ uint8_t send_rain_can(uint8_t type)
         water_tips = 0;
     }
 
-    return mcp2515_send_wait(type, MY_ID, buf, 1, SENSOR_rain);
+    return mcp2515_send_wait(type, MY_ID, SENSOR_rain, buf, 1);
 }
 
 uint8_t send_wind_can(uint8_t type)
@@ -107,7 +103,7 @@ uint8_t send_wind_can(uint8_t type)
     buf[0] = wind >> 8;
     buf[1] = (wind & 0x00FF);
 
-    return mcp2515_send_wait(type, MY_ID, buf, 2, SENSOR_wind);
+    return mcp2515_send_wait(type, MY_ID, SENSOR_wind, buf, 2);
 }
 
 uint8_t send_humidity_can(uint8_t type)
@@ -118,7 +114,7 @@ uint8_t send_humidity_can(uint8_t type)
     buf[0] = humidity >> 8;
     buf[1] = (humidity & 0x00FF);
 
-    return mcp2515_send_wait(type, MY_ID, buf, 2, SENSOR_humidity);
+    return mcp2515_send_wait(type, MY_ID, SENSOR_humidity, buf, 2);
 }
 
 uint8_t send_pressure_can(uint8_t type)
@@ -138,7 +134,7 @@ uint8_t send_pressure_can(uint8_t type)
     buf[2] = (pressure >> 8) & 0xff;
     buf[3] = (pressure >> 0) & 0xff;
 
-    return mcp2515_send_wait(type, MY_ID, buf, 4, SENSOR_pressure);
+    return mcp2515_send_wait(type, MY_ID, SENSOR_pressure, buf, 4);
 }
 
 uint8_t send_all_can(uint8_t type)
@@ -207,13 +203,6 @@ uint8_t uart_irq(void)
 {
     return 0;
 
-
-
-
-
-
-
-
     int16_t temp;
     uint16_t wind;
 
@@ -225,7 +214,6 @@ uint8_t uart_irq(void)
 
     temp_read(0, &temp);
     printf("temp %d\n", temp);
-
 
     struct bmp085_sample s;
 
@@ -249,6 +237,15 @@ uint8_t uart_irq(void)
     printf("rain: %u\n", buf[0]);
 
     return 0;
+}
+
+void sleep(void)
+{
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
 }
 
 int main(void)

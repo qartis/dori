@@ -17,7 +17,6 @@
 #include "mcp2515.h"
 #include "can.h"
 #include "node.h"
-#include "i2c.h"
 #include "uart.h"
 #include "power.h"
 #include "temp.h"
@@ -44,7 +43,7 @@ uint8_t user_irq(void)
     uint16_t mV;
     uint32_t V;
 
-    V = adc_voltage * 50000; /* 5.00V */
+    V = adc_voltage * 50000;    /* 5.00V */
     V >>= 10;
     V += 100000;
     mV = V % 10000;
@@ -60,7 +59,6 @@ uint8_t user_irq(void)
         heater_off(3);
         return 0;
     }
-
 
     uint16_t current = get_current();
     printf("current: %u\n", current);
@@ -101,9 +99,8 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
         for (i = 0; i < temp_num_sensors; i++) {
             rc = temp_read(i, &temp);
             if (rc) {
-                rc = mcp2515_send_wait(
-                        TYPE_sensor_error, MY_ID,
-                        NULL, 0, SENSOR_temp5 + i);
+                rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID,
+                                       SENSOR_temp5 + i, NULL, 0);
 
                 if (rc)
                     return rc;
@@ -114,8 +111,7 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 
             printf("temp: %d\n", temp);
 
-            rc = mcp2515_send_wait(type, MY_ID,
-                    buf, 2, SENSOR_temp5 + i);
+            rc = mcp2515_send_wait(type, MY_ID, SENSOR_temp5 + i, buf, 2);
 
             if (rc)
                 return rc;
@@ -123,9 +119,8 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
     } else {
         rc = temp_read(index, &temp);
         if (rc) {
-            rc = mcp2515_send_wait(TYPE_sensor_error,
-                    MY_ID, NULL, 0,
-                    SENSOR_temp5 + index);
+            rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID,
+                                   SENSOR_temp5 + index, NULL, 0);
 
             if (rc)
                 return rc;
@@ -134,8 +129,7 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
         buf[0] = temp >> 8;
         buf[1] = temp & 0xFF;
 
-        rc = mcp2515_send_wait(type, MY_ID, buf,
-                2, SENSOR_temp5 + index);
+        rc = mcp2515_send_wait(type, MY_ID, SENSOR_temp5 + index, buf, 2);
 
         if (rc)
             return rc;
@@ -153,23 +147,20 @@ uint8_t send_voltage_can(uint8_t type)
 
     adc_voltage = get_voltage();
 
-    V = adc_voltage * 50000; /* 5.0V */
+    V = adc_voltage * 50000;    /* 5.0V */
     V >>= 10;
-    V += 100000; /* 10.0V */
+    V += 100000;                /* 10.0V */
     mV = V % 10000;
     V = V / 10000;
 
     buf[0] = adc_voltage >> 8;
     buf[1] = (adc_voltage & 0x00FF);
 
-    snprintf(buf + 2, sizeof(buf) - 2,
-            "%lu.%u", V, mV);
+    snprintf(buf + 2, sizeof(buf) - 2, "%lu.%u", V, mV);
 
-    printf("voltage: %lu.%uV (%u)\n", V, mV,
-            adc_voltage);
+    printf("voltage: %lu.%uV (%u)\n", V, mV, adc_voltage);
 
-    return mcp2515_send_wait(type, MY_ID, buf,
-            sizeof(buf), SENSOR_voltage);
+    return mcp2515_send_wait(type, MY_ID, SENSOR_voltage, buf, sizeof(buf));
 }
 
 uint8_t send_current_can(uint8_t type)
@@ -182,8 +173,7 @@ uint8_t send_current_can(uint8_t type)
     buf[0] = current >> 8;
     buf[1] = (current & 0x00FF);
 
-    return mcp2515_send_wait(type, MY_ID, buf,
-            2, SENSOR_current);
+    return mcp2515_send_wait(type, MY_ID, SENSOR_current, buf, 2);
 }
 
 uint8_t send_all_can(uint8_t type)
@@ -212,12 +202,11 @@ uint8_t periodic_irq(void)
 
 uint8_t can_irq(void)
 {
-    switch(packet.type) {
+    switch (packet.type) {
     case TYPE_value_request:
-        switch(packet.sensor) {
+        switch (packet.sensor) {
         case SENSOR_temp5 ... SENSOR_temp8:
-            send_temp_can(packet.sensor - SENSOR_temp5,
-                          TYPE_value_explicit);
+            send_temp_can(packet.sensor - SENSOR_temp5, TYPE_value_explicit);
             break;
         case SENSOR_voltage:
             send_voltage_can(TYPE_value_explicit);
@@ -246,17 +235,23 @@ uint8_t uart_irq(void)
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
 
-    if (buf[0] == '\0') {
-        send_temp_can(TEMP_ALL_CHANNELS, 0);
+    if (buf[0] == 's') {
+        printf("sleeping\n");
+        _delay_ms(500);
+        sleep();
+        printf("YO YO\n");
+        _delay_ms(500);
+        printf("we're back\n");
+    } else if (buf[0] == '\0') {
+        send_temp_can(TEMP_ALL_CHANNELS, TYPE_value_explicit);
         uint16_t current = get_current();
         printf("I: %u\n", current);
-
 
         uint16_t adc_voltage = get_voltage();
         uint16_t mV;
         uint32_t V;
 
-        V = adc_voltage * 53500; /* 5.00V */
+        V = adc_voltage * 53500;    /* 5.00V */
         V >>= 10;
         V += 100000;
         mV = V % 10000;
@@ -265,11 +260,19 @@ uint8_t uart_irq(void)
         buf[0] = adc_voltage >> 8;
         buf[1] = (adc_voltage & 0x00FF);
 
-        printf("voltage: %lu.%uV (%u)\n", V, mV, 
-                adc_voltage);
+        printf("voltage: %lu.%uV (%u)\n", V, mV, adc_voltage);
     }
 
     return 0;
+}
+
+void sleep(void)
+{
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
 }
 
 int main(void)
@@ -279,7 +282,7 @@ int main(void)
     heater_init();
     temp_init();
     adc_init();
-    i2c_init(I2C_FREQ(400000));
+    //i2c_init(I2C_FREQ(400000));
 
     sei();
 

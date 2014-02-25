@@ -136,7 +136,7 @@ uint8_t send_gyro_can(uint8_t type)
 
     rc = hmc_read(&hmc);
     if (rc) {
-        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, &rc, sizeof(rc), SENSOR_gyro);
+        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, SENSOR_gyro, &rc, sizeof(rc));
         return rc;
     }
 
@@ -166,7 +166,7 @@ uint8_t send_compass_can(uint8_t type)
 
     rc = mpu_read(&mpu);
     if (rc) {
-        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, &rc, sizeof(rc), SENSOR_compass);
+        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, SENSOR_compass, &rc, sizeof(rc));
         return rc;
     }
 
@@ -196,7 +196,7 @@ uint8_t send_accel_can(uint8_t type)
 
     rc = nunchuck_read(&nunchuck);
     if (rc) {
-        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, &rc, sizeof(rc), SENSOR_accel);
+        rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID, SENSOR_accel, &rc, sizeof(rc));
         return rc;
     }
 
@@ -311,6 +311,15 @@ uint8_t can_irq(void)
     packet.unread = 0;
 
     return rc;
+}
+
+void sleep(void)
+{
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
 }
 
 int main(void)

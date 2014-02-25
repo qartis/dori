@@ -176,7 +176,7 @@ uint8_t uart_irq(void)
     arg = strtok(buf, " ");
 
     if (arg == NULL) {
-        mcp2515_send_wait(TYPE_xfer_cts, ID_cam, NULL, 0, 0);
+        mcp2515_send_wait(TYPE_xfer_cts, ID_cam, 0, NULL, 0);
     } else if (strcmp_P(arg, PSTR("send")) == 0) {
         arg = strtok(NULL, " ");
         if (arg == NULL) {
@@ -226,7 +226,7 @@ uint8_t uart_irq(void)
         if (squelch != 2){
             squelch = 0;  // so we can hear the reply.
         }
-        rc = mcp2515_send_wait(type, id, sendbuf, i, sensor);
+        rc = mcp2515_send_wait(type, id, sensor, sendbuf, i);
         _delay_ms(200);
         printf_P(PSTR("snd %d\n"), rc);
     } else if (strcmp_P(arg, PSTR("squelch")) == 0){
@@ -308,6 +308,15 @@ uint8_t can_irq(void)
     }
 
     return 0;
+}
+
+void sleep(void)
+{
+    sleep_enable();
+    sleep_bod_disable();
+    sei();
+    sleep_cpu();
+    sleep_disable();
 }
 
 int main(void)
