@@ -4,24 +4,28 @@
 #include "adc.h"
 #include "power.h"
 
-void power_init(void)
-{
-}
-
 uint16_t get_voltage(void)
 {
-    uint16_t val;
+    uint8_t i;
+    uint32_t val;
 
     PORTC &= ~(1 << PORTC0);
     DDRC |= (1 << PORTC0);
 
-    _delay_ms(100);
+    _delay_ms(10);
 
-    val = adc_read(6);
+#define SAMPLES 64
+
+    val = 0;
+
+    for (i = 0; i < SAMPLES; i++) {
+        val += adc_read(6);
+        _delay_ms(1);
+    }
 
     DDRC &= ~(1 << PORTC0);
 
-    return val;
+    return val / SAMPLES;
 }
 
 uint16_t get_current(void)
