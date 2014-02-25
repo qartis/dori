@@ -43,6 +43,10 @@
 #error no TIMER0 definition for baud rate
 #endif
 
+
+#define HEARTBEAT_OFF() PORTC |= (1 << PORTC3)
+#define HEARTBEAT_ON()  PORTC &= ~(1 << PORTC3)
+
 volatile uint32_t now;
 volatile uint32_t periodic_prev;
 volatile uint16_t periodic_interval;
@@ -62,9 +66,7 @@ ISR(TIMER0_COMPB_vect)
     overflows++;
 
     if (overflows >= OVERFLOW_TICKS) {
-        /* heartbeat light ON. COMPA will occur in several ms and
-        turn it back off */
-        PORTC &= ~(1 << PORTC3);
+        HEARTBEAT_ON();
     }
 }
 
@@ -74,8 +76,7 @@ ISR(TIMER0_COMPA_vect)
         overflows = 0;
         now++;
 
-        /* heartbeat light OFF */
-        PORTC ^= (1 << PORTC3);
+        HEARTBEAT_OFF();
 
 #ifdef TIMER_TOPHALF
         timer_tophalf();
@@ -101,9 +102,8 @@ void time_init(void)
     TCCR0B = TIMER0_PRESCALER;
     TIMSK0 = (1 << OCIE0A) | (1 << OCIE0B);
 
-    /* heartbeat light */
-    PORTC |= (1 << PORTC3);
-    DDRC |= (1 << PORTC3);
+    HEARTBEAT_OFF();
+//    DDRC |= (1 << PORTC3);
 }
 
 void time_set(uint32_t new_time)
