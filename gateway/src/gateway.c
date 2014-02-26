@@ -312,10 +312,14 @@ void process_dori_bytes(char *buf, int len)
 
 
         for (i = 0; i < nclients; i++) {
+            uint8_t sensor_buf[2];
+            sensor_buf[0] = sensor >> 8;
+            sensor_buf[1] = sensor & 0xff;
+
             if (clients[i].type == SHELL) {
                 write(clients[i].fd, &type, sizeof(type));
                 write(clients[i].fd, &id, sizeof(id));
-                write(clients[i].fd, &sensor, sizeof(sensor));
+                write(clients[i].fd, sensor_buf, sizeof(sensor_buf));
                 write(clients[i].fd, &data_len, sizeof(data_len));
                 write(clients[i].fd, doribuf + CAN_HEADER_LEN, data_len);
             }
