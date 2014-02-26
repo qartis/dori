@@ -25,6 +25,8 @@
 #define streq_P(a,b) (strcmp_P(a, b) == 0)
 #define strstart(a,b) (strncmp_P(a, PSTR(b), strlen(b)) == 0)
 
+#define MODEM_SILENCE_TIMEOUT 30
+
 static uint8_t at_tx_buf[64];
 static uint16_t net_buf_len;
 static uint8_t tcp_toread;
@@ -39,6 +41,14 @@ uint8_t uart_irq(void)
 uint8_t user_irq(void)
 {
     uint8_t rc;
+
+    printf("user irq\n");
+
+    if ((now - modem_alive_time < MODEM_SILENCE_TIMEOUT) && 
+            state == STATE_CONNECTED) {
+        printf("still connected\n");
+        return 0;
+    }
 
     slow_write("AT\r", strlen("AT\r"));
     _delay_ms(100);
@@ -291,7 +301,7 @@ uint8_t periodic_irq(void)
         return 0;
     }
 
-    if (now - modem_alive_time >= 10) {
+    if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
         if (tcp_toread > 0)
             tcp_toread = 0;
 
@@ -300,13 +310,13 @@ uint8_t periodic_irq(void)
         slow_write("AT\r", strlen("AT\r"));
         _delay_ms(500);
 
-        if(now - modem_alive_time >= 10) {
+        if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
             powercycle_modem();
         } else {
-            printf("j5 is alive\n");
+//            printf("j5 is alive\n");
         }
     } else {
-        printf("not yet...\n");
+//        printf("not yet...\n");
     }
 
     return 0;
