@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 #include "../can.h"
 #include "../can_names.h"
@@ -61,9 +62,23 @@ void decan(int type, int id, int sensor, int len, uint8_t *data)
         uint16_t dist = (data[0] << 8) | data[1];
         printf("%u.%um\n", dist / 1000, dist % 1000);
     } else if ((type == TYPE_value_explicit || type == TYPE_value_periodic) &&
-            sensor == SENSOR_gps) {
-        uint16_t dist = (data[0] << 8) | data[1];
-        printf("%u.%um\n", dist / 1000, dist % 1000);
+            sensor == SENSOR_coords) {
+
+        int32_t lat = (data[0] << 24) |
+                      (data[1] << 16) |
+                      (data[2] << 8)  |
+                      (data[3] << 0);
+
+        int32_t lon = (data[4] << 24) |
+                      (data[5] << 16) |
+                      (data[6] << 8)  |
+                      (data[7] << 0);
+
+        float lat_f = (abs(lat) / 10000000) + (abs(lat) % 10000000) / 6000000.0;
+        float lon_f = (abs(lon) / 10000000) + (abs(lon) % 10000000) / 6000000.0;
+        printf("https://maps.google.ca/maps?q=%f+%c,+%f+%c\n",
+                              lat_f, lat >= 0 ? 'N' : 'S',
+                              lon_f, lon >= 0 ? 'E' : 'W');
     } else {
         if (len > 0)
             printf("%d:", len);
