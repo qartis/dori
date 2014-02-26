@@ -458,15 +458,21 @@ uint8_t periodic_irq(void)
 uint8_t can_irq(void)
 {
     uint8_t rc;
+    uint8_t i;
+    uint8_t j;
+    char output[140];
 
     printf_P(PSTR("can_irq\n"));
 
     if (packet.type == TYPE_action_modemb_powercycle) {
         powercycle();
         goto done;
+    } else if (packet.type == TYPE_action_modemb_wipesms) {
+        for (i = 0; i < 32; i++) {
+            fbus_delete_sms(i);
+        }
+        goto done;
     }
-
-    char output[140];
 
     output[0] = to_hex((packet.type & 0xf0) >> 4);
     output[1] = to_hex((packet.type & 0x0f) >> 0);
@@ -486,8 +492,6 @@ uint8_t can_irq(void)
     printf_P(PSTR("%02x%02x%04x%02x"), packet.type, packet.id, packet.sensor, packet.len);
     putchar('\n');
 
-    uint8_t i;
-    uint8_t j;
     for(i = 0, j = 0; i < packet.len; i++, j+=2) {
         output[10 + j] = to_hex((packet.data[i] & 0xF0) >> 4);
         output[11 + j] = to_hex((packet.data[i] & 0x0F) >> 0);

@@ -31,6 +31,7 @@
 \
     X(action_modema_powercycle, 0x20) \
     X(action_modemb_powercycle, 0x21) \
+    X(action_modemb_wipesms,    0x22) \
 \
     X(action_arm_spin, 0x30) \
     X(action_arm_angle, 0x31) \
