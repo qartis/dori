@@ -56,6 +56,10 @@ void decan(int type, int id, int sensor, int len, uint8_t *data)
             (data[2] << 8)  |
             (data[3] << 0);
         printf("%s\n", ctime(&time));
+    } else if ((type == TYPE_value_explicit || type == TYPE_value_periodic) &&
+            sensor == SENSOR_laser) {
+        uint16_t dist = (data[0] << 8) | data[1];
+        printf("%u.%um\n", dist / 1000, dist % 1000);
     } else {
         if (len > 0)
             printf("%d:", len);
