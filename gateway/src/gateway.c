@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/time.h>
+#include <sys/select.h>
 #include <time.h>
 #include "can.h"
 #include "can_names.h"
@@ -53,6 +54,7 @@ static int dorifd;
 static int tkfd;
 static int shellfd;
 static int siteid;
+int dori_idx = -1;
 
 static unsigned char doribuf[BUFLEN];
 static int doribuf_len;
@@ -185,7 +187,20 @@ void process_dori_bytes(char *buf, int len)
     memcpy(&doribuf[doribuf_len], buf, len);
     doribuf_len += len;
 
-    while (doribuf_len >= CAN_HEADER_LEN) {
+    while (doribuf_len > 0) {
+        uint8_t type = doribuf[CAN_TYPE_IDX];
+
+        if (type == TYPE_nop) {
+            printf("skipping nop\n");
+            doribuf_len -= 1;
+            memmove(doribuf, doribuf + 1, doribuf_len);
+            continue;
+        }
+
+        if (doribuf_len < CAN_HEADER_LEN) {
+            break;
+        }
+
         // Extract the payload size from the CAN header
         uint8_t data_len = doribuf[CAN_LEN_IDX];
 
@@ -194,23 +209,20 @@ void process_dori_bytes(char *buf, int len)
             return;
         }
 
-        uint8_t type = doribuf[CAN_TYPE_IDX];
         uint8_t id = doribuf[CAN_ID_IDX];
         uint16_t sensor = (doribuf[CAN_SENSOR_IDX] << 8) |
                            doribuf[CAN_SENSOR_IDX + 1];
 
         // Sanity checks here to prevent future crashes
-        if(type >= TYPE_invalid) {
+        if (type >= TYPE_invalid) {
             printf("Invalid type: %02x\n", type);
 
             doribuf_len -= (CAN_HEADER_LEN + data_len);
 
-            memmove(doribuf, doribuf + CAN_HEADER_LEN + data_len,
-                    (doribuf_len) * sizeof(unsigned char));
             break;
         }
 
-        if(id >= ID_invalid) {
+        if (id >= ID_invalid) {
             printf("Invalid id: %02x\n", id);
 
             doribuf_len -= (CAN_HEADER_LEN + data_len);
@@ -488,9 +500,23 @@ int main()
     for (;;) {
         readfds = master;
 
-        rc = select(maxfd + 1, &readfds, NULL, NULL, NULL);
-        if (rc == -1)
+        struct timeval tv;
+        tv.tv_sec = 10;
+        tv.tv_usec = 0;
+        rc = select(maxfd + 1, &readfds, NULL, NULL, &tv);
+        if (rc == -1) {
             error("select");
+        } else if (rc == 0) {
+            if (dori_idx > -1) {
+                printf("sending nop\n");
+                uint8_t nop = TYPE_nop;
+                write(clients[dori_idx].fd, &nop, 1);
+            }
+            continue;
+        }
+
+
+
 
         if (FD_ISSET(0, &readfds)) {
             rc = read(0, buf, sizeof(buf));
@@ -545,6 +571,7 @@ int main()
                 } else if (fd == dorifd) {
                     printf("DORI connected\n");
                     clients[nclients].type = DORI;
+                    dori_idx = nclients;
                 }
 
                 nclients++;
@@ -556,6 +583,7 @@ int main()
                 if (rc == 0 || (rc < 0 && errno == ECONNRESET)) {
                     if (c->type == DORI) {
                         printf("DORI disconnected\n");
+                        dori_idx = -1;
                     } else if (c->type == SHELL) {
                         printf("shell disconnected\n");
                     }
