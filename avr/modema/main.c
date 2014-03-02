@@ -28,7 +28,6 @@
 #define MODEM_SILENCE_TIMEOUT 30
 
 static uint8_t at_tx_buf[64];
-static uint16_t net_buf_len;
 static uint8_t tcp_toread;
 
 volatile uint32_t modem_alive_time;
@@ -36,6 +35,25 @@ volatile uint32_t modem_alive_time;
 uint8_t uart_irq(void)
 {
     return 0;
+}
+
+void powercycle_modem(void)
+{
+    printf("pwrcycl\n");
+    DDRD |= (1 << PORTD2);
+    PORTD |= (1 << PORTD2);
+
+    _delay_ms(4000);
+
+    PORTD &= ~(1 << PORTD2);
+    DDRD &= ~(1 << PORTD2);
+
+    _delay_ms(1000);
+
+    slow_write("AT\r", strlen("AT\r"));
+    _delay_ms(100);
+    slow_write("AT\r", strlen("AT\r"));
+    _delay_ms(100);
 }
 
 uint8_t user_irq(void)
@@ -78,14 +96,7 @@ uint8_t debug_irq(void)
     if (buf[1] == '\0') {
         switch (buf[0]) {
         case 'p':
-            /* power cycle modem */
-            PORTD |= (1 << PORTD2);
-            DDRD |= (1 << PORTD2);
-            _delay_ms(500);
-            DDRD &= ~(1 << PORTD2);
-            PORTD &= ~(1 << PORTD2);
-            _delay_ms(750);
-            slow_write("AT\r", strlen("AT\r"));
+            powercycle_modem();
             break;
         case 'c':
             TRIGGER_USER_IRQ();
@@ -112,9 +123,6 @@ uint8_t debug_irq(void)
     } else if(buf[0] == 'z') {
         printf("%u\n", stack_space());
         printf("%u\n", free_ram());
-    } else if(buf[0] == 'n') {
-        net_buf_len = 0;
-        printf("net_buf clr\n");
     } else {
         print(buf);
         uart_putchar('\r');
@@ -143,35 +151,48 @@ void tcp_irq(uint8_t *buf, uint8_t len)
         printf("%d: %02x\n", i, buf[i]);
         tcp_buf[tcp_buf_len] = buf[i];
         tcp_buf_len++;
+        if (tcp_buf_len >= sizeof(tcp_buf)) {
+            printf("WTF WTF WTF\n");
+        }
     }
 
-    if (tcp_buf_len < 5)
-        return;
+    while (tcp_buf_len > 0) {
+        p.type = tcp_buf[0];
 
-    if (tcp_buf[4] > 8)
-        tcp_buf[4] = 8;
-
-    if (tcp_buf_len < (1 + 1 + 2 + 1 + tcp_buf[4]))
-        return;
-
-    p.type = tcp_buf[0];
-    p.id = tcp_buf[1];
-    p.sensor = (tcp_buf[2] << 8) | tcp_buf[3];
-    p.len = tcp_buf[4];
-
-    for (i = 0; i < tcp_buf[4]; i++)
-        p.data[i] = tcp_buf[5 + i];
-
-    tcp_buf_len -= 5 + p.len;
-
-    memmove(tcp_buf, tcp_buf + 5 + p.len, tcp_buf_len);
+        if (p.type == TYPE_nop) {
+            printf("skipping nop\n");
+            tcp_buf_len -= 1;
+            memmove(tcp_buf, tcp_buf + 1, tcp_buf_len);
+            continue;
+        }
 
 
-    rc = mcp2515_send2(&p);
-    if (rc)
-        puts_P(PSTR("can er"));
-    else
-        puts_P(PSTR("CAN sent"));
+        if (tcp_buf_len < 5)
+            return;
+
+        if (tcp_buf[4] > 8)
+            tcp_buf[4] = 8;
+
+        if (tcp_buf_len < (1 + 1 + 2 + 1 + tcp_buf[4]))
+            return;
+
+        p.type = tcp_buf[0];
+        p.id = tcp_buf[1];
+        p.sensor = (tcp_buf[2] << 8) | tcp_buf[3];
+        p.len = tcp_buf[4];
+
+        for (i = 0; i < tcp_buf[4]; i++)
+            p.data[i] = tcp_buf[5 + i];
+
+        tcp_buf_len -= 5 + p.len;
+        memmove(tcp_buf, tcp_buf + 5 + p.len, tcp_buf_len);
+
+        rc = mcp2515_send2(&p);
+        if (rc)
+            printf_P(PSTR("can er %d\n"), rc);
+        else
+            puts_P(PSTR("CAN sent"));
+    }
 }
 
 ISR(USART_RX_vect)
@@ -198,12 +219,10 @@ ISR(USART_RX_vect)
             tcp_irq(tcp_rx_buf, tcp_rx_buf_len);
             tcp_rx_buf_len = 0;
         }
-    } else if (state == STATE_EXPECTING_PROMPT) {
-        if (at_rx_buf[0] == '>') {
-            state = STATE_GOT_PROMPT;
-            at_rx_buf_len = 0;
-            at_rx_buf[0] = '\0';
-        }
+    } else if (state == STATE_EXPECTING_PROMPT && at_rx_buf[0] == '>') {
+        state = STATE_GOT_PROMPT;
+        at_rx_buf_len = 0;
+        at_rx_buf[0] = '\0';
     } else if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
         // If we got some data, we must be connected
         state = STATE_CONNECTED;
@@ -227,6 +246,7 @@ ISR(USART_RX_vect)
         } else if (streq_P(at_rx_buf, PSTR("ERROR"))) {
             flag_error = 1;
         } else if (streq_P(at_rx_buf, PSTR("RING"))) {
+            printf("ring\n");
             TRIGGER_USER_IRQ();
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP INITIAL"))) {
             state = STATE_IP_INITIAL;
@@ -252,7 +272,7 @@ ISR(USART_RX_vect)
             puts_P(PSTR("closed by peer"));
             state = STATE_CLOSED;
         } else if (streq_P(at_rx_buf, PSTR("NORMAL POWER DOWN"))) {
-            state = STATE_POWEROFF;
+            state = STATE_ERROR;
         } else if (streq_P(at_rx_buf, PSTR("+PDP: DEACT"))) {
             state = STATE_ERROR;
         } else if (strstart(at_rx_buf, "+CME ERROR:")) {
@@ -268,29 +288,27 @@ ISR(USART_RX_vect)
             at_rx_buf[at_rx_buf_len] = c;
             at_rx_buf[at_rx_buf_len + 1] = '\0';
             at_rx_buf_len++;
+        } else if (state == STATE_GOT_PROMPT) {
         } else {
             putchar('@');
         }
     }
 }
 
-void powercycle_modem(void)
+void check_modem_alive(void)
 {
-    printf("pwrcycl\n");
-    DDRD |= (1 << PORTD2);
-    PORTD |= (1 << PORTD2);
-
-    _delay_ms(4000);
-
-    PORTD &= ~(1 << PORTD2);
-    DDRD &= ~(1 << PORTD2);
-
-    _delay_ms(1000);
-
     slow_write("AT\r", strlen("AT\r"));
-    _delay_ms(100);
-    slow_write("AT\r", strlen("AT\r"));
-    _delay_ms(100);
+    _delay_ms(50);
+    slow_write("ATE0\r", strlen("ATE0\r"));
+    _delay_ms(50);
+    slow_write("AT+CIPSTATUS\r", strlen("AT+CIPSTATUS\r"));
+    _delay_ms(500);
+
+    if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
+        powercycle_modem();
+    } else {
+        //            printf("j5 is alive\n");
+    }
 }
 
 uint8_t periodic_irq(void)
@@ -302,19 +320,11 @@ uint8_t periodic_irq(void)
     }
 
     if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
-        if (tcp_toread > 0)
+        if (tcp_toread > 0) {
             tcp_toread = 0;
-
-        slow_write("AT\r", strlen("AT\r"));
-        _delay_ms(100);
-        slow_write("AT\r", strlen("AT\r"));
-        _delay_ms(500);
-
-        if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
-            powercycle_modem();
-        } else {
-//            printf("j5 is alive\n");
         }
+
+        check_modem_alive();
     } else {
 //        printf("not yet...\n");
     }
@@ -326,10 +336,13 @@ uint8_t write_packet(void)
 {
     uint8_t i;
     uint8_t rc;
-    static uint8_t net_buf[256];
+    /* this should be 256 when we launch */
+    static uint8_t net_buf[32];
+    static uint16_t net_buf_len;
 
     // if the packet isn't a big transfer
     // send it right away
+#if 0 /* this interferes with rapidfire message processing */
     if(packet.type != TYPE_ircam_header &&
        packet.type != TYPE_xfer_chunk) {
         uint8_t buf[13];
@@ -350,12 +363,13 @@ uint8_t write_packet(void)
 
         return rc;
     }
+#endif
 
     if (((uint16_t)net_buf_len + 5 + packet.len)
-        >= sizeof(net_buf)) {
+            >= sizeof(net_buf)) {
         rc = TCPSend(net_buf, net_buf_len);
         if (rc) {
-            puts_P(PSTR("snd er"));
+            printf_P(PSTR("snd er %d\n"), rc);
             return rc;
         }
 
@@ -374,7 +388,7 @@ uint8_t write_packet(void)
         }
     }
 
-    //printf_P(PSTR("+%u\n"), net_buf_len);
+    printf_P(PSTR("+%u\n"), net_buf_len);
 
     return 0;
 }
@@ -408,7 +422,7 @@ uint8_t can_irq(void)
         break;
     default:
         if (state == STATE_CONNECTED) {
-            if (packet.type == TYPE_value_periodic) break;
+            //if (packet.type == TYPE_value_periodic) break;
             rc = write_packet();
             if (rc) {
                 puts_P(PSTR("sending failed"));
@@ -440,9 +454,11 @@ int main(void)
 {
     NODE_INIT();
 
-    PRR |= (1 << PRTWI) | (1 << PRADC);
+    //PRR |= (1 << PRTWI) | (1 << PRADC);
 
     sei();
+
+    check_modem_alive();
 
     NODE_MAIN();
 }
