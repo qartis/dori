@@ -112,7 +112,7 @@ void time_set(uint32_t new_time)
 
     run_periodic = 0;
 
-    if (new_time > now
+    if (now != 0 && new_time > now
       && (new_time - now) > (periodic_prev + periodic_interval))
         run_periodic = 1;
 
