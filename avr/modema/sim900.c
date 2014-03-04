@@ -113,6 +113,8 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
         err_num = __LINE__;
         mcp2515_send_wait(TYPE_sensor_error, MY_ID, 0, &err_num, sizeof(err_num));
 
+        state = STATE_ERROR;
+
         return 1;
     }
 
@@ -125,9 +127,9 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
 
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {
-        puts_P(PSTR("send err"));
+        printf("send err %d\n", rc);
     } else {
-        puts_P(PSTR("send ok"));
+        printf("send ok\n");
     }
 
     return rc;
