@@ -182,6 +182,37 @@ void exec_query(char *query)
     }
 }
 
+void db_log_can(uint8_t type, uint8_t id, uint16_t sensor, uint8_t len,
+    const uint8_t *data)
+{
+        sqlite3_stmt *stmt;
+        int rc;
+        int i;
+        char data_str[8 * 2 + 1];
+
+        rc = sqlite3_prepare_v2(db, "insert into can (type, id, sensor, data) values (?,?,?,?)", -1, &stmt, NULL);
+        if (rc != SQLITE_OK) dberror(db);
+
+        for (i = 0; i < len; i++) {
+            sprintf(data_str + (i * 2), "%02x", data[i]);
+        }
+
+        rc = sqlite3_bind_text(stmt, 1, type_names[type], strlen(type_names[type]), SQLITE_STATIC);
+        if (rc != SQLITE_OK) dberror(db);
+
+        rc = sqlite3_bind_text(stmt, 2, id_names[id], strlen(id_names[id]), SQLITE_STATIC);
+        if (rc != SQLITE_OK) dberror(db);
+
+        rc = sqlite3_bind_text(stmt, 3, sensor_names[sensor], strlen(sensor_names[sensor]), SQLITE_STATIC);
+        if (rc != SQLITE_OK) dberror(db);
+
+        rc = sqlite3_bind_text(stmt, 4, data_str, strlen(data_str), SQLITE_TRANSIENT);
+        if (rc != SQLITE_OK) dberror(db);
+
+        rc = sqlite3_step(stmt);
+        if (rc != SQLITE_DONE) dberror(db);
+}
+
 void process_dori_bytes(char *buf, int len)
 {
     memcpy(&doribuf[doribuf_len], buf, len);
@@ -321,6 +352,10 @@ void process_dori_bytes(char *buf, int len)
             }
             break;
         }
+
+
+        db_log_can(type, id, sensor, data_len, doribuf + CAN_HEADER_LEN);
+
 
 
         for (i = 0; i < nclients; i++) {
@@ -492,7 +527,7 @@ int main()
     FD_SET(tkfd, &master);
     FD_SET(dorifd, &master);
     FD_SET(shellfd, &master);
-    FD_SET(0, &master);
+    //FD_SET(0, &master);
 
     maxfd = tkfd > dorifd ? tkfd : dorifd;
     maxfd = shellfd > maxfd ? shellfd : maxfd;
@@ -501,7 +536,7 @@ int main()
         readfds = master;
 
         struct timeval tv;
-        tv.tv_sec = 10;
+        tv.tv_sec = 60;
         tv.tv_usec = 0;
         rc = select(maxfd + 1, &readfds, NULL, NULL, &tv);
         if (rc == -1) {
@@ -516,19 +551,6 @@ int main()
         }
 
 
-
-
-        if (FD_ISSET(0, &readfds)) {
-            rc = read(0, buf, sizeof(buf));
-            buf[rc] = '\0';
-
-            int i;
-            for (i = 0; i < nclients; i++) {
-                if (clients[i].type == DORI) {
-                    write(clients[i].fd, buf, strlen(buf));
-                }
-            }
-        }
         // for server connections
         for (fd = 1; fd <= maxfd; fd++) {
             if (!FD_ISSET(fd, &readfds)) {
