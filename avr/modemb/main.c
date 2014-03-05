@@ -41,6 +41,8 @@ volatile uint8_t sms_buf[FBUS_SMS_MAX_LEN];
 volatile uint8_t sms_buflen;
 
 volatile uint32_t modem_alive_time;
+extern volatile uint8_t stfu;
+
 
 uint8_t from_hex(char a)
 {
@@ -311,10 +313,12 @@ uint8_t user_irq(void)
                                         msg[11 + i]);
             }
 
+
             printf("snd can\n");
+
             rc = mcp2515_send_wait(type, id, sensor, data, len);
 
-            if(msg_buflen < 10 + (len * 2)) {
+            if (msg_buflen < 10 + (len * 2)) {
                 puts_P(PSTR("inval sms"));
                 rc = 0;
                 break;
@@ -437,7 +441,7 @@ uint8_t periodic_irq(void)
 {
     uint8_t rc;
 
-    if(now - modem_alive_time >= 10) {
+    if (now - modem_alive_time >= 10) {
         rc = fbus_subscribe();
 
         if (rc != 0) {
@@ -471,6 +475,12 @@ uint8_t can_irq(void)
         for (i = 0; i < 32; i++) {
             fbus_delete_sms(i);
         }
+        goto done;
+    } else if (packet.type == TYPE_value_request) {
+        /* ignore */
+        goto done;
+    } else if (stfu) {
+        printf("stfuing\n");
         goto done;
     }
 
@@ -532,7 +542,20 @@ int main(void)
 {
     NODE_INIT();
 
+    stfu = 1;
+
     sei();
+
+    rc = fbus_subscribe();
+
+    if (rc != 0) {
+        powercycle();
+
+        _delay_ms(4000);
+        fbus_subscribe();
+    } else {
+        printf("fbus is alive\n");
+    }
 
     NODE_MAIN();
 }

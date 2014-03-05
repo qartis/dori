@@ -76,7 +76,6 @@ void sleep(void)
     sleep_disable();
 }
 
-
 int main(void)
 {
     NODE_INIT();

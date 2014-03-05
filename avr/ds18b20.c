@@ -67,8 +67,7 @@ uint8_t ds18b20_start_meas( uint8_t with_power_extern, uint8_t id[])
 			ow_command( DS18B20_CONVERT_T, id );
 		}
 		ret = DS18B20_OK;
-	} 
-	else { 
+	} else {
 		//printf_P(PSTR("DS18B20_start_meas: Short Circuit!\r"));
 		ret = DS18B20_START_FAIL;
 	}

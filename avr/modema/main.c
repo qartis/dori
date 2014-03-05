@@ -166,7 +166,6 @@ void tcp_irq(uint8_t *buf, uint8_t len)
             continue;
         }
 
-
         if (tcp_buf_len < 5)
             return;
 
@@ -192,6 +191,21 @@ void tcp_irq(uint8_t *buf, uint8_t len)
             printf_P(PSTR("can er %d\n"), rc);
         else
             puts_P(PSTR("CAN sent"));
+
+
+        switch (p.type) {
+        case TYPE_action_modema_powercycle:
+            powercycle_modem();
+            break;
+
+        case TYPE_action_modema_connect:
+            TRIGGER_USER_IRQ();
+            break;
+
+        case TYPE_action_modema_disconnect:
+            TCPDisconnect();
+            break;
+        }
     }
 }
 
@@ -297,10 +311,16 @@ ISR(USART_RX_vect)
 
 void check_modem_alive(void)
 {
+    /* send <ESC> to cancel any pending tcp SEND prompts */
+    slow_write("\x1b", 1);
+    _delay_ms(50);
+
     slow_write("AT\r", strlen("AT\r"));
     _delay_ms(50);
+
     slow_write("ATE0\r", strlen("ATE0\r"));
     _delay_ms(50);
+
     slow_write("AT+CIPSTATUS\r", strlen("AT+CIPSTATUS\r"));
     _delay_ms(500);
 
@@ -320,13 +340,18 @@ uint8_t periodic_irq(void)
     }
 
     if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
+        printf("periodic_irq\n");
         if (tcp_toread > 0) {
             tcp_toread = 0;
         }
 
         check_modem_alive();
-    } else {
-//        printf("not yet...\n");
+
+        if (state == STATE_CONNECTED) {
+            uint8_t type = TYPE_nop;
+            TCPSend(&type, sizeof(type));
+            printf("sent nop\n");
+        }
     }
 
     return 0;
@@ -339,31 +364,6 @@ uint8_t write_packet(void)
     /* this should be 256 when we launch */
     static uint8_t net_buf[32];
     static uint16_t net_buf_len;
-
-    // if the packet isn't a big transfer
-    // send it right away
-#if 0 /* this interferes with rapidfire message processing */
-    if(packet.type != TYPE_ircam_header &&
-       packet.type != TYPE_xfer_chunk) {
-        uint8_t buf[13];
-        buf[0] = packet.type;
-        buf[1] = packet.id;
-        buf[2] = (packet.sensor >> 8) & 0x0FF;
-        buf[3] = (packet.sensor >> 0) & 0x0FF;
-        buf[4] = packet.len;
-
-        uint8_t j;
-        for(j = 0 ; j < packet.len; j++) {
-            buf[5 + j] = packet.data[j];
-        }
-        rc = TCPSend(buf, packet.len + 5);
-        if (rc) {
-            puts_P(PSTR("snd er"));
-        }
-
-        return rc;
-    }
-#endif
 
     if (((uint16_t)net_buf_len + 5 + packet.len)
             >= sizeof(net_buf)) {

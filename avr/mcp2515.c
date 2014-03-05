@@ -230,13 +230,44 @@ uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, uint16_t sensor, const void 
     return 0;
 }
 
-uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const void *data, uint8_t len)
+
+void mcp2515_handle_packet(uint8_t type, uint8_t id, uint16_t sensor, const volatile uint8_t *data, uint8_t len)
 {
-    if (stfu)
+    if (type == TYPE_set_interval &&
+              (id == MY_ID || id == ID_any)) {
+        periodic_prev = now;
+        uint16_t new_periodic_interval =
+                (uint16_t)data[0] << 8 |
+                (uint16_t)data[1] << 0;
+
+        if (new_periodic_interval > 5) {
+            periodic_interval = new_periodic_interval;
+        }
+    } else if (type == TYPE_sos_reboot &&
+              (id == MY_ID || id == ID_any)) {
+        cli();
+        wdt_enable(WDTO_15MS);
+        for (;;) {};
+    } else if (type == TYPE_sos_stfu &&
+               (id == MY_ID || id == ID_any)) {
+        stfu = 1;
+    } else if (type == TYPE_sos_nostfu &&
+               (id == MY_ID || id == ID_any)) {
+        printf("NOSTFU\n");
+        stfu = 0;
+    }
+}
+
+uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const uint8_t *data, uint8_t len)
+{
+    mcp2515_handle_packet(type, id, sensor, data, len);
+
+    if (stfu) {
         return 0;
+    }
 
     if (mcp2515_busy) {
-        //puts_P(PSTR("tx overrun"));
+        printf("tx overrun\n");
         return 66;
     }
 
@@ -278,6 +309,8 @@ void load_tx0(uint8_t type, uint8_t id, uint16_t sensor, const uint8_t *data, ui
 
     mcp2515_unselect();
 }
+
+
 
 void read_packet(uint8_t regnum)
 {
@@ -364,38 +397,13 @@ void read_packet(uint8_t regnum)
         mcp2515_tophalf();
     }
 
-    if (packet.type == TYPE_set_interval &&
-              (packet.id == MY_ID || packet.id == ID_any)) {
-        periodic_prev = now;
-        uint16_t new_periodic_interval =
-                (uint16_t)packet.data[0] << 8 |
-                (uint16_t)packet.data[1] << 0;
+    mcp2515_handle_packet(packet.type, packet.id, packet.sensor, packet.data, packet.len);
 
-        if (new_periodic_interval < 5) {
-            //puts_P(PSTR("small!"));
-            return;
-        }
-
-        periodic_interval = new_periodic_interval;
-
-        //printf_P(PSTR("period=%u\n"), periodic_interval);
-    } else if (packet.type == TYPE_sos_reboot &&
-              (packet.id == MY_ID || packet.id == ID_any)) {
-        cli();
-        wdt_enable(WDTO_15MS);
-        for (;;) {};
-    } else if (packet.type == TYPE_sos_stfu &&
-               (packet.id == MY_ID || packet.id == ID_any)) {
-        stfu = 1;
-    } else if (packet.type == TYPE_sos_nostfu &&
-               (packet.id == MY_ID || packet.id == ID_any)) {
-        stfu = 0;
-    } else if (packet.id == MY_ID) {
+    if (packet.id == MY_ID) {
         mcp2515_tophalf();
-    } else {
-        //printf_P(PSTR("not mine, id was: %d\n"), packet.id);
     }
 }
+
 
 ISR(PCINT0_vect)
 {

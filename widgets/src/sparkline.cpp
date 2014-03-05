@@ -117,7 +117,7 @@ void Fl_Sparkline::drawCursor(void)
 
     value = map(values[index], values[min_index], values[max_index],
         height, 0);
-        
+
     fl_color(FL_BLUE);
     fl_rectf(Fl_Widget::x() + padding + x - 1, y() + value + padding - 1, 3, 3);
 

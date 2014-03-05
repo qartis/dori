@@ -282,7 +282,6 @@ int main(void)
     heater_init();
     temp_init();
     adc_init();
-    //i2c_init(I2C_FREQ(400000));
 
     sei();
 

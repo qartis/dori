@@ -5,14 +5,14 @@
 #include "fl_compass.h"
 
 Fl_Compass::Fl_Compass(int x, int y, int w, int h, const char *l)
-    : Fl_Dial(x,y,w,h,l) 
+    : Fl_Dial(x,y,w,h,l)
 {
   angles(0, 360);
   range(0.0, 360.0);
   selection_color(FL_RED);
 }
 
-void Fl_Compass::draw(void) 
+void Fl_Compass::draw(void)
 {
     int X = x();
     int Y = y();

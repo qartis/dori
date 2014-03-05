@@ -8,8 +8,6 @@ all: gateway
 
 gateway: $(SRCDIR)/gateway.c
 	$(CC) $(CFLAGS)  $(SRCDIR)/gateway.c -o gateway $(LDFLAGS)
-	sudo chown root:root gateway
-	sudo chmod +s gateway
 
 clean:
 	rm gateway

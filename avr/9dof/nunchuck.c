@@ -3,7 +3,7 @@
 
 #include "i2c.h"
 #include "nunchuck.h"
- 
+
 #define NUNCHUCK_ADDR 0xa4
 
 uint8_t nunchuck_init(void)
@@ -11,7 +11,7 @@ uint8_t nunchuck_init(void)
     if (i2c_start(NUNCHUCK_ADDR | I2C_WRITE)) {
         return 1;
     }
-    
+
     i2c_write(0xf0);
     i2c_write(0x55);
     i2c_write(0xfb);

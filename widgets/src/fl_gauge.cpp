@@ -6,14 +6,14 @@
 #include "fl_gauge.h"
 
 Fl_Gauge::Fl_Gauge(int x, int y, int w, int h, const char *l)
-    : Fl_Dial(x,y,w,h,l) 
+    : Fl_Dial(x,y,w,h,l)
 {
     selection_color(FL_RED);
     box(FL_FLAT_BOX);
     color(FL_BLACK);
 }
 
-void Fl_Gauge::draw(void) 
+void Fl_Gauge::draw(void)
 {
     int X = x();
     int Y = y();

@@ -202,7 +202,7 @@ uint8_t TCPConnect(void)
 
     puts_P(PSTR("state: IP STATUS"));
 
-    sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"qartis.no-ip.biz\",\"53\""));
+    sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"192.81.218.115\",\"53\""));
 
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {

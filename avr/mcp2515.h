@@ -205,7 +205,7 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len);
 uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, uint16_t sensor, const void *data, uint8_t len);
 uint8_t mcp2515_send2(struct mcp2515_packet_t *p);
 uint8_t mcp2515_sendpacket_wait(struct mcp2515_packet_t *p);
-uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const void *data, uint8_t len);
+uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const uint8_t *data, uint8_t len);
 void load_tx0(uint8_t type, uint8_t id, uint16_t sensor, const uint8_t *data, uint8_t len);
 void mcp2515_dump(void);
 

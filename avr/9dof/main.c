@@ -64,6 +64,19 @@ ISR(USART_RX_vect)
         nmea_buf_len++;
 }
 
+uint8_t send_sats_can(uint8_t type)
+{
+    struct mcp2515_packet_t p;
+
+    p.type = type;
+    p.id = ID_9dof;
+    p.sensor = SENSOR_sats;
+    p.data[0] = num_sats;
+    p.len = 1;
+
+    return mcp2515_sendpacket_wait(&p);
+}
+
 uint8_t send_time_can(uint8_t type)
 {
     struct mcp2515_packet_t p;
@@ -270,6 +283,12 @@ uint8_t uart_irq(void)
 
 uint8_t debug_irq(void)
 {
+    return 0;
+
+
+
+
+
     char buf[64];
 
     fgets(buf, sizeof(buf), stdin);
@@ -281,6 +300,11 @@ uint8_t debug_irq(void)
 
 uint8_t periodic_irq(void)
 {
+
+
+
+
+
     return send_all_can(TYPE_value_periodic);
 }
 
@@ -288,9 +312,17 @@ uint8_t can_irq(void)
 {
     uint8_t rc = 0;
 
+    printf("type %d %d\n", packet.type, packet.sensor);
+
     switch (packet.type) {
     case TYPE_value_request:
         switch (packet.sensor) {
+        case SENSOR_accel:
+            rc = send_accel_can(TYPE_value_explicit);
+            break;
+        case SENSOR_sats:
+            rc = send_sats_can(TYPE_value_explicit);
+            break;
         case SENSOR_gyro:
             rc = send_gyro_can(TYPE_value_explicit);
             break;
@@ -324,6 +356,7 @@ void sleep(void)
 
 int main(void)
 {
+    irq_signal = 0;
     NODE_INIT();
 
     sei();

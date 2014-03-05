@@ -1,7 +1,9 @@
 gateway double-sending
 ircam power fluctuations
-modem LEDs out of sync on time update
-modema: tcp receive chunk code needs a timeout to resync
+#modem LEDs out of sync on time update
 modemb: needs to ignore xfer_chunks unless we ask it to
 need to be able to turn off one of the modems over CAN
 modemb: needs to be able to specify a new phone number to receive sms
+#implement hibernation mode
+#switch relays to mosfets
+modema sometimes powercycles when the modem is already on!
