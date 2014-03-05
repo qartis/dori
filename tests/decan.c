@@ -65,7 +65,7 @@ void decan(int type, int id, int sensor, int len, uint8_t * data)
             data[2] << 8 |
             data[3] << 0;
 
-        printf("%u pascals\n", pressure);
+        printf("%u Pa\n", pressure);
     } else if (type == TYPE_value_explicit && id == ID_diag && sensor ==
                SENSOR_voltage) {
         int num = (data[0] << 8) | data[1];
