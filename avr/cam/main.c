@@ -88,12 +88,15 @@ uint8_t debug_irq(void)
     debug_flush();
 
     if (strcmp(buf, "on") == 0) {
-        PORTD |= (1 << PORTD7);
+        PORTD |= (1 << PORTD6);
     } else if (strcmp(buf, "off") == 0) {
-        PORTD &= ~(1 << PORTD7);
+        PORTD &= ~(1 << PORTD6);
     } else if (strcmp(buf, "snap") == 0) {
+        IRCAM_ON();
+        _delay_ms(500);
         ircam_init_xfer();
         ircam_read_fbuf();
+        IRCAM_OFF();
     } else if (strcmp(buf, "rst") == 0) {
         ircam_reset();
     } else if (strcmp(buf, "mcp") == 0) {
@@ -123,7 +126,7 @@ int main(void)
     sei();
 
     // For the ircam
-    DDRD |= (1 << PORTD7);
+    DDRD |= (1 << PORTD6);
 
     NODE_MAIN();
 }
