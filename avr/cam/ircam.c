@@ -128,8 +128,8 @@ uint8_t ircam_init_xfer(void)
 
 uint8_t ircam_read_fbuf(void)
 {
-    static uint32_t addr = 0;
-    static uint32_t total_read = 0;
+    uint32_t addr = 0;
+    uint32_t total_read = 0;
 
     uint8_t rc = 0;
 
