@@ -56,14 +56,46 @@ void powercycle_modem(void)
     _delay_ms(100);
 }
 
+void handle_packet(uint8_t type, uint8_t len, uint8_t * data)
+{
+    uint8_t i;
+    uint8_t bufno;
+
+    switch (type) {
+    case TYPE_at_0_write ... TYPE_at_7_write:
+        bufno = type - TYPE_at_0_write;
+        for (i = 0; i < len; i++)
+            at_tx_buf[bufno * 8 + i] = data[i];
+
+        break;
+
+    case TYPE_at_send:
+        slow_write(at_tx_buf, strlen((const char *)at_tx_buf));
+        slow_write("\r", 1);
+        break;
+
+    case TYPE_action_modema_powercycle:
+        powercycle_modem();
+        break;
+
+    case TYPE_action_modema_connect:
+        TRIGGER_USER_IRQ();
+        break;
+
+    case TYPE_action_modema_disconnect:
+        TCPDisconnect();
+        break;
+    }
+}
+
 uint8_t user_irq(void)
 {
     uint8_t rc;
 
     printf("user irq\n");
 
-    if ((now - modem_alive_time < MODEM_SILENCE_TIMEOUT) && 
-            state == STATE_CONNECTED) {
+    if ((now - modem_alive_time < MODEM_SILENCE_TIMEOUT) &&
+        state == STATE_CONNECTED) {
         printf("still connected\n");
         return 0;
     }
@@ -91,7 +123,7 @@ uint8_t debug_irq(void)
     char buf[64];
     fgets(buf, sizeof(buf), stdin);
     debug_flush();
-    buf[strlen(buf)-1] = '\0';
+    buf[strlen(buf) - 1] = '\0';
 
     if (buf[1] == '\0') {
         switch (buf[0]) {
@@ -118,9 +150,9 @@ uint8_t debug_irq(void)
             break;
         }
     } else if (buf[0] == 's') {
-        rc = TCPSend((uint8_t *)buf + 1, strlen(buf) - 1);
+        rc = TCPSend((uint8_t *) buf + 1, strlen(buf) - 1);
         printf("send: %d\n", rc);
-    } else if(buf[0] == 'z') {
+    } else if (buf[0] == 'z') {
         printf("%u\n", stack_space());
         printf("%u\n", free_ram());
     } else {
@@ -134,7 +166,7 @@ uint8_t debug_irq(void)
     return 0;
 }
 
-void tcp_irq(uint8_t *buf, uint8_t len)
+void tcp_irq(uint8_t * buf, uint8_t len)
 {
     uint8_t rc;
     uint8_t i;
@@ -192,20 +224,7 @@ void tcp_irq(uint8_t *buf, uint8_t len)
         else
             puts_P(PSTR("CAN sent"));
 
-
-        switch (p.type) {
-        case TYPE_action_modema_powercycle:
-            powercycle_modem();
-            break;
-
-        case TYPE_action_modema_connect:
-            TRIGGER_USER_IRQ();
-            break;
-
-        case TYPE_action_modema_disconnect:
-            TCPDisconnect();
-            break;
-        }
+        handle_packet(p.type, p.len, p.data);
     }
 }
 
@@ -218,10 +237,7 @@ ISR(USART_RX_vect)
     static uint8_t tcp_rx_buf[64];
     static uint8_t tcp_rx_buf_len = 0;
 
-
     c = UDR0;
-
-    modem_alive_time = now;
 
     /* if we're reading a tcp chunk */
     if (tcp_toread > 0) {
@@ -238,7 +254,6 @@ ISR(USART_RX_vect)
         at_rx_buf_len = 0;
         at_rx_buf[0] = '\0';
     } else if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
-        // If we got some data, we must be connected
         state = STATE_CONNECTED;
 
         uint8_t len = atoi(at_rx_buf + strlen("+IPD,"));
@@ -248,7 +263,6 @@ ISR(USART_RX_vect)
         at_rx_buf[0] = '\0';
     } else if (c == '\n') {
         /* ignore empty lines */
-        /* BE CAREFUL WITH THIS NUMBER */
         if (at_rx_buf_len < 2) {
             at_rx_buf_len = 0;
             at_rx_buf[0] = '\0';
@@ -302,9 +316,6 @@ ISR(USART_RX_vect)
             at_rx_buf[at_rx_buf_len] = c;
             at_rx_buf[at_rx_buf_len + 1] = '\0';
             at_rx_buf_len++;
-        } else if (state == STATE_GOT_PROMPT) {
-        } else {
-            putchar('@');
         }
     }
 }
@@ -321,20 +332,21 @@ void check_modem_alive(void)
     slow_write("ATE0\r", strlen("ATE0\r"));
     _delay_ms(50);
 
+    state = STATE_ERROR;
+
     slow_write("AT+CIPSTATUS\r", strlen("AT+CIPSTATUS\r"));
     _delay_ms(500);
 
-    if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
+    if (state == STATE_ERROR) {
         powercycle_modem();
-    } else {
-        //            printf("j5 is alive\n");
     }
 }
 
 uint8_t periodic_irq(void)
 {
-    if (state == STATE_EXPECTING_PROMPT ||
-       state == STATE_GOT_PROMPT) {
+    uint8_t type;
+
+    if (state == STATE_EXPECTING_PROMPT || state == STATE_GOT_PROMPT) {
         printf("expecting prompt\n");
         return 0;
     }
@@ -348,7 +360,7 @@ uint8_t periodic_irq(void)
         check_modem_alive();
 
         if (state == STATE_CONNECTED) {
-            uint8_t type = TYPE_nop;
+            type = TYPE_nop;
             TCPSend(&type, sizeof(type));
             printf("sent nop\n");
         }
@@ -364,9 +376,36 @@ uint8_t write_packet(void)
     /* this should be 256 when we launch */
     static uint8_t net_buf[32];
     static uint16_t net_buf_len;
+    uint8_t explicit_buf[32];
+    uint8_t explicit_buf_len;
 
-    if (((uint16_t)net_buf_len + 5 + packet.len)
-            >= sizeof(net_buf)) {
+    if (packet.type != TYPE_value_periodic && packet.type != TYPE_xfer_chunk
+        && packet.type != TYPE_xfer_cts) {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            explicit_buf_len = 0;
+
+            explicit_buf[explicit_buf_len++] = packet.type;
+            explicit_buf[explicit_buf_len++] = packet.id;
+            explicit_buf[explicit_buf_len++] = (packet.sensor >> 8);
+            explicit_buf[explicit_buf_len++] = (packet.sensor & 0xFF);
+            explicit_buf[explicit_buf_len++] = packet.len;
+
+            for (i = 0; i < packet.len; i++) {
+                explicit_buf[explicit_buf_len++] = packet.data[i];
+            }
+        }
+
+        rc = TCPSend(explicit_buf, explicit_buf_len);
+        if (rc) {
+            printf_P(PSTR("snd er %d\n"), rc);
+            return rc;
+        }
+
+        return 0;
+    }
+
+    if (((uint16_t) net_buf_len + 5 + packet.len)
+        >= sizeof(net_buf)) {
         rc = TCPSend(net_buf, net_buf_len);
         if (rc) {
             printf_P(PSTR("snd er %d\n"), rc);
@@ -396,55 +435,25 @@ uint8_t write_packet(void)
 uint8_t can_irq(void)
 {
     uint8_t rc;
-    uint8_t bufno;
-    uint8_t i;
     uint8_t *ptr;
 
-    switch (packet.type) {
-    case TYPE_at_0_write ... TYPE_at_7_write:
-        bufno = packet.type - TYPE_at_0_write;
-        for (i = 0; i < packet.len; i++)
-            at_tx_buf[bufno * 8 + i] = packet.data[i];
+    ptr = (uint8_t *) packet.data;
+    handle_packet(packet.type, packet.len, ptr);
 
-        break;
-
-    case TYPE_at_send:
-        slow_write(at_tx_buf, strlen((const char *)at_tx_buf));
-        slow_write("\r", 1);
-        break;
-
-    case TYPE_file_offer:
-        ptr = (uint8_t *)&packet.data;
-        rc = mcp2515_send(TYPE_file_read, packet.id, ptr, packet.len);
-        break;
-
-    case TYPE_action_modema_powercycle:
-        powercycle_modem();
-        break;
-
-    case TYPE_action_modema_connect:
-        TRIGGER_USER_IRQ();
-        break;
-
-    case TYPE_action_modema_disconnect:
-        TCPDisconnect();
-        break;
-
-    default:
-        if (state == STATE_CONNECTED) {
-            //if (packet.type == TYPE_value_periodic) break;
-            rc = write_packet();
-            if (rc) {
-                puts_P(PSTR("sending failed"));
-            } else if (packet.type == TYPE_xfer_chunk ||
-                       packet.type == TYPE_ircam_header) {
-                printf("sending cts\n");
-                rc = mcp2515_send(TYPE_xfer_cts, ID_cam, NULL, 0);
-            }
+    if (state == STATE_CONNECTED) {
+        rc = write_packet();
+        if (rc) {
+            puts_P(PSTR("sending failed"));
+            goto done;
         }
-        break;
+
+        if (packet.type == TYPE_xfer_chunk || packet.type == TYPE_ircam_header) {
+            printf("sending cts\n");
+            rc = mcp2515_send(TYPE_xfer_cts, ID_cam, NULL, 0);
+        }
     }
 
+done:
     packet.unread = 0;
 
     return 0;

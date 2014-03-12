@@ -47,13 +47,15 @@ void slow_write(const void *buf, uint16_t count)
     uint16_t i = 0;
     const char *c = (const char *)buf;
 
+    /* delay BEFORE writing, so we can definitely capture the response */
     while (i < count) {
-        uart_putchar(c[i]);
-        _delay_ms(1);
-
-        if (c[i] == '\r')
+        if (c[i] == '\r') {
             _delay_ms(10);
+        } else {
+            _delay_ms(1);
+        }
 
+        uart_putchar(c[i]);
         i++;
     }
 }
@@ -74,8 +76,7 @@ void sendATCommand(const char * PROGMEM fmt, ...)
 
     slow_write(buf, strlen(buf));
     slow_write("\r", strlen("\r"));
-
-    _delay_ms(100);
+    _delay_ms(10);
 }
 
 uint8_t TCPDisconnect(void)
@@ -138,6 +139,7 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
 uint8_t TCPConnect(void)
 {
     uint8_t rc;
+    uint8_t retry;
 
     TCPDisconnect();
 
@@ -157,9 +159,15 @@ uint8_t TCPConnect(void)
 
     sendATCommand(PSTR("AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\""));
 
-    sendATCommand(PSTR("AT+CIPSTATUS"));
-    rc = wait_for_state(STATE_IP_START);
-    if (rc != 0) {
+    _delay_ms(100);
+
+    retry = 3;
+    do {
+        sendATCommand(PSTR("AT+CIPSTATUS"));
+        rc = wait_for_state(STATE_IP_START);
+    } while (rc != 0 && --retry);
+
+    if (state != STATE_IP_START) {
         puts_P(PSTR("err: START"));
         /* dispatch a MODEM_ERROR CAN packet and try to continue */
         return rc;
