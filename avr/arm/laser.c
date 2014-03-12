@@ -276,6 +276,8 @@ void measure(uint32_t target_count)
     }
 
     printf_P(PSTR("TOOK %d READINGS\n"), target_count - remaining);
+
+    laser_off();
 }
 
 void laser_init(void)
