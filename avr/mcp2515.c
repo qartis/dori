@@ -253,7 +253,6 @@ void mcp2515_handle_packet(uint8_t type, uint8_t id, uint16_t sensor, const vola
         stfu = 1;
     } else if (type == TYPE_sos_nostfu &&
                (id == MY_ID || id == ID_any)) {
-        printf("NOSTFU\n");
         stfu = 0;
     }
 }
@@ -267,7 +266,7 @@ uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const uin
     }
 
     if (mcp2515_busy) {
-        printf("tx overrun\n");
+        //printf("tx overrun\n");
         return 66;
     }
 
