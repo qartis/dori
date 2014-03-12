@@ -73,11 +73,13 @@ uint8_t send_laser_dist(uint8_t type)
     uint8_t rc;
     uint16_t dist;
     uint8_t buf[2];
+    uint8_t err_num;
 
     dist = measure_once();
 
     if (dist == 0) {
-        rc = mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_laser, buf, sizeof(buf));
+        err_num = __LINE__;
+        rc = mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_laser, &err_num, sizeof(err_num));
         return rc;
     }
 
