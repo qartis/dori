@@ -99,6 +99,7 @@ uint8_t send_wind_can(uint8_t type)
     uint16_t wind;
 
     wind = get_wind_speed();
+
     buf[0] = wind >> 8;
     buf[1] = (wind & 0x00FF);
 
@@ -108,7 +109,9 @@ uint8_t send_wind_can(uint8_t type)
 uint8_t send_humidity_can(uint8_t type)
 {
     uint8_t buf[2];
-    uint16_t humidity = get_humidity();
+    uint16_t humidity;
+
+    humidity = get_humidity();
 
     buf[0] = humidity >> 8;
     buf[1] = (humidity & 0x00FF);
@@ -201,6 +204,14 @@ uint8_t can_irq(void)
 uint8_t uart_irq(void)
 {
     return 0;
+
+
+
+
+
+
+
+
 
     int16_t temp;
     uint16_t wind;
