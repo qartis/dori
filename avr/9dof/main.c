@@ -300,11 +300,6 @@ uint8_t debug_irq(void)
 
 uint8_t periodic_irq(void)
 {
-
-
-
-
-
     return send_all_can(TYPE_value_periodic);
 }
 
@@ -312,7 +307,7 @@ uint8_t can_irq(void)
 {
     uint8_t rc = 0;
 
-    printf("type %d %d\n", packet.type, packet.sensor);
+//    printf("type %d %d\n", packet.type, packet.sensor);
 
     switch (packet.type) {
     case TYPE_value_request:
@@ -356,7 +351,6 @@ void sleep(void)
 
 int main(void)
 {
-    irq_signal = 0;
     NODE_INIT();
 
     sei();
@@ -364,17 +358,17 @@ int main(void)
 
     rc = hmc_init();
     if (rc) {
-        puts_P(PSTR("hmc init"));
+//        puts_P(PSTR("hmc init"));
     }
 
     rc = mpu_init();
     if (rc) {
-        puts_P(PSTR("mpu init"));
+//        puts_P(PSTR("mpu init"));
     }
 
     rc = nunchuck_init();
     if (rc) {
-        puts_P(PSTR("nunch init"));
+//        puts_P(PSTR("nunch init"));
     }
 
     hmc_set_continuous();

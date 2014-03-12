@@ -9,19 +9,14 @@
 
 uint8_t mpu_init(void)
 {
-    /* add error checking here: try to read chip's id */
-
     mpu_reg_write(MPU6050_RA_PWR_MGMT_1, 0x01);
     mpu_reg_write(MPU6050_RA_SMPLRT_DIV, 0x07);
-
-    //printf("reg %d\n", mpu_reg_read(MPU6050_RA_PWR_MGMT_1));
 
     return 0;
 }
 
 uint8_t mpu_read(struct mpu6050_t *mpu)
 {
-    /* add error checking here */
     mpu->x = (int16_t)mpu_reg_read16(MPU6050_RA_GYRO_XOUT_H);
     mpu->y = (int16_t)mpu_reg_read16(MPU6050_RA_GYRO_YOUT_H);
     mpu->z = (int16_t)mpu_reg_read16(MPU6050_RA_GYRO_ZOUT_H);
