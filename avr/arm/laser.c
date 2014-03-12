@@ -37,16 +37,13 @@ uint16_t parse_dist_str(const char *buf)
     char *comma;
     uint16_t dist;
 
-    if (!strstart_P(buf, PSTR("Dist: ")))
-        return -1;
-
     comma = strchr(buf, ',');
     if (comma == NULL)
         return -1;
 
     *comma = '\0';
 
-    dist = atoi(buf + strlen("Dist: "));
+    dist = atoi(buf + strlen("nDist: "));
     return dist;
 }
 
@@ -89,7 +86,7 @@ ISR(USART_RX_vect)
         error_flag = 1;
         buf_len = 0;
         return;
-    } else if (!strstart_P(buf, PSTR("Dist: "))) {
+    } else if (!strstart_P(buf, PSTR("nDist: "))) {
         buf_len = 0;
         return;
     }
