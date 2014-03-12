@@ -157,6 +157,7 @@ uint8_t debug_irq(void)
     uint8_t pos;
     char buf[DEBUG_BUF_SIZE];
     uint16_t dist;
+    uint8_t rc;
 
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf)-1] = '\0';
@@ -167,6 +168,19 @@ uint8_t debug_irq(void)
         break;
     case 'f':
         laser_off();
+        break;
+    case '#':
+        uart_putchar('#');
+        break;
+    case 'r':
+        uart_putchar('r');
+        break;
+    case 'x':
+        measure(200);
+        break;
+    case '0':
+        rc = measure_rapid_fire(10);
+        printf("rc %d\n", rc);
         break;
     case 'm':
         dist = measure_once();
