@@ -117,19 +117,10 @@ void laser_off(void)
     // turn off the laser in case it was in the frozen state
     uart_putchar('r');
     _delay_ms(5);
-
-    if (has_power()) {
-        // cancel any mode the laser is in
-        PRESS(OFF_BTN);
-
-        // turn the device off if it is on
-        HOLD(OFF_BTN);
-    }
-
-    if (has_power())
-        puts_P(PSTR("laser_off err"));
-    else
-        puts_P(PSTR("laser_off ok"));
+    uart_putchar('r');
+    _delay_ms(5);
+    uart_putchar('r');
+    _delay_ms(5);
 }
 
 void laser_on(void)
@@ -161,25 +152,22 @@ uint16_t measure_once(void)
 
     if (!has_power()) {
         laser_on();
-        _delay_ms(500);
     }
 
     has_new_dist = 0;
     error_flag = 0;
 
-    PRESS(ON_BTN);
-
-    PRESS(ON_BTN);
+    print_P(PSTR("*00004#"));
 
     /* 255 * 10 = 2550 ms */
     retry = 255;
     while (!has_new_dist && !error_flag && --retry)
         _delay_ms(10);
 
-    // cancel any mode the laser got into
-    PRESS(OFF_BTN);
-
-    laser_off();
+    _delay_ms(100);
+    uart_putchar('r');
+    uart_putchar('r');
+    uart_putchar('r');
 
     if (has_new_dist) {
         printf_P(PSTR("meas_once dist %d\n"), dist_mm);
@@ -193,7 +181,6 @@ uint16_t measure_once(void)
     }
 }
 
-
 // reads up to 100 measurements
 int8_t measure_rapid_fire(uint8_t target_count)
 {
@@ -203,12 +190,10 @@ int8_t measure_rapid_fire(uint8_t target_count)
     has_new_dist = 0;
 
     if (!has_power()) {
-        puts_P(PSTR("rapidfire: no power"));
-        return -2;
+        laser_on();
     }
 
-    // go into rapid fire mode
-    HOLD(ON_BTN);
+    print_P(PSTR("*00084553#"));
 
     read_count = 0;
     while (read_count < target_count) {
@@ -235,8 +220,9 @@ int8_t measure_rapid_fire(uint8_t target_count)
             return -2;
     }
 
-    // cancel rapid fire mode
-    PRESS(OFF_BTN);
+    uart_putchar('r');
+    uart_putchar('r');
+    uart_putchar('r');
 
     return read_count;
 }
