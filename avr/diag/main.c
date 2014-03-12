@@ -42,6 +42,8 @@ uint8_t user_irq(void)
     uint16_t adc_voltage = get_voltage();
     uint16_t mV;
     uint32_t V;
+    uint8_t i;
+
 
     V = adc_voltage * 50000;    /* 5.00V */
     V >>= 10;
@@ -68,8 +70,6 @@ uint8_t user_irq(void)
         return 0;
 
     temp_wait();
-
-    uint8_t i;
 
     for (i = 0; i < temp_num_sensors; i++) {
         rc = temp_read(i, &temp);
@@ -230,6 +230,25 @@ uint8_t can_irq(void)
 
 uint8_t uart_irq(void)
 {
+    return 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     char buf[UART_BUF_SIZE];
 
     fgets(buf, sizeof(buf), stdin);
@@ -243,9 +262,8 @@ uint8_t uart_irq(void)
         _delay_ms(500);
         printf("we're back\n");
     } else if (buf[0] == '\0') {
-        send_temp_can(TEMP_ALL_CHANNELS, TYPE_value_explicit);
         uint16_t current = get_current();
-        printf("I: %u\n", current);
+        printf("I: %umA\n", current);
 
         uint16_t adc_voltage = get_voltage();
         uint16_t mV;
