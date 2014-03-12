@@ -98,7 +98,16 @@ ISR(USART_RX_vect)
 
 uint8_t has_power(void)
 {
-    uint16_t v_ref = adc_read(6);
+    uint8_t i;
+    uint32_t v_ref;
+
+    v_ref = 0;
+
+    for (i = 0; i < 16; i++) {
+        v_ref += adc_read(6);
+    }
+
+    v_ref /= 16;
 
     return v_ref > 400;
 }
