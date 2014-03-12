@@ -259,19 +259,19 @@ void measure(uint32_t target_count)
             // timed out and nothing heard from the device
             printf_P(PSTR("HEARD NOTHING\n"));
             seq_error_count++;
+        }
 
-            if (seq_error_count == 1) {
-                // reset device to default state
-                printf_P(PSTR("BACK TO DEFAULT MENU\n"));
-                PRESS(OFF_BTN);
-            } else if (seq_error_count == 2) {
-                printf_P(PSTR("RESTARTING\n"));
-                laser_on_safe();
-            } else {
-                printf_P(PSTR("FAILED TO READ MEASUREMENTS\n"));
-                PRESS(OFF_BTN);
-                break;
-            }
+        if (seq_error_count == 1) {
+            // reset device to default state
+            printf_P(PSTR("BACK TO DEFAULT MENU\n"));
+            PRESS(OFF_BTN);
+        } else if (seq_error_count == 2) {
+            printf_P(PSTR("RESTARTING\n"));
+            laser_on_safe();
+        } else if (seq_error_count > 2) {
+            printf_P(PSTR("FAILED TO READ MEASUREMENTS\n"));
+            PRESS(OFF_BTN);
+            break;
         }
     }
 
