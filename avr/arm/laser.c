@@ -101,13 +101,15 @@ uint8_t has_power(void)
     uint8_t i;
     uint32_t v_ref;
 
+#define SAMPLES 2
+
     v_ref = 0;
 
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < SAMPLES; i++) {
         v_ref += adc_read(6);
     }
 
-    v_ref /= 16;
+    v_ref /= SAMPLES;
 
     return v_ref > 400;
 }
@@ -125,12 +127,9 @@ void laser_off(void)
 
 void laser_on(void)
 {
-    if (has_power()) {
-        puts_P(PSTR("laser_on device already has power"));
-        return;
-    }
-
     HOLD(ON_BTN);
+
+//    _delay_ms(500);
 
     if (has_power())
         puts_P(PSTR("laser_on ok"));
@@ -148,7 +147,7 @@ void laser_on_safe(void)
    to represent the range 1mm .. 40000mm */
 uint16_t measure_once(void)
 {
-    uint8_t retry;
+    uint16_t retry;
 
     if (!has_power()) {
         laser_on();
@@ -159,12 +158,11 @@ uint16_t measure_once(void)
 
     print_P(PSTR("*00004#"));
 
-    /* 255 * 10 = 2550 ms */
-    retry = 255;
+    /* 600 * 5 = 3000 ms */
+    retry = 600;
     while (!has_new_dist && !error_flag && --retry)
-        _delay_ms(10);
+        _delay_ms(5);
 
-    _delay_ms(100);
     uart_putchar('r');
     uart_putchar('r');
     uart_putchar('r');
