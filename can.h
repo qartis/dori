@@ -35,10 +35,11 @@
     X(action_modema_connect,    0x23) \
     X(action_modema_disconnect, 0x24) \
 \
-    X(action_arm_spin, 0x30) \
+    X(action_stepper_angle, 0x30) \
     X(action_arm_angle, 0x31) \
     X(action_drive, 0x32) \
     X(action_camera_button, 0x33) \
+    X(action_stepper_setstate, 0x34) \
 \
     X(at_0_write, 0x41) \
     X(at_1_write, 0x42) \
