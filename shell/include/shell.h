@@ -7,7 +7,7 @@
 #define LOG_FILE_SIZE 512
 #define LEN_FILE_SIZE 4
 
-const char *gateway_address = "localhost";
+const char *gateway_address = "gozan";
 int gateway_port = 1338;
 static int gatewayfd;
 
