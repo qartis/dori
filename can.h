@@ -55,6 +55,9 @@
     X(ircam_read, 0x51) \
     X(ircam_reset, 0x52) \
 \
+    X(laser_sweep_header, 0x60) \
+    X(laser_sweep_begin, 0x61) \
+\
     X(invalid, 0xff) \
 
 

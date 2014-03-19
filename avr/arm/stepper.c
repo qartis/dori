@@ -3,10 +3,15 @@
 #include <stdio.h>
 
 #include "stepper.h"
+#include "errno.h"
 
 #define DELAY 1
+#define TOTAL_STEPS 36000
+#define TOTAL_TICKS 144000
+#define TICKS_PER_STEP (TOTAL_TICKS / TOTAL_STEPS)
 
 int32_t stepper_state;
+uint16_t stepper_stepsize;
 
 void stepper_init(void)
 {
@@ -16,11 +21,22 @@ void stepper_init(void)
     stepper_sleep();
 
     stepper_set_state(-1);
+    stepper_stepsize = 1;
 }
 
-void stepper_set_state(int32_t new_state)
+uint16_t stepper_get_stepsize(void)
 {
-    stepper_state = new_state;
+    return stepper_stepsize;
+}
+
+uint8_t stepper_set_stepsize(uint16_t stepsize)
+{
+    if (stepsize > (TOTAL_STEPS / 4))
+        return ERR_ARG;
+
+    stepper_stepsize = stepsize;
+
+    return 0;
 }
 
 int32_t stepper_get_state(void)
@@ -28,22 +44,48 @@ int32_t stepper_get_state(void)
     return stepper_state;
 }
 
+uint8_t stepper_set_state(int32_t new_state)
+{
+    if (new_state < -1 || new_state > TOTAL_STEPS)
+        return ERR_ARG;
+
+    stepper_state = new_state;
+
+    return 0;
+}
+
 void stepper_ccw(void)
 {
+    uint8_t i;
+
+    if (stepper_state == -1)
+        return;
+
     PORTD |= (1 << PORTD4);
 
-    PORTD &= ~(1 << PORTD5);
-    PORTD |= (1 << PORTD5);
-    _delay_us(500);
+    for (i = 0; i < TICKS_PER_STEP; i++) {
+        PORTD &= ~(1 << PORTD5);
+        PORTD |= (1 << PORTD5);
+        stepper_state--;
+        _delay_us(500);
+    }
 }
 
 void stepper_cw(void)
 {
+    uint8_t i;
+
+    if (stepper_state == -1)
+        return;
+
     PORTD &= ~(1 << PORTD4);
 
-    PORTD &= ~(1 << PORTD5);
-    PORTD |= (1 << PORTD5);
-    _delay_us(500);
+    for (i = 0; i < TICKS_PER_STEP; i++) {
+        PORTD &= ~(1 << PORTD5);
+        PORTD |= (1 << PORTD5);
+        stepper_state++;
+        _delay_us(500);
+    }
 }
 
 void stepper_sleep(void)
@@ -57,40 +99,21 @@ void stepper_wake(void)
     _delay_ms(1);
 }
 
-/*
-void stepper_set_state_buf(const uint8_t buf[static 4])
+uint8_t stepper_set_angle(uint16_t goal)
 {
-    stepper_state =
-        (int32_t)((uint32_t)buf[0] << 24) |
-        (int32_t)((uint32_t)buf[1] << 16) |
-        (int32_t)((uint32_t)buf[2] << 8)  |
-        (int32_t)((uint32_t)buf[3] << 0);
-}
-*/
+    if (stepper_state == -1)
+        return ERR_STEPPER_INIT;
 
-uint8_t stepper_set_angle(int32_t goal)
-{
-    if (stepper_state == -1) {
-        return 1;
-    }
-
-    if (goal > 158480) {
-        return 2;
-    }
+    if (goal > 36000)
+        return ERR_ARG;
 
     stepper_wake();
 
-    if (stepper_state < goal) {
-        while (stepper_state < goal) {
-            stepper_cw();
-            stepper_state++;
-        }
-    } else {
-        while (stepper_state > goal) {
-            stepper_ccw();
-            stepper_state--;
-        }
-    }
+    while (stepper_state < goal)
+        stepper_cw();
+
+    while (stepper_state > goal)
+        stepper_ccw();
 
     stepper_sleep();
 

@@ -447,9 +447,10 @@ uint8_t can_irq(void)
             goto done;
         }
 
-        if (packet.type == TYPE_xfer_chunk || packet.type == TYPE_ircam_header) {
-            printf("sending cts\n");
-            rc = mcp2515_send(TYPE_xfer_cts, ID_cam, NULL, 0);
+        if (packet.type == TYPE_xfer_chunk || packet.type == TYPE_ircam_header
+                || packet.type == TYPE_laser_sweep_header) {
+            printf("sending cts to %d\n", packet.id);
+            rc = mcp2515_send(TYPE_xfer_cts, packet.id, NULL, 0);
         }
     }
 

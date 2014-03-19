@@ -1,0 +1,10 @@
+enum {
+    OK = 0,
+    ERR,
+    ERR_LASER,
+    ERR_MCP_XFER_TIMEOUT,
+    ERR_MCP_XFER_CANCEL,
+    ERR_MCP_HW,
+    ERR_ARG,
+    ERR_STEPPER_INIT,
+};

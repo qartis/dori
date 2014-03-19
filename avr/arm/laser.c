@@ -11,13 +11,13 @@
 #include "laser_defs.h"
 #include "adc.h"
 #include "uart.h"
+#include "errno.h"
 
 #define LASER_MAX_LINE_LEN 64
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
 volatile uint16_t dist_mm;
-volatile uint8_t has_new_dist;
 volatile uint8_t error_flag;
 
 volatile int8_t laser_alive;
@@ -39,7 +39,7 @@ uint16_t parse_dist_str(const char *buf)
 
     comma = strchr(buf, ',');
     if (comma == NULL)
-        return -1;
+        return 0;
 
     *comma = '\0';
 
@@ -57,7 +57,7 @@ ISR(USART_RX_vect)
 
     laser_alive = 1;
 
-    if (has_new_dist)
+    if (dist_mm != 0)
         return;
 
     if (buf_len == LASER_MAX_LINE_LEN - 1) {
@@ -75,12 +75,8 @@ ISR(USART_RX_vect)
     if (c != '\n')
         return;
 
-    if (strstart_P(buf, PSTR("OUT_RAN"))) {
-        printf("OUTRAN\n");
-        error_flag = 1;
-        buf_len = 0;
-        return;
-    } else if (strstart_P(buf, PSTR("MEDIUM")) ||
+    if (strstart_P(buf, PSTR("OUT_RAN")) ||
+            strstart_P(buf, PSTR("MEDIUM")) ||
             strstart_P(buf, PSTR("THICK"))) {
         printf("MEDIUM THICK\n");
         error_flag = 1;
@@ -93,7 +89,6 @@ ISR(USART_RX_vect)
 
     dist_mm = parse_dist_str(buf);
     buf_len = 0;
-    has_new_dist = 1;
 }
 
 uint8_t has_power(void)
@@ -101,7 +96,7 @@ uint8_t has_power(void)
     uint8_t i;
     uint32_t v_ref;
 
-#define SAMPLES 2
+#define SAMPLES 4
 
     v_ref = 0;
 
@@ -116,7 +111,6 @@ uint8_t has_power(void)
 
 void laser_off(void)
 {
-    // turn off the laser in case it was in the frozen state
     uart_putchar('r');
     _delay_ms(5);
     uart_putchar('r');
@@ -129,7 +123,7 @@ void laser_on(void)
 {
     HOLD(ON_BTN);
 
-//    _delay_ms(500);
+    _delay_ms(50);
 
     if (has_power())
         puts_P(PSTR("laser_on ok"));
@@ -153,21 +147,21 @@ uint16_t measure_once(void)
         laser_on();
     }
 
-    has_new_dist = 0;
+    dist_mm = 0;
     error_flag = 0;
 
     print_P(PSTR("*00004#"));
 
     /* 600 * 5 = 3000 ms */
     retry = 600;
-    while (!has_new_dist && !error_flag && --retry)
+    while (dist_mm == 0 && !error_flag && --retry)
         _delay_ms(5);
 
     uart_putchar('r');
     uart_putchar('r');
     uart_putchar('r');
 
-    if (has_new_dist) {
+    if (dist_mm != 0) {
         printf_P(PSTR("meas_once dist %d\n"), dist_mm);
         return dist_mm;
     } else if (error_flag) {
@@ -179,110 +173,101 @@ uint16_t measure_once(void)
     }
 }
 
-// reads up to 100 measurements
-int8_t measure_rapid_fire(uint8_t target_count)
+void laser_begin_rapidfire(void)
 {
-    uint8_t read_count;
-    uint8_t retry;
-
-    has_new_dist = 0;
-
     if (!has_power()) {
         laser_on();
     }
 
     print_P(PSTR("*00084553#"));
-
-    read_count = 0;
-    while (read_count < target_count) {
-        laser_alive = 0;
-        has_new_dist = 0;
-        error_flag = 0;
-
-        /* 255 * 5 = 1275 ms */
-        retry = 255;
-        while(!has_new_dist && !error_flag && --retry)
-            _delay_ms(10);
-
-        if (has_new_dist) {
-            printf_P(PSTR("READ DIST: %d\n"), dist_mm);
-            read_count++;
-            continue;
-        }
-
-        if (read_count > 0) // heard some measurements
-            break;
-        else if (laser_alive) // heard only errors
-            return -1;
-        else // didn't hear anything this whole time
-            return -2;
-    }
-
-    uart_putchar('r');
-    uart_putchar('r');
-    uart_putchar('r');
-
-    return read_count;
 }
 
-// assumes laser is already on
-void measure(uint32_t target_count)
+uint8_t measure_rapid_fire(laser_callback_t cb)
 {
-    uint32_t remaining;
-    uint8_t num_to_read;
-    int8_t read;
+    uint8_t rc;
+    uint8_t read_flag;
+    uint8_t retry;
 
-    // sequential error count
-    uint8_t seq_error_count = 0;
+    read_flag = 0;
 
-    printf_P(PSTR("%d READINGS\n"), target_count);
-    _delay_ms(100);
+    laser_begin_rapidfire();
 
-    remaining = target_count;
-    while (remaining > 0) {
-        num_to_read = MIN(remaining, 100);
-        read = measure_rapid_fire(num_to_read);
+    for (;;) {
+        laser_alive = 0;
+        dist_mm = 0;
+        error_flag = 0;
 
-        // what about if read = 0?
-        if (read > 0) {
-            // no errors
-            remaining -= read;
-            seq_error_count = 0;
-        } else if (read == -1) {
-            // timed out, heard no measurements
-            // but the device is still talking
-            printf_P(PSTR("LASER LIVE BUT NO MEASUREMENT - MOVE ME\n"));
-            seq_error_count++;
-        } else if (read == -2) {
-            // timed out and nothing heard from the device
-            printf_P(PSTR("HEARD NOTHING\n"));
-            seq_error_count++;
+        /* 255 * 10 = 2550 ms */
+        retry = 255;
+        while (dist_mm == 0 && !error_flag && --retry)
+            _delay_ms(10);
+
+        if (dist_mm == 0) {
+            if (read_flag > 0) // heard some measurements
+                break;
+
+            if (laser_alive) // heard only errors
+                printf_P(PSTR("LASER LIVE BUT NO MEASUREMENT - MOVE ME\n"));
+            else
+                printf_P(PSTR("HEARD NOTHING\n"));
+
+            return ERR_LASER;
         }
 
-        if (seq_error_count == 1) {
-            // reset device to default state
-            printf_P(PSTR("BACK TO DEFAULT MENU\n"));
-            PRESS(OFF_BTN);
-        } else if (seq_error_count == 2) {
-            printf_P(PSTR("RESTARTING\n"));
-            laser_on_safe();
-        } else if (seq_error_count > 2) {
-            printf_P(PSTR("FAILED TO READ MEASUREMENTS\n"));
-            PRESS(OFF_BTN);
+        printf_P(PSTR("READ DIST: %d\n"), dist_mm);
+        read_flag = 1;
+
+        if (cb != NULL) {
+            rc = cb(dist_mm);
+            if (rc != 0) {
+                return rc;
+            }
+        }
+    }
+
+    laser_off();
+
+    return 0;
+}
+
+uint8_t laser_sweep(laser_callback_t cb)
+{
+    uint8_t rc;
+    uint8_t seq_error_count;
+
+    seq_error_count = 0;
+
+    for (;;) {
+        rc = measure_rapid_fire(cb);
+
+        if (rc == 0) {
+            seq_error_count = 0;
+        } else if (rc == ERR_LASER) {
+            /* maybe got a bunch of errors, maybe got just silence */
+            seq_error_count++;
+
+            if (seq_error_count > 2) {
+                printf_P(PSTR("FAILED TO READ MEASUREMENTS\n"));
+                break;
+            }
+
+            laser_off();
+            laser_on();
+        } else {
             break;
         }
     }
 
-    printf_P(PSTR("TOOK %d READINGS\n"), target_count - remaining);
-
     laser_off();
+
+    return rc;
 }
 
 void laser_init(void)
 {
     /* ON button */
-    DDRD &= ~(1 << PORTD6);
-
     /* OFF button */
-    DDRD &= ~(1 << PORTD3);
+    DDRD &= ~((1 << PORTD6) | (1 << PORTD3));
+
+    laser_off();
 }

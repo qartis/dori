@@ -12,6 +12,7 @@
 
 #include "stepper.h"
 #include "can.h"
+#include "errno.h"
 #include "irq.h"
 #include "spi.h"
 #include "mcp2515.h"
@@ -23,26 +24,81 @@
 #include "node.h"
 #include "laser.h"
 
-uint8_t send_arm_angle(uint8_t type)
+uint8_t laser_cb(uint16_t dist)
 {
     uint8_t rc;
+    uint8_t buf[4];
+
+    buf[0] = stepper_state >> 8;
+    buf[1] = stepper_state & 0xff;
+    buf[2] = dist >> 8;
+    buf[3] = dist & 0xff;
+
+    rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, SENSOR_laser, buf, sizeof(buf));
+    if (rc) {
+        printf("rc: %d\n", rc);
+        return rc;
+    }
+
+    uint8_t i;
+    for (i = 0; i < 255; i++) {
+        stepper_cw();
+    }
+
+    return 0;
+}
+
+uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
+        uint16_t stepsize)
+{
+    uint8_t rc;
+    uint8_t buf[6];
+
+    rc = stepper_set_angle(start_angle);
+    if (rc) {
+        printf("laser_sweep: set_angle %d\n", rc);
+        return ERR;
+    }
+
+    rc = stepper_set_stepsize(stepsize);
+    if (rc)
+        return rc;
+
+    if (start_angle >= end_angle)
+        return ERR;
+
+    buf[0] = start_angle >> 8;
+    buf[1] = start_angle & 0xff;
+    buf[2] = end_angle >> 8;
+    buf[3] = end_angle & 0xff;
+    buf[4] = stepsize >> 8;
+    buf[5] = stepsize & 0xff;
+
+    rc = mcp2515_xfer(TYPE_laser_sweep_header, MY_ID, SENSOR_laser,
+            buf, sizeof(buf));
+    if (rc)
+        return rc;
+
+    stepper_wake();
+
+    laser_sweep(laser_cb);
+
+    stepper_sleep();
+
+    return 0;
+}
+
+uint8_t send_arm_angle(uint8_t type)
+{
     uint16_t angle;
     uint8_t buf[3];
-    static uint8_t counter = 0;
 
     angle = get_arm_angle();
 
     buf[0] = angle >> 8;
     buf[1] = angle & 0xff;
-    buf[2] = counter;
 
-    counter++;
-
-    rc = mcp2515_send_sensor(type, ID_arm, SENSOR_arm, buf, 3);
-    if (rc != 0)
-        puts_P(PSTR("err: arm: mcp2515_send_sensor"));
-
-    return rc;
+    return mcp2515_send_sensor(type, ID_arm, SENSOR_arm, buf, sizeof(buf));
 }
 
 uint8_t send_laser_dist(uint8_t type)
@@ -167,6 +223,10 @@ uint8_t can_irq(void)
         if (rc != 0)
             mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_stepper, &rc, sizeof(rc));
         break;
+    case TYPE_laser_sweep_begin:
+        rc = laser_do_sweep(0, 18000, 1);
+        printf("sweep rc %d\n", rc);
+        break;
     default:
         break;
     }
@@ -187,13 +247,6 @@ uint8_t debug_irq(void)
     buf[strlen(buf)-1] = '\0';
 
     switch (buf[0]) {
-    case '0':
-        rc = measure_rapid_fire(10);
-        printf("rc %d\n", rc);
-        break;
-    case '1':
-        rc = measure_rapid_fire(100);
-        break;
     case 'm':
         dist = measure_once();
 
@@ -202,14 +255,28 @@ uint8_t debug_irq(void)
         else
             printf("dist: %umm\n", dist);
 
+        buf[0] = (dist >> 8) & 0xFF;
+        buf[1] = (dist >> 0) & 0xFF;
+
+        rc = mcp2515_send_sensor(TYPE_value_explicit, ID_arm, SENSOR_laser, (uint8_t *)buf, 2);
+        printf("rc %d\n", rc);
+
         break;
+    case 'x':
+        {
+            uint16_t i;
+            stepper_wake();
+            stepper_set_state(0);
+            for (i = 0; i < 255; i++) {
+                stepper_ccw();
+            }
+            stepper_sleep();
+        }
+        break;
+
     case 'a':
         pos = atoi(buf + 1);
         set_arm_percent(pos);
-        break;
-    case 'x':
-        DDRC |= (1 << PORTC5);
-        PORTC &= ~(1 << PORTC5);
         break;
     case 't':
         {
