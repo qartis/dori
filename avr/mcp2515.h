@@ -14,15 +14,15 @@ struct mcp2515_packet_t {
 };
 
 enum XFER_STATE {
+    XFER_INIT,
     XFER_CHUNK_SENT,
     XFER_GOT_CTS,
-    XFER_WAIT_CHUNK,
     XFER_CANCEL,
 };
 
-extern volatile enum XFER_STATE xfer_state;
+volatile enum XFER_STATE xfer_state;
+volatile uint8_t mcp2515_busy;
 
-extern volatile uint8_t mcp2515_busy;
 extern volatile struct mcp2515_packet_t packet;
 
 #ifdef CAN_TOPHALF
@@ -193,9 +193,6 @@ void can_tophalf(void);
 #define MCP_EFLG_RXWAR  (1 << 1)
 #define MCP_EFLG_EWARN  (1 << 0)
 
-#define MCP_ERR_XFER_TIMEOUT 1
-#define MCP_ERR_XFER_CANCEL 2
-
 uint8_t mcp2515_init(void);
 void mcp2515_reset(void);
 uint8_t read_register(uint8_t address);
@@ -209,4 +206,5 @@ uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const uin
 void load_tx0(uint8_t type, uint8_t id, uint16_t sensor, const uint8_t *data, uint8_t len);
 void mcp2515_dump(void);
 
+void mcp2515_xfer_begin(void);
 uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint16_t sensor, const void *data, uint8_t len);

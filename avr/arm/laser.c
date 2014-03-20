@@ -38,12 +38,14 @@ uint16_t parse_dist_str(const char *buf)
     uint16_t dist;
 
     comma = strchr(buf, ',');
-    if (comma == NULL)
+    if (comma == NULL) {
         return 0;
+    }
 
     *comma = '\0';
 
     dist = atoi(buf + strlen("nDist: "));
+
     return dist;
 }
 
@@ -57,8 +59,9 @@ ISR(USART_RX_vect)
 
     laser_alive = 1;
 
-    if (dist_mm != 0)
+    if (dist_mm != 0) {
         return;
+    }
 
     if (buf_len == LASER_MAX_LINE_LEN - 1) {
         /* we didn't handle this long line last time. let's drop it
@@ -72,8 +75,9 @@ ISR(USART_RX_vect)
     buf_len++;
 
     /* if the buffer contains a full line */
-    if (c != '\n')
+    if (c != '\n') {
         return;
+    }
 
     if (strstart_P(buf, PSTR("OUT_RAN")) ||
             strstart_P(buf, PSTR("MEDIUM")) ||
@@ -125,10 +129,11 @@ void laser_on(void)
 
     _delay_ms(50);
 
-    if (has_power())
+    if (has_power()) {
         puts_P(PSTR("laser_on ok"));
-    else
+    } else {
         puts_P(PSTR("laser_on err"));
+    }
 }
 
 void laser_on_safe(void)
@@ -154,8 +159,9 @@ uint16_t measure_once(void)
 
     /* 600 * 5 = 3000 ms */
     retry = 600;
-    while (dist_mm == 0 && !error_flag && --retry)
+    while (dist_mm == 0 && !error_flag && --retry) {
         _delay_ms(5);
+    }
 
     uart_putchar('r');
     uart_putchar('r');
@@ -199,22 +205,27 @@ uint8_t measure_rapid_fire(laser_callback_t cb)
 
         /* 255 * 10 = 2550 ms */
         retry = 255;
-        while (dist_mm == 0 && !error_flag && --retry)
+        while (dist_mm == 0 && !error_flag && --retry) {
             _delay_ms(10);
+        }
 
+        /* timeout or error */
         if (dist_mm == 0) {
-            if (read_flag > 0) // heard some measurements
+            /* heard some measurements, so maybe rapidfire has ended */
+            if (read_flag > 0) {
                 break;
+            }
 
-            if (laser_alive) // heard only errors
+            /* if we heard only errors or silence, we should reboot the laser */
+            if (laser_alive) {
                 printf_P(PSTR("LASER LIVE BUT NO MEASUREMENT - MOVE ME\n"));
-            else
+            } else {
                 printf_P(PSTR("HEARD NOTHING\n"));
+            }
 
             return ERR_LASER;
         }
 
-        printf_P(PSTR("READ DIST: %d\n"), dist_mm);
         read_flag = 1;
 
         if (cb != NULL) {

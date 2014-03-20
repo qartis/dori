@@ -26,6 +26,7 @@
 
 uint8_t laser_cb(uint16_t dist)
 {
+    uint8_t i;
     uint8_t rc;
     uint8_t buf[4];
 
@@ -36,11 +37,9 @@ uint8_t laser_cb(uint16_t dist)
 
     rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, SENSOR_laser, buf, sizeof(buf));
     if (rc) {
-        printf("rc: %d\n", rc);
         return rc;
     }
 
-    uint8_t i;
     for (i = 0; i < 255; i++) {
         stepper_cw();
     }
@@ -57,15 +56,17 @@ uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
     rc = stepper_set_angle(start_angle);
     if (rc) {
         printf("laser_sweep: set_angle %d\n", rc);
-        return ERR;
+        return rc;
     }
 
     rc = stepper_set_stepsize(stepsize);
-    if (rc)
+    if (rc) {
         return rc;
+    }
 
-    if (start_angle >= end_angle)
+    if (start_angle >= end_angle) {
         return ERR;
+    }
 
     buf[0] = start_angle >> 8;
     buf[1] = start_angle & 0xff;
@@ -74,10 +75,13 @@ uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
     buf[4] = stepsize >> 8;
     buf[5] = stepsize & 0xff;
 
+    mcp2515_xfer_begin();
+
     rc = mcp2515_xfer(TYPE_laser_sweep_header, MY_ID, SENSOR_laser,
             buf, sizeof(buf));
-    if (rc)
+    if (rc) {
         return rc;
+    }
 
     stepper_wake();
 
@@ -145,16 +149,6 @@ uint8_t send_stepper_state(uint8_t type)
 uint8_t periodic_irq(void)
 {
     return 0;
-
-
-
-
-
-
-
-
-
-    return send_arm_angle(TYPE_value_periodic);
 }
 
 uint8_t process_value_request(void)
@@ -225,6 +219,8 @@ uint8_t can_irq(void)
         break;
     case TYPE_laser_sweep_begin:
         rc = laser_do_sweep(0, 18000, 1);
+        if (rc != 0)
+            mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_laser, &rc, sizeof(rc));
         printf("sweep rc %d\n", rc);
         break;
     default:

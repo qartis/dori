@@ -146,6 +146,8 @@ uint8_t ircam_read_fbuf(void)
     data[2] = (fbuf_len >>  8) & 0xFF;
     data[3] = (fbuf_len >>  0) & 0xFF;
 
+    mcp2515_xfer_begin();
+
     rc = mcp2515_xfer(TYPE_ircam_header, MY_ID, 0, data, sizeof(data));
     if (rc) {
         printf("header rc: %d\n", rc);
