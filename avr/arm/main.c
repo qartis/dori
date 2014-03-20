@@ -277,14 +277,14 @@ uint8_t debug_irq(void)
     case 't':
         {
             int32_t new_state;
-            sscanf(buf + 1, "%ld", &new_state);
+            sscanf(buf + 1, "%6ld", &new_state);
             stepper_set_state(new_state);
         }
         break;
     case 'z':
         {
             int32_t new_angle;
-            sscanf(buf + 1, "%ld", &new_angle);
+            sscanf(buf + 1, "%6ld", &new_angle);
             rc = stepper_set_angle(new_angle);
             printf("rc %u\n", rc);
         }
