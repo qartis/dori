@@ -11,12 +11,12 @@
 #include "sim900.h"
 #include "uart.h"
 #include "can.h"
-//#include "debug.h"
 #include "mcp2515.h"
 
 volatile enum state state;
 volatile uint8_t flag_ok;
 volatile uint8_t flag_error;
+uint8_t ip[4] = { 192, 81, 218, 115 };
 
 uint8_t wait_for_state(uint8_t goal_state)
 {
@@ -60,7 +60,7 @@ void slow_write(const void *buf, uint16_t count)
     }
 }
 
-void sendATCommand(const char * PROGMEM fmt, ...)
+void sendATCommand(const char *PROGMEM fmt, ...)
 {
     char buf[128];
     char fmt_copy[128];
@@ -98,7 +98,7 @@ uint8_t TCPDisconnect(void)
     return 0;
 }
 
-uint8_t TCPSend(uint8_t *buf, uint16_t count)
+uint8_t TCPSend(uint8_t * buf, uint16_t count)
 {
     uint8_t rc;
     uint16_t i;
@@ -109,10 +109,13 @@ uint8_t TCPSend(uint8_t *buf, uint16_t count)
 
     rc = wait_for_state(STATE_GOT_PROMPT);
     if (rc != 0) {
-        printf_P(PSTR("wanted to send data, but didn't get prompt (state now %d)\n"), state);
+        printf_P(PSTR
+                 ("wanted to send data, but didn't get prompt (state now %d)\n"),
+                 state);
 
         err_num = __LINE__;
-        mcp2515_send_wait(TYPE_sensor_error, MY_ID, 0, &err_num, sizeof(err_num));
+        mcp2515_send_wait(TYPE_sensor_error, MY_ID, 0, &err_num,
+                          sizeof(err_num));
 
         state = STATE_ERROR;
 
@@ -210,7 +213,8 @@ uint8_t TCPConnect(void)
 
     puts_P(PSTR("state: IP STATUS"));
 
-    sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"192.81.218.115\",\"53\""));
+    sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"%d.%d.%d.%d\",\"53\""), ip[0],
+                  ip[1], ip[2], ip[3]);
 
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {

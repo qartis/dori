@@ -85,6 +85,12 @@ void handle_packet(uint8_t type, uint8_t len, uint8_t * data)
     case TYPE_action_modema_disconnect:
         TCPDisconnect();
         break;
+    case TYPE_set_ip:
+        ip[0] = data[0];
+        ip[1] = data[1];
+        ip[2] = data[2];
+        ip[3] = data[3];
+        break;
     }
 }
 

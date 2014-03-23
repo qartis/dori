@@ -58,6 +58,9 @@
     X(laser_sweep_header, 0x60) \
     X(laser_sweep_begin, 0x61) \
 \
+    X(set_sms_dest, 0x70) \
+    X(set_ip, 0x71) \
+\
     X(invalid, 0xff) \
 
 

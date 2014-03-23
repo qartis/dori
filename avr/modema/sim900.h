@@ -17,6 +17,7 @@ extern volatile enum state state;
 extern volatile uint8_t flag_ok;
 extern volatile uint8_t flag_error;
 extern int modemFD;
+extern uint8_t ip[4];
 
 void sendATCommand(const char *fmt, ...);
 uint8_t TCPSend(uint8_t *buf, uint16_t count);
