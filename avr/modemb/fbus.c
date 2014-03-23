@@ -75,34 +75,38 @@ uint8_t bcd(uint8_t * dest, const char *s)
 }
 
 volatile char phonenum_buf[16];
-void unbcd_phonenum(volatile uint8_t * data)
+void unbcd_phonenum(volatile char *dest, volatile uint8_t *data, uint8_t len)
 {
-    uint8_t len, n, x, at;
-    volatile char *endptr = phonenum_buf;
+    uint8_t n, x, at;
 
-    len = data[0];
-
-    if (data[1] == 0x6f || data[1] == 0x91) {
-        *endptr++ = '+';
+    if (data[0] == 0x6f || data[0] == 0x91) {
+        *dest++ = '+';
     }
 
-    at = 2;
+    at = 1;
     for (n = 0; n < len; ++n) {
         x = data[at] & 0x0f;
+
         if (x < 10) {
-            *endptr++ = '0' + x;
+            *dest++ = '0' + x;
         }
+
         n++;
+
         if (n >= len) {
             break;
         }
+
         x = (data[at] >> 4) & 0x0f;
+
         if (x < 10) {
-            *endptr++ = '0' + x;
+            *dest++ = '0' + x;
         }
+
         at++;
     }
-    *endptr = '\0';
+
+    *dest = '\0';
 }
 
 uint8_t escaped(uint8_t c)

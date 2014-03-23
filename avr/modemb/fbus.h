@@ -4,7 +4,7 @@ uint8_t fbus_subscribe(void);
 uint8_t fbus_delete_sms(uint16_t loc);
 void fbus_init(void);
 
-void unbcd_phonenum(volatile uint8_t *data);
+void unbcd_phonenum(volatile char *dest, volatile uint8_t *data, uint8_t len);
 void sendack(uint8_t type, uint8_t seqnum);
 uint8_t unpack7_msg(volatile uint8_t *data, uint8_t len, volatile char* output);
 

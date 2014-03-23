@@ -39,6 +39,7 @@
 
 volatile uint8_t sms_buf[FBUS_SMS_MAX_LEN];
 volatile uint8_t sms_buflen;
+char sms_dest[] = "7786860358";
 
 volatile uint32_t modem_alive_time;
 extern volatile uint8_t stfu;
@@ -229,21 +230,13 @@ void parse_sms(void)
         switch (*block_ptr) {
         case 0x82:
             if (block_ptr[2] == 0x01) {
-                unbcd_phonenum(block_ptr + 4);
-                //printf("phone: '%s'\n", phonenum_buf);
+                unbcd_phonenum(phonenum_buf, block_ptr + 5, block_ptr[0]);
+                printf("phone: '%s'\n", phonenum_buf);
             }
             break;
         case 0x80:
             msg_buflen = unpack7_msg(block_ptr + 4, block_ptr[3], msg_buf);
-                printf("buflen: %d\n", msg_buflen);
-                /*
-            {
-                uint8_t j = 0;
-                for (; j < 6; j++) {
-                    printf("%d: %x\n", j, msg_buf[j]);
-                }
-            }
-            */
+            printf("buflen: %d\n", msg_buflen);
             printf_P(PSTR("GOT MSG '%s'\n"), msg_buf);
             break;
 
@@ -260,14 +253,25 @@ void parse_sms(void)
     fbus_delete_sms(id);
 }
 
+void fbus_gotcan(uint8_t type, uint8_t id, uint16_t sensor, uint8_t *data,
+        uint8_t len)
+{
+    if (type == TYPE_set_sms_dest) {
+        unbcd_phonenum(sms_dest, data, len);
+        return;
+    }
+
+    mcp2515_send_wait(type, id, sensor, data, len);
+}
+
+
 uint8_t user_irq(void)
 {
     uint8_t rc;
-
     uint8_t type, id, len;
     uint16_t sensor;
     uint8_t i;
-
+    uint8_t j;
     uint8_t data[16] = { 0 };
 
     type = 0;
@@ -300,23 +304,20 @@ uint8_t user_irq(void)
 
             printf_P(PSTR("pkt: %02x %02x %04x %02x\n"), type, id, sensor, len);
 
-            if(len > 8) { // invalid length
+            if (len > 8) { // invalid length
                 printf("inval len: %d\n", len);
                 break;
             }
 
-            uint8_t j = 0;
-            for(i = 0; j < len; j++, i+=2) {
+            for (i = 0, j = 0; j < len; j++, i+=2) {
                 //printf("%c",  msg[10 + i]);
                 //printf("%c ", msg[11 + i]);
-                data[j] = from_hex_byte(msg[10 + i],
-                                        msg[11 + i]);
+                data[j] = from_hex_byte(msg[10 + i], msg[11 + i]);
             }
-
 
             printf("snd can\n");
 
-            rc = mcp2515_send_wait(type, id, sensor, data, len);
+            fbus_gotcan(type, id, sensor, data, len);
 
             if (msg_buflen < 10 + (len * 2)) {
                 puts_P(PSTR("inval sms"));
@@ -498,11 +499,11 @@ uint8_t can_irq(void)
     output[8] = to_hex((packet.len & 0xf0) >> 4);
     output[9] = to_hex((packet.len & 0x0f) >> 0);
 
-    //snprintf_P(output, sizeof(output), PSTR("%02x%02x%04x%02x"), packet.type, packet.id, packet.sensor, packet.len);
-    printf_P(PSTR("%02x%02x%04x%02x"), packet.type, packet.id, packet.sensor, packet.len);
+    printf_P(PSTR("%02x%02x%04x%02x"), packet.type, packet.id, packet.sensor,
+            packet.len);
     putchar('\n');
 
-    for(i = 0, j = 0; i < packet.len; i++, j+=2) {
+    for (i = 0, j = 0; i < packet.len; i++, j += 2) {
         output[10 + j] = to_hex((packet.data[i] & 0xF0) >> 4);
         output[11 + j] = to_hex((packet.data[i] & 0x0F) >> 0);
     }
@@ -515,8 +516,7 @@ uint8_t can_irq(void)
     }
 
     printf_P(PSTR("snd'%s'\n"), output);
-    //rc = fbus_sendsms("7788969633", output);
-    rc = fbus_sendsms("7786860358", output);
+    rc = fbus_sendsms(sms_dest, output);
 
     if (rc) {
         puts_P(PSTR("problem sending SMS"));
