@@ -110,15 +110,17 @@ void remove_client(int fd)
     FD_CLR(fd, &master);
 }
 
-size_t write_to_client(client_type target_client, const char* buf, int buflen, int* num_clients_written)
+size_t write_to_client(client_type target_client, const char* buf, int buflen)
 {
-    ssize_t rc;
+    int num_clients_written;
     int i;
+    int rc;
 
-    rc = 0;
+    num_clients_written = 0;
     for (i = 0; i < nclients; i++) {
         if (clients[i].type == target_client) {
-            (*num_clients_written)++;
+
+            num_clients_written++;
             rc = write(clients[i].fd, buf, buflen);
             if(rc <= 0) {
                 printf("Error writing to client type %d", target_client);
@@ -128,7 +130,7 @@ size_t write_to_client(client_type target_client, const char* buf, int buflen, i
         }
     }
 
-    return 0;
+    return num_clients_written;
 }
 
 
@@ -437,19 +439,16 @@ void process_shell_bytes(char *buf, int len)
 
     printf("]\n");
 
-    int num_clients_written;
-    ssize_t rc;
+    int rc;
+    rc = write_to_client(DORI, (const char*)shellbuf, shellbuf_len);
 
-    num_clients_written = 0;
-    rc = write_to_client(DORI, (const char*)shellbuf, shellbuf_len, &num_clients_written);
-
-    if(num_clients_written == 0) {
+    if(rc == 0) {
         printf("No DORI available\n");
     } else if(rc < 0) {
         printf("Error while writing to DORI\n");
-    } else if(num_clients_written > 0) {
+    } else {
         printf("Sending frame to %d clients: %s [%02x] %s [%02x] %s [%04x] %d [",
-               num_clients_written,
+               rc,
                type_names[type],
                type,
                id_names[id],
@@ -559,9 +558,8 @@ int main()
             error("select");
         } else if (rc == 0) {
             uint8_t nop = TYPE_nop;
-            int num_clients_written = 0;
-            rc = write_to_client(DORI, (char*)&nop, 1, &num_clients_written);
-            if(num_clients_written == 0) {
+            rc = write_to_client(DORI, (char*)&nop, 1);
+            if(rc == 0) {
                 printf("No DORI available to send NOP\n");
             } else if(rc < 1) {
                 perror("Error writing NOP to DORI");
