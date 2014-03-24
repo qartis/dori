@@ -54,7 +54,6 @@ static int dorifd;
 static int tkfd;
 static int shellfd;
 static int siteid;
-int dori_idx = -1;
 
 static unsigned char doribuf[BUFLEN];
 static int doribuf_len;
@@ -110,6 +109,28 @@ void remove_client(int fd)
 
     FD_CLR(fd, &master);
 }
+
+size_t write_to_client(client_type target_client, const char* buf, int buflen, int* num_clients_written)
+{
+    ssize_t rc;
+    int i;
+
+    rc = 0;
+    for (i = 0; i < nclients; i++) {
+        if (clients[i].type == target_client) {
+            (*num_clients_written)++;
+            rc = write(clients[i].fd, buf, buflen);
+            if(rc <= 0) {
+                printf("Error writing to client type %d", target_client);
+                remove_client(clients[i].fd);
+                return -1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 
 ssize_t safe_write(int fd, const char *buf, size_t count)
 {
@@ -356,8 +377,6 @@ void process_dori_bytes(char *buf, int len)
 
         db_log_can(type, id, sensor, data_len, doribuf + CAN_HEADER_LEN);
 
-
-
         for (i = 0; i < nclients; i++) {
             uint8_t sensor_buf[2];
             sensor_buf[0] = sensor >> 8;
@@ -382,14 +401,6 @@ void process_dori_bytes(char *buf, int len)
 
 void process_shell_bytes(char *buf, int len)
 {
-    /*
-    int i;
-    for(i = 0; i < len; i++) {
-        printf("%d:%02x ", i, buf[i]);
-    }
-    printf("\n");
-    */
-
     memcpy(&shellbuf[shellbuf_len], buf, len);
     shellbuf_len += len;
 
@@ -426,24 +437,29 @@ void process_shell_bytes(char *buf, int len)
 
     printf("]\n");
 
-    for (i = 0; i < nclients; i++) {
-        if (clients[i].type == DORI) {
-            printf("Sending frame: %s [%02x] %s [%02x] %s [%04x] %d [",
-                   type_names[type],
-                   type,
-                   id_names[id],
-                   id,
-                   sensor_names[sensor],
-                   sensor,
-                   data_len);
+    int num_clients_written;
+    ssize_t rc;
 
-            int j;
-            for (j = 0; j < data_len; j++) {
-                printf(" %02x ", shellbuf[CAN_HEADER_LEN + j]);
-            }
-            printf("]\n");
+    num_clients_written = 0;
+    rc = write_to_client(DORI, (const char*)shellbuf, shellbuf_len, &num_clients_written);
 
-            write(clients[i].fd, shellbuf, shellbuf_len);
+    if(num_clients_written == 0) {
+        printf("No DORI available\n");
+    } else if(rc < 0) {
+        printf("Error while writing to DORI\n");
+    } else if(num_clients_written > 0) {
+        printf("Sending frame to %d clients: %s [%02x] %s [%02x] %s [%04x] %d [",
+               num_clients_written,
+               type_names[type],
+               type,
+               id_names[id],
+               id,
+               sensor_names[sensor],
+               sensor,
+               data_len);
+        int j;
+        for (j = 0; j < data_len; j++) {
+            printf(" %02x ", shellbuf[CAN_HEADER_LEN + j]);
         }
     }
 
@@ -542,10 +558,13 @@ int main()
         if (rc == -1) {
             error("select");
         } else if (rc == 0) {
-            if (dori_idx > -1) {
-                printf("sending nop\n");
-                uint8_t nop = TYPE_nop;
-                write(clients[dori_idx].fd, &nop, 1);
+            uint8_t nop = TYPE_nop;
+            int num_clients_written = 0;
+            rc = write_to_client(DORI, (char*)&nop, 1, &num_clients_written);
+            if(num_clients_written == 0) {
+                printf("No DORI available to send NOP\n");
+            } else if(rc < 1) {
+                perror("Error writing NOP to DORI");
             }
             continue;
         }
@@ -593,7 +612,6 @@ int main()
                 } else if (fd == dorifd) {
                     printf("DORI connected\n");
                     clients[nclients].type = DORI;
-                    dori_idx = nclients;
                 }
 
                 nclients++;
@@ -602,20 +620,18 @@ int main()
             } else {
                 client *c = find_client(fd);
                 rc = read(fd, buf, sizeof(buf));
-                if (rc == 0 || (rc < 0 && errno == ECONNRESET)) {
+                if (rc == 0 || rc < 0) {
                     if (c->type == DORI) {
                         printf("DORI disconnected\n");
-                        dori_idx = -1;
                     } else if (c->type == SHELL) {
                         printf("shell disconnected\n");
                     }
+					else {
+                        printf("unknown client disconnected\n");
+					}
                     remove_client(fd);
 
-                } else if (rc < 0) {
-                    perror("Client disconnected");
-                    remove_client(fd);
                 } else {
-
                     /*
                     printf("Got %d bytes: ", rc);
                     int j = 0;
