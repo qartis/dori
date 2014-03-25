@@ -217,13 +217,12 @@ uint8_t measure_rapid_fire(laser_callback_t cb)
             }
 
             /* if we heard only errors or silence, we should reboot the laser */
-            if (laser_alive) {
-                printf_P(PSTR("LASER LIVE BUT NO MEASUREMENT - MOVE ME\n"));
-            } else {
+            if (laser_alive == 0) {
                 printf_P(PSTR("HEARD NOTHING\n"));
+                return ERR_LASER;
             }
 
-            return ERR_LASER;
+            printf_P(PSTR("LASER LIVE BUT NO MEASUREMENT - MOVE ME\n"));
         }
 
         read_flag = 1;
