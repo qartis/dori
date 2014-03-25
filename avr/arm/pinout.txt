@@ -14,10 +14,10 @@
 
 
 
-1 - analog in (PINC4, ADC4)
+1 - analog in (PINC4, ADC4) BLUE
 2 - N/C
-3 - GND
-4 - PC2 (turn on to measure arm)
+3 - GND YELLOW from arm
+4 - PC2 (turn on to measure arm) WHITE from arm
 
 5 - N/C
 6 - N/C
