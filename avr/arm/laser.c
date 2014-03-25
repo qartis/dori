@@ -243,8 +243,10 @@ uint8_t measure_rapid_fire(laser_callback_t cb)
 uint8_t laser_sweep(laser_callback_t cb)
 {
     uint8_t rc;
+    uint8_t total_error_count;
     uint8_t seq_error_count;
 
+    total_error_count = 0;
     seq_error_count = 0;
 
     for (;;) {
@@ -255,8 +257,9 @@ uint8_t laser_sweep(laser_callback_t cb)
         } else if (rc == ERR_LASER) {
             /* maybe got a bunch of errors, maybe got just silence */
             seq_error_count++;
+            total_error_count++;
 
-            if (seq_error_count > 2) {
+            if ((seq_error_count > 2) || (total_error_count > 10)) {
                 printf_P(PSTR("FAILED TO READ MEASUREMENTS\n"));
                 break;
             }
