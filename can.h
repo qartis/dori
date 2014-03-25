@@ -104,6 +104,7 @@
     X(temp6,    0x16) \
     X(temp7,    0x17) \
     X(temp8,    0x18) \
+    X(uptime,   0x20) \
 \
     X(invalid, 0xff)
 

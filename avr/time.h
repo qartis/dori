@@ -1,4 +1,5 @@
 extern volatile uint32_t now;
+extern volatile uint32_t uptime;
 extern volatile uint32_t periodic_prev;
 extern volatile uint16_t periodic_interval;
 

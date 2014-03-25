@@ -48,6 +48,7 @@
 #define HEARTBEAT_ON()  PORTC &= ~(1 << PORTC3)
 
 volatile uint32_t now;
+volatile uint32_t uptime;
 volatile uint32_t periodic_prev;
 volatile uint16_t periodic_interval;
 static volatile uint8_t overflows;
@@ -75,6 +76,7 @@ ISR(TIMER0_COMPA_vect)
     if (overflows >= OVERFLOW_TICKS) {
         overflows = 0;
         now++;
+        uptime++;
 
         HEARTBEAT_OFF();
 
@@ -92,8 +94,6 @@ ISR(TIMER0_COMPA_vect)
 void time_init(void)
 {
     periodic_interval = DEFAULT_PERIOD;
-    periodic_prev = 0;
-    now = 0;
 
     /* timer0 is used as global timer for periodic messages */
     OCR0A = (125 - 1);

@@ -239,6 +239,7 @@ uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, uint16_t sensor, const void 
 void mcp2515_handle_packet(uint8_t type, uint8_t id, uint16_t sensor, const volatile uint8_t *data, uint8_t len)
 {
     uint16_t new_periodic_interval;
+    uint8_t uptime_buf[4];
 
     if (type == TYPE_set_interval && (id == MY_ID || id == ID_any)) {
         periodic_prev = now;
@@ -252,6 +253,14 @@ void mcp2515_handle_packet(uint8_t type, uint8_t id, uint16_t sensor, const vola
         cli();
         wdt_enable(WDTO_15MS);
         for (;;) {};
+    } else if (type == TYPE_value_request && (id == MY_ID || id == ID_any) &&
+            sensor == SENSOR_uptime) {
+        uptime_buf[0] = uptime >> 24;
+        uptime_buf[1] = uptime >> 16;
+        uptime_buf[2] = uptime >> 8;
+        uptime_buf[3] = uptime >> 0;
+
+        mcp2515_send(TYPE_value_explicit, MY_ID, uptime_buf, sizeof(uptime_buf));
     } else if (type == TYPE_sos_stfu && (id == MY_ID || id == ID_any)) {
         stfu = 1;
     } else if (type == TYPE_sos_nostfu && (id == MY_ID || id == ID_any)) {
