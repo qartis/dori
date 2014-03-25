@@ -40,9 +40,11 @@ uint8_t laser_cb(uint16_t dist)
         return rc;
     }
 
-    for (i = 0; i < 255; i++) {
+    stepper_wake();
+    for (i = 0; i < 10; i++) {
         stepper_cw();
     }
+    stepper_sleep();
 
     return 0;
 }
@@ -83,11 +85,7 @@ uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
         return rc;
     }
 
-    stepper_wake();
-
     laser_sweep(laser_cb);
-
-    stepper_sleep();
 
     return 0;
 }

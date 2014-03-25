@@ -96,7 +96,7 @@ void stepper_sleep(void)
 void stepper_wake(void)
 {
     PORTC |=  (1 << STEPPER_SLP);
-    _delay_ms(1);
+    _delay_ms(5);
 }
 
 uint8_t stepper_set_angle(uint16_t goal)
