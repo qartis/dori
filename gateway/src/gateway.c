@@ -316,53 +316,31 @@ void process_dori_bytes(char *buf, int len)
         printf("]\n");
 
         switch (type) {
-        case TYPE_file_header:
-            {
-                char filename[9];
-                memcpy(filename, data, data_len);
-                filename[data_len] = '\0';
-
-                if(incoming_file) {
-                    fclose(incoming_file);
-                }
-
-                char file_path[128];
-                sprintf(file_path, "files/%s", filename);
-                incoming_file = fopen(file_path, "w");
-                break;
-            }
-        case TYPE_dcim_header:
-            {
-                uint16_t folder = data[0] | (data[1] << 8);
-                uint16_t file = data[2] | (data[3] << 8);
-
-                char extension[9];
-                // Read the remaining data bytes
-                for(i = 0; i < len - 4; i++) {
-                    extension[i] = data[4 + i];
-                }
-                extension[i] = '\0';
-
-                char file_path[128];
-                sprintf(file_path, "DCIM/%dCANON/IMG_%d.%s", folder, file, extension);
-
-                if(incoming_file) {
-                    fclose(incoming_file);
-                }
-
-                // Make sure the directory exists
-                char cmd[128];
-                sprintf(cmd, "mkdir -p %s", file_path);
-                system(cmd);
-                incoming_file = fopen(file_path, "w");
-                break;
-            }
         case TYPE_ircam_header:
             {
                 struct timeval timestamp;
                 gettimeofday(&timestamp,NULL);
                 char file_path[128];
                 sprintf(file_path, "ircam/%ld.jpg", timestamp.tv_sec);
+                incoming_file = fopen(file_path, "w");
+                break;
+            }
+        case TYPE_laser_sweep_header:
+            {
+                uint16_t start_angle;
+                uint16_t end_angle;
+                uint16_t stepsize;
+                struct timeval timestamp;
+                char file_path[128];
+
+                start_angle = data[0] << 8 | data[1];
+                end_angle   = data[2] << 8 | data[3];
+                stepsize    = data[4] << 8 | data[5];
+
+                gettimeofday(&timestamp,NULL);
+                sprintf(file_path, "laser/%ld - %u %u %u.dat", timestamp.tv_sec,
+                        start_angle, end_angle, stepsize);
+                incoming_file = fopen(file_path, "w");
                 break;
             }
         case TYPE_xfer_chunk:
@@ -502,6 +480,7 @@ int main()
     // Setup some expected directories
     system("mkdir -p files");
     system("mkdir -p ircam");
+    system("mkdir -p laser");
 
     dorifd = socket(AF_INET, SOCK_STREAM, 0);
     if (dorifd == -1)
