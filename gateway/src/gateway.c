@@ -379,20 +379,35 @@ void process_dori_bytes(char *buf, int len)
 
         db_log_can(type, id, sensor, data_len, doribuf + CAN_HEADER_LEN);
 
+        int rc = 0;
+
         for (i = 0; i < nclients; i++) {
             uint8_t sensor_buf[2];
             sensor_buf[0] = sensor >> 8;
             sensor_buf[1] = sensor & 0xff;
 
             if (clients[i].type == SHELL) {
-                write(clients[i].fd, &type, sizeof(type));
-                write(clients[i].fd, &id, sizeof(id));
-                write(clients[i].fd, sensor_buf, sizeof(sensor_buf));
-                write(clients[i].fd, &data_len, sizeof(data_len));
-                write(clients[i].fd, doribuf + CAN_HEADER_LEN, data_len);
+                rc = write(clients[i].fd, &type, sizeof(type));
+                if(rc < 0) break;
+
+                rc = write(clients[i].fd, &id, sizeof(id));
+                if(rc < 0) break;
+
+                rc = write(clients[i].fd, sensor_buf, sizeof(sensor_buf));
+                if(rc < 0) break;
+
+                rc = write(clients[i].fd, &data_len, sizeof(data_len));
+                if(rc < 0) break;
+
+                rc = write(clients[i].fd, doribuf + CAN_HEADER_LEN, data_len);
+                if(rc < 0) break;
             }
         }
 
+        if(rc < 0) {
+            perror("Failed to write DORI bytes to shell");
+            remove_client(clients[i].fd);
+        }
 
         doribuf_len -= (CAN_HEADER_LEN + data_len);
 
