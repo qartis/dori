@@ -1,4 +1,5 @@
 *.o
+*db
 *.obj
 *.blend*
 *.dwg
