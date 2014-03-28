@@ -412,7 +412,13 @@ uint8_t uart_sendsms(const char *num, const char *ascii)
 
 uint8_t fbus_sendsms(const char *num, const char *msg)
 {
-    fbus_init();
+    uint8_t rc;
+
+    rc = fbus_heartbeat(); // send ID before any SMS
+
+    if (rc)
+        return rc;
+
     return uart_sendsms(num, msg);
 }
 

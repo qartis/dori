@@ -510,11 +510,6 @@ uint8_t can_irq(void)
 
     output[10 + j] = '\0';
 
-    rc = fbus_heartbeat(); // send ID before any SMS
-    if (rc) {
-        goto done;
-    }
-
     printf_P(PSTR("snd'%s'\n"), output);
     rc = fbus_sendsms(sms_dest, output);
 
