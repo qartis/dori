@@ -34,8 +34,9 @@
 #define FBUS_SUBSMS_INCOMING 0x04
 #define FBUS_SUBSMS_SEND_STATUS 0x03
 
-#define FBUS_PHONE_NUM_LEN 12
 #define FBUS_SMS_MAX_LEN 128
+
+#define PHONE_NUM_ASCII_LEN 10
 
 volatile uint8_t sms_buf[FBUS_SMS_MAX_LEN];
 volatile uint8_t sms_buflen;
@@ -73,6 +74,16 @@ uint8_t from_hex_byte(char a, char b)
 {
     return (from_hex(a) << 4) | from_hex(b);
 }
+
+void powercycle(void)
+{
+    PORTD &= (1 << PORTD6);
+    DDRD |= (1 << PORTD6);
+    _delay_ms(2000);
+    DDRD &= ~(1 << PORTD6);
+}
+
+
 
 ISR(USART_RX_vect)
 {
@@ -253,16 +264,75 @@ void parse_sms(void)
     fbus_delete_sms(id);
 }
 
-void fbus_gotcan(uint8_t type, uint8_t id, uint16_t sensor, uint8_t *data,
+void process_can(uint8_t type, uint8_t id, uint16_t sensor, volatile uint8_t *data,
         uint8_t len)
 {
-    if (type == TYPE_set_sms_dest) {
-        unbcd_phonenum(sms_dest, data, len);
-        return;
+    volatile uint8_t unbcd_buf[16];
+    char output[32];
+    uint8_t i;
+    uint8_t j;
+
+    switch(type) {
+    case TYPE_value_request:
+        if ((id == MY_ID || id == ID_any) && sensor == SENSOR_uptime) {
+
+            uint8_t uptime_buf[4];
+            uptime_buf[0] = uptime >> 24;
+            uptime_buf[1] = uptime >> 16;
+            uptime_buf[2] = uptime >> 8;
+            uptime_buf[3] = uptime >> 0;
+
+            mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+
+            output[0] = to_hex((TYPE_value_explicit & 0xf0) >> 4);
+            output[1] = to_hex((TYPE_value_explicit & 0x0f) >> 0);
+
+            output[2] = to_hex((MY_ID & 0xf0) >> 4);
+            output[3] = to_hex((MY_ID & 0x0f) >> 0);
+
+            output[4] = to_hex((SENSOR_uptime & 0xf000) >> 12);
+            output[5] = to_hex((SENSOR_uptime & 0x0f00) >> 8);
+            output[6] = to_hex((SENSOR_uptime & 0x00f0) >> 4);
+            output[7] = to_hex((SENSOR_uptime & 0x000f) >> 0);
+
+            output[8] = to_hex((4 & 0xf0) >> 4);
+            output[9] = to_hex((4 & 0x0f) >> 0);
+
+            for (i = 0, j = 0; i < sizeof(uptime_buf); i++, j += 2) {
+                output[10 + j] = to_hex((uptime_buf[i] & 0xF0) >> 4);
+                output[11 + j] = to_hex((uptime_buf[i] & 0x0F) >> 0);
+            }
+
+            output[10 + j] = '\0';
+
+            printf("out: '%s'\n", output);
+
+            fbus_sendsms(sms_dest, output);
+        }
+        break;
+    case TYPE_action_modemb_powercycle:
+        powercycle();
+        break;
+    case TYPE_action_modemb_wipesms:
+        for (i = 0; i < 32; i++) {
+            fbus_delete_sms(i);
+        }
+        break;
+    case TYPE_set_sms_dest:
+        unbcd_buf[0] = 0;
+
+        for (i = 0; i < len; i++) {
+            unbcd_buf[i + 1] = (data[i] & 0xf0) >> 4 | (data[i] & 0x0f) << 4;
+        }
+
+        unbcd_phonenum(sms_dest, unbcd_buf, PHONE_NUM_ASCII_LEN);
+        printf("dest: %s\n", sms_dest);
+        fbus_sendsms(sms_dest, "00");
+        break;
     }
 
-    mcp2515_send_wait(type, id, sensor, data, len);
 }
+
 
 
 uint8_t user_irq(void)
@@ -317,7 +387,9 @@ uint8_t user_irq(void)
 
             printf("snd can\n");
 
-            fbus_gotcan(type, id, sensor, data, len);
+            mcp2515_send_wait(type, id, sensor, data, len);
+
+            process_can(type, id, sensor, data, len);
 
             if (msg_buflen < 10 + (len * 2)) {
                 puts_P(PSTR("inval sms"));
@@ -355,15 +427,6 @@ uint8_t user_irq(void)
 
     return rc;
 }
-
-void powercycle(void)
-{
-    PORTD &= (1 << PORTD6);
-    DDRD |= (1 << PORTD6);
-    _delay_ms(2000);
-    DDRD &= ~(1 << PORTD6);
-}
-
 
 uint8_t debug_irq(void)
 {
@@ -469,15 +532,9 @@ uint8_t can_irq(void)
 
     printf_P(PSTR("can_irq\n"));
 
-    if (packet.type == TYPE_action_modemb_powercycle) {
-        powercycle();
-        goto done;
-    } else if (packet.type == TYPE_action_modemb_wipesms) {
-        for (i = 0; i < 32; i++) {
-            fbus_delete_sms(i);
-        }
-        goto done;
-    } else if (packet.type == TYPE_value_request) {
+    process_can(packet.type, packet.id, packet.sensor, packet.data, packet.len);
+
+    if (packet.type == TYPE_value_request) {
         /* ignore */
         goto done;
     } else if (stfu) {
