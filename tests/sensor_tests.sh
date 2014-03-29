@@ -17,6 +17,9 @@ sleep 5
 echo "../shell/send value_request 9dof.time"
 ../shell/send value_request 9dof.time
 sleep 5
+echo "../shell/send value_request 9dof.uptime"
+../shell/send value_request 9dof.uptime
+sleep 5
 
 #DIAG
 echo "../shell/send value_request diag.temp5"
@@ -36,6 +39,9 @@ echo "../shell/send value_request diag.voltage"
 sleep 5
 echo "../shell/send value_request diag.current"
 ../shell/send value_request diag.current
+sleep 5
+echo "../shell/send value_request diag.uptime"
+../shell/send value_request diag.uptime
 sleep 5
 
 #ENVIRO
@@ -57,6 +63,9 @@ sleep 5
 echo "../shell/send value_request enviro.pressure"
 ../shell/send value_request enviro.pressure
 sleep 5
+echo "../shell/send value_request enviro.uptime"
+../shell/send value_request enviro.uptime
+sleep 5
 
 #ARM
 echo "../shell/send value_request arm.arm"
@@ -67,6 +76,9 @@ echo "../shell/send value_request arm.laser"
 sleep 10 # extra long
 echo "../shell/send value_request arm.stepper"
 ../shell/send value_request arm.stepper
+sleep 5
+echo "../shell/send value_request arm.uptime"
+../shell/send value_request arm.uptime
 sleep 5
 
 #MODEMA
