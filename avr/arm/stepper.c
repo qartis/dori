@@ -21,7 +21,7 @@ void stepper_init(void)
     stepper_sleep();
 
     stepper_set_state(-1);
-    stepper_stepsize = 1;
+    stepper_set_stepsize(1);
 }
 
 uint16_t stepper_get_stepsize(void)
