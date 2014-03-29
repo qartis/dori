@@ -52,7 +52,7 @@ uint8_t set_arm_percent(uint8_t pos)
 
         PORTD &= ~(1 << PORTD2);
 
-        return !(get_arm_angle() > goal);
+        return (retry == 0);
     } else {
         PORTD |= (1 << PORTD7);
 
@@ -64,6 +64,6 @@ uint8_t set_arm_percent(uint8_t pos)
 
         PORTD &= ~(1 << PORTD7);
 
-        return !(get_arm_angle() > goal);
+        return (retry == 0);
     }
 }
