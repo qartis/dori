@@ -11,6 +11,13 @@ const char *gateway_address = "gozan";
 int gateway_port = 1338;
 static int gatewayfd;
 
+typedef enum {
+    CAN_TYPE,
+    CAN_ID,
+    CAN_SENSOR,
+    CAN_DATA,
+} arg_type ;
+
 ssize_t safe_read(int fd, void* buf, size_t count)
 {
     size_t read_bytes = 0;
@@ -286,49 +293,55 @@ int strequal(const char *a, const char *b)
     return strcmp(a, b) == 0;
 }
 
-uint16_t parse_can_arg(const char *arg)
+uint16_t parse_can_arg(const char *arg, arg_type type)
 {
-    /* first check all the type names */
+    switch(type) {
+    case CAN_TYPE:
+        /* first check all the type names */
 #define X(name, value) if (strequal(arg, #name)) return TYPE_ ##name; \
 
-    TYPE_LIST(X)
+        TYPE_LIST(X)
 #undef X
-
+        break;
+    case CAN_ID:
         /* then try all the id names */
 #define X(name, value) if (strequal(arg, #name)) return ID_ ##name; \
 
         ID_LIST(X)
 #undef X
-
+        break;
+    case CAN_SENSOR:
         /* then try all the id names */
 #define X(name, value) if (strequal(arg, #name)) return SENSOR_ ##name; \
 
         SENSOR_LIST(X)
 #undef X
+        break;
+    default:
+        if (strlen(arg) == 2) {
+            return (16 * from_hex(arg[0])) + from_hex(arg[1]);
+        }
 
-    if (strlen(arg) == 2) {
-        return (16 * from_hex(arg[0])) + from_hex(arg[1]);
-    }
+        if (strlen(arg) == 1 && ((isalpha(arg[0]) && isupper(arg[0])) || arg[0] == '.')) {
+            /* otherwise maybe its a letter (eg. J P G) */
+            return arg[0];
+        }
+        else if(strlen(arg) == 1) {
+            /* otherwise maybe it's a 1-digit hex */
+            return from_hex(arg[0]);
+        }
 
-    if (strlen(arg) == 1 && ((isalpha(arg[0]) && isupper(arg[0])) || arg[0] == '.')) {
-        /* otherwise maybe its a letter (eg. J P G) */
-        return arg[0];
-    }
-    else if(strlen(arg) == 1) {
-        /* otherwise maybe it's a 1-digit hex */
-        return from_hex(arg[0]);
-    }
-
-    /* otherwise maybe an ASCII character wrappd in single quotes */
-    if (strlen(arg) == 3 && arg[0] == '\'' && arg[2] == '\'') {
-        return arg[1];
+        /* otherwise maybe an ASCII character wrappd in single quotes */
+        if (strlen(arg) == 3 && arg[0] == '\'' && arg[2] == '\'') {
+            return arg[1];
+        }
     }
 
     return 0xff;
 }
 
-uint16_t parse_can_arg_fail(const char *arg) {
-    uint16_t parsed_arg = parse_can_arg(arg);
+uint16_t parse_can_arg_fail(const char *arg, arg_type type) {
+    uint16_t parsed_arg = parse_can_arg(arg, type);
 
     if(parsed_arg == 0xff) {
         printf("Invalid argument: %s\n", arg);
@@ -347,17 +360,17 @@ void parse_can_packet_from_stdin(int num_args,
                                  uint8_t *len,
                                  uint8_t data[MAX_DATA_LEN])
 {
-    *type = parse_can_arg_fail(args[TYPE_ARG_IDX]);
+    *type = parse_can_arg_fail(args[TYPE_ARG_IDX], CAN_TYPE);
 
     char *sensor_dot = strchr(args[ID_ARG_IDX], '.');
     if(sensor_dot) {
         *sensor_dot = '\0';
     }
 
-    *id = parse_can_arg_fail(args[ID_ARG_IDX]);
+    *id = parse_can_arg_fail(args[ID_ARG_IDX], CAN_ID);
     *sensor = 0;
     if(sensor_dot) {
-        *sensor = parse_can_arg_fail(sensor_dot + 1);
+        *sensor = parse_can_arg_fail(sensor_dot + 1, CAN_SENSOR);
     }
 
     // subtract out type, id (and sensor) from length
@@ -365,7 +378,7 @@ void parse_can_packet_from_stdin(int num_args,
 
     int i;
     for(i = 0; i < *len; i++) {
-        data[i] = parse_can_arg_fail(args[DATA_ARG_START_IDX + i]);
+        data[i] = parse_can_arg_fail(args[DATA_ARG_START_IDX + i], CAN_DATA);
     }
 }
 
