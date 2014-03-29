@@ -10,15 +10,13 @@ OBJS = $(patsubst src/%,obj/%,$(SRCS))
 vpath %.c ./src
 vpath %.h ./include
 
-all: send logger
+all: send decan
 
 send: send.c ../include/shell.h ../can.h
 	$(CC) $(CFLAGS) $< -o $@
 
-dcim_read: dcim_read.c
+decan: decan.c
 	$(CC) $(CFLAGS) $< -o $@
 
-logger: logger.c
-
 clean:
-	rm send logger
+	rm send decan
