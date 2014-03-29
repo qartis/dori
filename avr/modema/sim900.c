@@ -74,19 +74,19 @@ void sendATCommand(const char *PROGMEM fmt, ...)
     flag_ok = 0;
     flag_error = 0;
 
+    _delay_ms(10);
+
     slow_write(buf, strlen(buf));
     slow_write("\r", strlen("\r"));
-    _delay_ms(10);
 }
 
 uint8_t TCPDisconnect(void)
 {
-    state = STATE_UNKNOWN;
+    state = STATE_CLOSED;
 
     sendATCommand(PSTR("AT+CIPCLOSE"));
 //    wait_for_state(STATE_CLOSED);
 
-//    state = STATE_UNKNOWN;
     _delay_ms(1000);
 
     sendATCommand(PSTR("AT+CIPSHUT"));
@@ -109,15 +109,14 @@ uint8_t TCPSend(uint8_t * buf, uint16_t count)
 
     rc = wait_for_state(STATE_GOT_PROMPT);
     if (rc != 0) {
-        printf_P(PSTR
-                 ("wanted to send data, but didn't get prompt (state now %d)\n"),
-                 state);
+        printf_P(PSTR("wanted to send data, but didn't get prompt (state now %d)\n"),
+                state);
 
         err_num = __LINE__;
         mcp2515_send_wait(TYPE_sensor_error, MY_ID, 0, &err_num,
-                          sizeof(err_num));
+                sizeof(err_num));
 
-        state = STATE_ERROR;
+        state = STATE_CLOSED;
 
         return 1;
     }
@@ -148,6 +147,9 @@ uint8_t TCPConnect(void)
 
     /* Turn on header for received data */
     sendATCommand(PSTR("AT+CIPMUX=0"));
+
+    _delay_ms(10);
+
     sendATCommand(PSTR("AT+CIPHEAD=1"));
 
     sendATCommand(PSTR("AT+CIPSTATUS"));

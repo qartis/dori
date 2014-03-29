@@ -1,6 +1,5 @@
 enum state {
-    STATE_UNKNOWN = 1,
-    STATE_CLOSED,
+    STATE_CLOSED = 1,
     STATE_IP_INITIAL,
     STATE_IP_START,
     STATE_IP_GPRSACT,

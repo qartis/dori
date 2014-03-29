@@ -25,7 +25,7 @@
 #define streq_P(a,b) (strcmp_P(a, b) == 0)
 #define strstart(a,b) (strncmp_P(a, PSTR(b), strlen(b)) == 0)
 
-#define MODEM_SILENCE_TIMEOUT 30
+#define MODEM_SILENCE_TIMEOUT (30 * 3)
 
 static uint8_t at_tx_buf[64];
 static uint8_t tcp_toread;
@@ -245,6 +245,8 @@ ISR(USART_RX_vect)
 
     c = UDR0;
 
+    modem_alive_time = now;
+
     /* if we're reading a tcp chunk */
     if (tcp_toread > 0) {
         tcp_rx_buf[tcp_rx_buf_len] = c;
@@ -297,7 +299,7 @@ ISR(USART_RX_vect)
         } else if (streq_P(at_rx_buf, PSTR("CONNECT OK"))) {
             state = STATE_CONNECTED;
         } else if (streq_P(at_rx_buf, PSTR("CONNECT FAIL"))) {
-            state = STATE_ERROR;
+            state = STATE_CLOSED;
         } else if (streq_P(at_rx_buf, PSTR("SEND OK"))) {
             state = STATE_CONNECTED;
         } else if (streq_P(at_rx_buf, PSTR("CLOSE OK"))) {
@@ -308,9 +310,9 @@ ISR(USART_RX_vect)
         } else if (streq_P(at_rx_buf, PSTR("NORMAL POWER DOWN"))) {
             state = STATE_ERROR;
         } else if (streq_P(at_rx_buf, PSTR("+PDP: DEACT"))) {
-            state = STATE_ERROR;
+            state = STATE_CLOSED;
         } else if (strstart(at_rx_buf, "+CME ERROR:")) {
-            state = STATE_ERROR;
+            state = STATE_CLOSED;
         } else if (streq_P(at_rx_buf, PSTR("SHUT OK"))) {
             state = STATE_CLOSED;
         }
@@ -353,23 +355,19 @@ uint8_t periodic_irq(void)
     uint8_t type;
 
     if (state == STATE_EXPECTING_PROMPT || state == STATE_GOT_PROMPT) {
-        printf("expecting prompt\n");
         return 0;
     }
 
+    if (state == STATE_CONNECTED) {
+        type = TYPE_nop;
+        TCPSend(&type, sizeof(type));
+        printf("sent nop\n");
+    }
+
     if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
-        printf("periodic_irq\n");
-        if (tcp_toread > 0) {
-            tcp_toread = 0;
-        }
+        tcp_toread = 0;
 
         check_modem_alive();
-
-        if (state == STATE_CONNECTED) {
-            type = TYPE_nop;
-            TCPSend(&type, sizeof(type));
-            printf("sent nop\n");
-        }
     }
 
     return 0;
@@ -380,7 +378,7 @@ uint8_t write_packet(void)
     uint8_t i;
     uint8_t rc;
     /* this should be 256 when we launch */
-    static uint8_t net_buf[32];
+    static uint8_t net_buf[128];
     static uint16_t net_buf_len;
     uint8_t explicit_buf[32];
     uint8_t explicit_buf_len;
