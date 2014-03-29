@@ -1,0 +1,2 @@
+#!/usr/bin/bash
+echo -n | nc gozan 1338 | ./decan
