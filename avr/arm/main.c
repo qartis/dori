@@ -146,6 +146,8 @@ uint8_t send_stepper_state(uint8_t type)
 
 uint8_t periodic_irq(void)
 {
+    laser_off();
+
     return 0;
 }
 
