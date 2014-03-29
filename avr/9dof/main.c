@@ -231,8 +231,14 @@ uint8_t send_coords_can(uint8_t type)
 {
     struct mcp2515_packet_t p;
 
-    if (now - coords_read_time > 5)
-        return 0;
+    if (now - coords_read_time > 5) {
+        if (type == TYPE_value_explicit) {
+            return mcp2515_send_wait(TYPE_sensor_error, MY_ID, SENSOR_coords,
+                    NULL, 0);
+        } else {
+            return 0;
+        }
+    }
 
     p.type = type;
     p.id = ID_9dof;
