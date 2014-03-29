@@ -212,28 +212,18 @@ uint8_t mcp2515_send(uint8_t type, uint8_t id, const void *data, uint8_t len)
 
 uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, uint16_t sensor, const void *data, uint8_t len)
 {
-    /*
-    uint8_t retry = 255;
-    while (mcp2515_busy && --retry)
+    uint8_t retry;
+
+    retry = 255;
+    while (mcp2515_busy && --retry) {
         _delay_ms(1);
-        */
+    }
 
     if (mcp2515_busy) {
         return ERR_MCP_HW;
     }
 
-    mcp2515_send_sensor(type, id, sensor, data, len);
-
-    /*
-    retry = 255;
-    while (mcp2515_busy && --retry)
-        _delay_ms(1);
-
-    if (mcp2515_busy)
-        return ERR_MCP_HW;
-        */
-
-    return 0;
+    return mcp2515_send_sensor(type, id, sensor, data, len);
 }
 
 void mcp2515_handle_packet(uint8_t type, uint8_t id, uint16_t sensor, const volatile uint8_t *data, uint8_t len)
@@ -473,7 +463,6 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint16_t sensor, const void *da
 
         if (retry == 0) {
             /* didn't get a cts, so we retry */
-            xfer_state = XFER_CANCEL;
             puts_P(PSTR("xfer: cts timeout"));
         } else if (xfer_state == XFER_CANCEL) {
             return ERR_MCP_XFER_CANCEL;
