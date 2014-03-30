@@ -213,6 +213,8 @@ void db_log_can(uint8_t type, uint8_t id, uint16_t sensor, uint8_t len,
         int i;
         char data_str[8 * 2 + 1];
 
+        data_str[0] = '\0';
+
         rc = sqlite3_prepare_v2(db, "insert into can (type, id, sensor, data) values (?,?,?,?)", -1, &stmt, NULL);
         if (rc != SQLITE_OK) dberror(db);
 
