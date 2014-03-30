@@ -154,6 +154,7 @@ uint8_t periodic_irq(void)
 uint8_t process_value_request(void)
 {
     uint8_t rc;
+    uint8_t uptime_buf[4];
 
     rc = 0;
 
@@ -166,6 +167,14 @@ uint8_t process_value_request(void)
         break;
     case SENSOR_stepper:
         send_stepper_state(TYPE_value_explicit);
+        break;
+    case SENSOR_uptime:
+        uptime_buf[0] = uptime >> 24;
+        uptime_buf[1] = uptime >> 16;
+        uptime_buf[2] = uptime >> 8;
+        uptime_buf[3] = uptime >> 0;
+
+        mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
         break;
     default:
         break;
