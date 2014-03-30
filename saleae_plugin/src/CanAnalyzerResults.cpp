@@ -2,6 +2,8 @@
 #include <AnalyzerHelpers.h>
 #include "CanAnalyzer.h"
 #include "CanAnalyzerSettings.h"
+#include "../../can.h"
+#include "../../can_names.h"
 #include <iostream>
 #include <stdio.h>
 #include <sstream>
@@ -35,51 +37,6 @@ void CanAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& /*channel
             int type;
             int id;
 
-            const char *type_labels[256];
-            const char *id_labels[256];
-
-            int i;
-
-            for (i = 0; i < 256; i++) {
-                type_labels[i] = "???";
-                id_labels[i] = "???";
-            }
-
-            type_labels[0] = "VALUE_PERIODIC";
-            type_labels[1] = "VALUE_EXPLICIT";
-            type_labels[2] = "SET_TIME";
-            type_labels[3] = "SET_INTERVAL";
-            type_labels[4] = "SOS_REBOOT";
-            type_labels[5] = "SOS_RX_OVERRUN";
-            type_labels[6] = "SOS_STFU";
-            type_labels[7] = "SOS_NOSTFU";
-            type_labels[0x11] = "FILE_CHDIR";
-            type_labels[0x12] = "FILE_ERROR";
-            type_labels[0x13] = "SENSOR_ERROR";
-            type_labels[0x15] = "FILE_CHECKSUM";
-            type_labels[0x70] = "XFER_CTS";
-            type_labels[0x71] = "XFER_CANCEL";
-            type_labels[0x72] = "XFER_DATA";
-            type_labels[0x73] = "FULL_LOG_OFFER";
-            type_labels[0x74] = "REQUEST_LIST_FILES";
-            type_labels[0x75] = "FILE_LISTING";
-            type_labels[0x76] = "REQUEST_FILE";
-            type_labels[0x77] = "FILE_CONTENTS";
-            type_labels[0x78] = "FILE_WRITE";
-            type_labels[0xff] = "PLUGIN ERROR";
-
-
-            id_labels[0] = "ANY";
-            id_labels[1] = "PING";
-            id_labels[2] = "PONG";
-            id_labels[3] = "LASER";
-            id_labels[4] = "GPS";
-            id_labels[5] = "TEMP";
-            id_labels[6] = "TIME";
-            id_labels[7] = "LOGGER";
-            id_labels[0xf] = "INVALID";
-            id_labels[0xff] = "PLUGIN ERROR";
-
             AddResultString("Type");
 
             /* extra long form */
@@ -92,7 +49,9 @@ void CanAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& /*channel
                 type = 0xff;
             }
 
-            ss << "Type: " << type_labels[type] << " [" << number_str << "]";
+            ss << "Type: " << type_names[type] << " [" << number_str << "]";
+
+
 
             id = (frame.mData1 >> 16) & 0x1f;
             AnalyzerHelpers::GetNumberString(id, display_base, 8, number_str, 128 );
@@ -101,7 +60,15 @@ void CanAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& /*channel
                 id = 0xff;
             }
 
-            ss << " ID: " << id_labels[id] << " [" << number_str << "]";
+            ss << " ID: " << id_names[id] << " [" << number_str << "]";
+
+
+
+            unsigned sensor = frame.mData1 & 0xffff;
+            AnalyzerHelpers::GetNumberString(sensor, display_base, 8, number_str, 128 );
+
+            ss << " Sensor: " << sensor_names[sensor] << " [" << number_str << "]";
+
 
             AddResultString(ss.str().c_str());
             ss.str("");
@@ -112,6 +79,8 @@ void CanAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& /*channel
             ss << "Type: " << number_str;
             AnalyzerHelpers::GetNumberString( id, display_base, 8, number_str, 128 );
             ss << " ID: " << number_str;
+            AnalyzerHelpers::GetNumberString( sensor, display_base, 8, number_str, 128 );
+            ss << " Sensor: " << number_str;
 
             AddResultString(ss.str().c_str());
             ss.str("");
@@ -120,6 +89,8 @@ void CanAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& /*channel
             AnalyzerHelpers::GetNumberString( type, display_base, 8, number_str, 128 );
             ss << number_str << " ";
             AnalyzerHelpers::GetNumberString( id, display_base, 8, number_str, 128 );
+            ss << number_str << " ";
+            AnalyzerHelpers::GetNumberString( sensor, display_base, 8, number_str, 128 );
             ss << number_str;
 
             AddResultString(ss.str().c_str());
