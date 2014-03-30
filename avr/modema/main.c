@@ -27,6 +27,7 @@
 
 #define MODEM_SILENCE_TIMEOUT (30 * 3)
 
+
 static uint8_t at_tx_buf[64];
 static uint8_t tcp_toread;
 
@@ -56,10 +57,12 @@ void powercycle_modem(void)
     _delay_ms(100);
 }
 
-void handle_packet(uint8_t type, uint8_t len, uint8_t * data)
+void handle_packet(uint8_t type, uint8_t id, uint16_t sensor, uint8_t len,
+        uint8_t * data)
 {
     uint8_t i;
     uint8_t bufno;
+    uint8_t uptime_buf[4];
 
     switch (type) {
     case TYPE_at_0_write ... TYPE_at_7_write:
@@ -90,6 +93,31 @@ void handle_packet(uint8_t type, uint8_t len, uint8_t * data)
         ip[1] = data[1];
         ip[2] = data[2];
         ip[3] = data[3];
+        break;
+    case TYPE_value_request:
+        if ((id == MY_ID || id == ID_any) && sensor == SENSOR_uptime) {
+            uptime_buf[0] = uptime >> 24;
+            uptime_buf[1] = uptime >> 16;
+            uptime_buf[2] = uptime >> 8;
+            uptime_buf[3] = uptime >> 0;
+            uint8_t rc;
+            uint8_t send_buf[16];
+
+            rc = mcp2515_send_wait(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+
+            send_buf[0] = TYPE_value_explicit;
+            send_buf[1] = MY_ID;
+            send_buf[2] = SENSOR_uptime >> 8;
+            send_buf[3] = SENSOR_uptime;
+
+            send_buf[4] = sizeof(uptime_buf);
+
+            for (i = 0; i < sizeof(uptime_buf); i++) {
+                send_buf[5 + i] = uptime_buf[i];
+            }
+
+            TCPSend(send_buf, 5 + sizeof(uptime_buf));
+        }
         break;
     }
 }
@@ -186,7 +214,7 @@ void tcp_irq(uint8_t * buf, uint8_t len)
     }
 
     for (i = 0; i < len; i++) {
-        printf("%d: %02x\n", i, buf[i]);
+        //printf("%d: %02x\n", i, buf[i]);
         tcp_buf[tcp_buf_len] = buf[i];
         tcp_buf_len++;
         if (tcp_buf_len >= sizeof(tcp_buf)) {
@@ -194,11 +222,13 @@ void tcp_irq(uint8_t * buf, uint8_t len)
         }
     }
 
+    sei();
+
     while (tcp_buf_len > 0) {
         p.type = tcp_buf[0];
 
         if (p.type == TYPE_nop) {
-            printf("skipping nop\n");
+            printf(">NOP\n");
             tcp_buf_len -= 1;
             memmove(tcp_buf, tcp_buf + 1, tcp_buf_len);
             continue;
@@ -230,7 +260,7 @@ void tcp_irq(uint8_t * buf, uint8_t len)
         else
             puts_P(PSTR("CAN sent"));
 
-        handle_packet(p.type, p.len, p.data);
+        handle_packet(p.type, p.id, p.sensor, p.len, p.data);
     }
 }
 
@@ -355,9 +385,11 @@ uint8_t periodic_irq(void)
     uint8_t type;
 
     if (state == STATE_EXPECTING_PROMPT || state == STATE_GOT_PROMPT) {
+        printf("prompt\nprompt\n");
         return 0;
     }
 
+    printf("STATE %d\nSTATE\n%d STATE %d\n", state, state, state);
     if (state == STATE_CONNECTED) {
         type = TYPE_nop;
         TCPSend(&type, sizeof(type));
@@ -405,6 +437,11 @@ uint8_t write_packet(void)
             return rc;
         }
 
+        if (packet.type == TYPE_ircam_header || packet.type ==
+                TYPE_laser_sweep_header) {
+            net_buf_len = 0;
+        }
+
         return 0;
     }
 
@@ -431,7 +468,7 @@ uint8_t write_packet(void)
         }
     }
 
-    printf_P(PSTR("+%u\n"), net_buf_len);
+    //printf_P(PSTR("+%u\n"), net_buf_len);
 
     return 0;
 }
@@ -442,7 +479,7 @@ uint8_t can_irq(void)
     uint8_t *ptr;
 
     ptr = (uint8_t *) packet.data;
-    handle_packet(packet.type, packet.len, ptr);
+    handle_packet(packet.type, packet.id, packet.sensor, packet.len, ptr);
 
     if (state == STATE_CONNECTED) {
         rc = write_packet();
@@ -453,7 +490,7 @@ uint8_t can_irq(void)
 
         if (packet.type == TYPE_xfer_chunk || packet.type == TYPE_ircam_header
                 || packet.type == TYPE_laser_sweep_header) {
-            printf("sending cts to %d\n", packet.id);
+            printf("CTS:%d\n", packet.id);
             rc = mcp2515_send(TYPE_xfer_cts, packet.id, NULL, 0);
         }
     }
