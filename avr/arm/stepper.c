@@ -57,35 +57,43 @@ uint8_t stepper_set_state(int32_t new_state)
 void stepper_ccw(void)
 {
     uint8_t i;
+    uint8_t j;
 
     if (stepper_state == -1)
         return;
 
     PORTD |= (1 << PORTD4);
 
-    for (i = 0; i < TICKS_PER_STEP; i++) {
-        PORTD &= ~(1 << PORTD5);
-        PORTD |= (1 << PORTD5);
-        stepper_state--;
-        _delay_us(500);
+    for (i = 0; i < stepper_stepsize; i++) {
+        for (j = 0; j < TICKS_PER_STEP; j++) {
+            PORTD &= ~(1 << PORTD5);
+            PORTD |= (1 << PORTD5);
+            _delay_us(500);
+        }
     }
+
+    stepper_state -= stepper_stepsize;
 }
 
 void stepper_cw(void)
 {
     uint8_t i;
+    uint8_t j;
 
     if (stepper_state == -1)
         return;
 
     PORTD &= ~(1 << PORTD4);
 
-    for (i = 0; i < TICKS_PER_STEP; i++) {
-        PORTD &= ~(1 << PORTD5);
-        PORTD |= (1 << PORTD5);
-        stepper_state++;
-        _delay_us(500);
+    for (i = 0; i < stepper_stepsize; i++) {
+        for (j = 0; j < TICKS_PER_STEP; j++) {
+            PORTD &= ~(1 << PORTD5);
+            PORTD |= (1 << PORTD5);
+            _delay_us(500);
+        }
     }
+
+    stepper_state += stepper_stepsize;
 }
 
 void stepper_sleep(void)
