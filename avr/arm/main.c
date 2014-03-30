@@ -189,6 +189,9 @@ uint8_t can_irq(void)
     uint16_t val;
     uint8_t buf[2];
     uint8_t rc;
+    uint16_t start_angle;
+    uint16_t end_angle;
+    uint16_t stepsize;
 
     rc = 0;
 
@@ -223,13 +226,27 @@ uint8_t can_irq(void)
             (uint32_t)packet.data[3] << 0;
 
         rc = stepper_set_angle(stepper_angle);
-        if (rc != 0)
+        if (rc != 0) {
             mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_stepper, &rc, sizeof(rc));
+        }
         break;
     case TYPE_laser_sweep_begin:
-        rc = laser_do_sweep(0, 18000, 1);
-        if (rc != 0)
+        start_angle =
+            (uint16_t)packet.data[0] << 8 |
+            (uint16_t)packet.data[1] << 0;
+
+        end_angle =
+            (uint16_t)packet.data[2] << 8 |
+            (uint16_t)packet.data[3] << 0;
+
+        stepsize =
+            (uint16_t)packet.data[4] << 8 |
+            (uint16_t)packet.data[5] << 0;
+
+        rc = laser_do_sweep(start_angle, end_angle, stepsize);
+        if (rc != 0) {
             mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_laser, &rc, sizeof(rc));
+        }
         printf("sweep rc %d\n", rc);
         break;
     default:
