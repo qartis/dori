@@ -46,7 +46,10 @@ uint8_t user_irq(void)
 
 uint8_t can_irq(void)
 {
-    uint8_t rc = 0;
+    uint8_t rc;
+    uint8_t uptime_buf[4];
+
+    rc = 0;
 
     switch (packet.type) {
     case TYPE_ircam_read:
@@ -65,6 +68,17 @@ uint8_t can_irq(void)
         break;
     case TYPE_ircam_reset:
         ircam_reset();
+
+        break;
+    case TYPE_value_request:
+        if (packet.sensor == SENSOR_uptime) {
+            uptime_buf[0] = uptime >> 24;
+            uptime_buf[1] = uptime >> 16;
+            uptime_buf[2] = uptime >> 8;
+            uptime_buf[3] = uptime >> 0;
+
+            mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+        }
         break;
     }
 
