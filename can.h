@@ -61,6 +61,8 @@
     X(set_sms_dest, 0x70) \
     X(set_ip, 0x71) \
 \
+    X(drive_done, 0x80) \
+\
     X(invalid, 0xff) \
 
 
