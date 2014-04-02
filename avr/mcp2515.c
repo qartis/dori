@@ -8,7 +8,6 @@
 #include <avr/sleep.h>
 #include <avr/power.h>
 
-#include "sd.h"
 #include "can.h"
 #include "mcp2515.h"
 #include "spi.h"
