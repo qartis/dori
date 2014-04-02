@@ -259,16 +259,16 @@ uint8_t send_coords_can(uint8_t type)
 void send_all_can(uint8_t type)
 {
     send_gyro_can(type);
-    _delay_ms(150);
+    _delay_ms(1000);
 
     send_compass_can(type);
-    _delay_ms(150);
+    _delay_ms(1000);
 
     send_accel_can(type);
-    _delay_ms(150);
+    _delay_ms(1000);
 
     send_coords_can(type);
-    _delay_ms(150);
+    _delay_ms(1000);
 
     send_time_can(type);
 }
@@ -336,8 +336,12 @@ uint8_t can_irq(void)
             mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
             break;
 
-        default:
+        case SENSOR_none:
             send_all_can(TYPE_value_explicit);
+            break;
+
+        default:
+            mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
         }
     }
 

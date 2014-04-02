@@ -56,6 +56,21 @@ uint8_t can_irq(void)
         right_ms = (packet.data[2] << 8) | packet.data[3];
 
         motor_drive(left_ms, right_ms);
+
+        mcp2515_send(TYPE_drive_done, MY_ID, NULL, 0);
+        break;
+    case TYPE_value_request:
+        if (packet.sensor == SENSOR_uptime) {
+            uint8_t uptime_buf[4];
+            uptime_buf[0] = uptime >> 24;
+            uptime_buf[1] = uptime >> 16;
+            uptime_buf[2] = uptime >> 8;
+            uptime_buf[3] = uptime >> 0;
+
+            mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+        } else {
+            mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+        }
         break;
 
     default:

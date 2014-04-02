@@ -78,6 +78,8 @@ uint8_t can_irq(void)
             uptime_buf[3] = uptime >> 0;
 
             mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+        } else {
+            mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
         }
         break;
     }

@@ -177,6 +177,7 @@ uint8_t process_value_request(void)
         mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
         break;
     default:
+        mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
         break;
     }
 

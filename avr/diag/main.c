@@ -202,6 +202,8 @@ uint8_t periodic_irq(void)
 
 uint8_t can_irq(void)
 {
+    uint8_t uptime_buf[4];
+
     switch (packet.type) {
     case TYPE_value_request:
         switch (packet.sensor) {
@@ -214,9 +216,19 @@ uint8_t can_irq(void)
         case SENSOR_current:
             send_current_can(TYPE_value_explicit);
             break;
-        default:
-            /* send everything */
+        case SENSOR_uptime:
+            uptime_buf[0] = uptime >> 24;
+            uptime_buf[1] = uptime >> 16;
+            uptime_buf[2] = uptime >> 8;
+            uptime_buf[3] = uptime >> 0;
+
+            mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+            break;
+        case SENSOR_none:
             send_all_can(TYPE_value_explicit);
+            break;
+        default:
+            mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
         }
         break;
     default:

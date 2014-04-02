@@ -173,7 +173,11 @@ uint8_t periodic_irq(void)
 
 uint8_t can_irq(void)
 {
-    uint8_t rc = 0;
+    uint8_t rc;
+    uint8_t uptime_buf[4];
+
+    rc = 0;
+
     switch (packet.type) {
     case TYPE_value_request:
         switch (packet.sensor) {
@@ -193,8 +197,21 @@ uint8_t can_irq(void)
         case SENSOR_pressure:
             rc = send_pressure_can(TYPE_value_explicit);
             break;
-        default:
+        case SENSOR_uptime:
+            uptime_buf[0] = uptime >> 24;
+            uptime_buf[1] = uptime >> 16;
+            uptime_buf[2] = uptime >> 8;
+            uptime_buf[3] = uptime >> 0;
+
+            rc = mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+            break;
+
+        case SENSOR_none:
             rc = send_all_can(TYPE_value_explicit);
+            break;
+
+        default:
+            rc = mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
         }
     }
 
