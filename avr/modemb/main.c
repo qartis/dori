@@ -329,6 +329,9 @@ void process_can(uint8_t type, uint8_t id, uint16_t sensor, volatile uint8_t *da
         printf("dest: %s\n", sms_dest);
         fbus_sendsms(sms_dest, "00");
         break;
+    case TYPE_sos_nopsled:
+        mcp2515_send_sensor(TYPE_nop, 0, 0, "\0\0\0\0\0\0\0\0", 8);
+        break;
     }
 
 }

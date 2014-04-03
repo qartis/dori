@@ -12,6 +12,7 @@
     X(sos_nostfu, 0x08) \
     X(sensor_error, 0x09) \
     X(format_error, 0x0a) \
+    X(sos_nopsled, 0x0b) \
 \
     X(file_read, 0x10) \
     X(file_write, 0x11) \
