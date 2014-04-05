@@ -7,4 +7,6 @@ enum {
     ERR_MCP_HW,
     ERR_ARG,
     ERR_STEPPER_INIT,
+    ERR_CAM_INIT,
+    ERR_CAM_READ,
 };

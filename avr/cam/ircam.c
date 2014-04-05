@@ -15,6 +15,7 @@
 #include "uart.h"
 #include "debug.h"
 #include "ircam.h"
+#include "errno.h"
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
@@ -99,14 +100,14 @@ uint8_t ircam_init_xfer(void)
     rc = ircam_send_cmd(stop_fbuf_cmd, sizeof(stop_fbuf_cmd), 5);
     if (rc) {
         printf("!stop_fbuf\n");
-        return 1;
+        return ERR_CAM_INIT;
     }
 
     // 2. Check the frame buffer length
     rc = ircam_send_cmd(fbuf_len_cmd, sizeof(fbuf_len_cmd), 9);
     if (rc) {
         printf("!fbuf_len\n");
-        return 2;
+        return ERR_CAM_INIT;
     }
 
     printf("fbuf: ");
@@ -135,7 +136,7 @@ uint8_t ircam_read_fbuf(void)
 
     if(fbuf_len == 0) {
         printf("no fbuf_len\n");
-        return 1;
+        return ERR_CAM_INIT;
     }
 
     // Send the ircam header
@@ -183,8 +184,7 @@ uint8_t ircam_read_fbuf(void)
 
         rc = ircam_send_cmd(photo_cmd, sizeof(photo_cmd), req_size + (2 * ACK_SIZE));
         if (rc) {
-            printf("!photo_cmd\n");
-            return 2;
+            return ERR_CAM_READ;
         }
 
         rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, 0, (const char*)&rcv_buf[ACK_SIZE], req_size);

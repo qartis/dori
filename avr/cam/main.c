@@ -60,6 +60,10 @@ uint8_t can_irq(void)
         rc = ircam_init_xfer();
         if(rc == 0) {
             rc = ircam_read_fbuf();
+            if(rc) {
+                mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, (uint8_t*)&rc, sizeof(rc));
+                break;
+            }
             printf("read_fbuf rc = %d\n", rc);
         }
 
