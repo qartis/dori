@@ -7,9 +7,9 @@ void laser_off(void);
 void laser_on(void);
 void laser_on_safe(void);
 void laser_begin_rapidfire(void);
-uint8_t laser_sweep(laser_callback_t cb);
+uint8_t laser_sweep(laser_callback_t cb, uint16_t end_angle);
 
 // assumes laser is already on
 uint16_t measure_once(void);
 
-uint8_t measure_rapid_fire(laser_callback_t cb);
+uint8_t measure_rapid_fire(laser_callback_t cb, uint16_t end_angle);

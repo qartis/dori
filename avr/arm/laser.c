@@ -12,6 +12,7 @@
 #include "adc.h"
 #include "uart.h"
 #include "errno.h"
+#include "stepper.h"
 
 #define LASER_MAX_LINE_LEN 64
 
@@ -188,7 +189,7 @@ void laser_begin_rapidfire(void)
     print_P(PSTR("*00084553#"));
 }
 
-uint8_t measure_rapid_fire(laser_callback_t cb)
+uint8_t measure_rapid_fire(laser_callback_t cb, uint16_t end_angle)
 {
     uint8_t rc;
     uint8_t read_flag;
@@ -198,7 +199,7 @@ uint8_t measure_rapid_fire(laser_callback_t cb)
 
     laser_begin_rapidfire();
 
-    for (;;) {
+    while (stepper_state < end_angle) {
         laser_alive = 0;
         dist_mm = 0;
         error_flag = 0;
@@ -227,11 +228,9 @@ uint8_t measure_rapid_fire(laser_callback_t cb)
 
         read_flag = 1;
 
-        if (cb != NULL) {
-            rc = cb(dist_mm);
-            if (rc != 0) {
-                return rc;
-            }
+        rc = cb(dist_mm);
+        if (rc != 0) {
+            return rc;
         }
     }
 
@@ -240,7 +239,7 @@ uint8_t measure_rapid_fire(laser_callback_t cb)
     return 0;
 }
 
-uint8_t laser_sweep(laser_callback_t cb)
+uint8_t laser_sweep(laser_callback_t cb, uint16_t end_angle)
 {
     uint8_t rc;
     uint8_t total_error_count;
@@ -250,7 +249,7 @@ uint8_t laser_sweep(laser_callback_t cb)
     seq_error_count = 0;
 
     for (;;) {
-        rc = measure_rapid_fire(cb);
+        rc = measure_rapid_fire(cb, end_angle);
 
         if (rc == 0) {
             seq_error_count = 0;

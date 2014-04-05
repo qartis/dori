@@ -55,6 +55,10 @@ uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
     uint8_t rc;
     uint8_t buf[6];
 
+    if (start_angle >= end_angle) {
+        return ERR;
+    }
+
     rc = stepper_set_angle(start_angle);
     if (rc) {
         printf("laser_sweep: set_angle %d\n", rc);
@@ -64,10 +68,6 @@ uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
     rc = stepper_set_stepsize(stepsize);
     if (rc) {
         return rc;
-    }
-
-    if (start_angle >= end_angle) {
-        return ERR;
     }
 
     buf[0] = start_angle >> 8;
@@ -85,7 +85,7 @@ uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
         return rc;
     }
 
-    laser_sweep(laser_cb);
+    laser_sweep(laser_cb, end_angle);
 
     return 0;
 }
@@ -221,10 +221,8 @@ uint8_t can_irq(void)
         break;
     case TYPE_action_stepper_angle:
         stepper_angle =
-            (uint32_t)packet.data[0] << 24 |
-            (uint32_t)packet.data[1] << 16 |
-            (uint32_t)packet.data[2] << 8  |
-            (uint32_t)packet.data[3] << 0;
+            (uint16_t)packet.data[0] << 8 |
+            (uint16_t)packet.data[1] << 0;
 
         rc = stepper_set_angle(stepper_angle);
         if (rc != 0) {
