@@ -29,6 +29,28 @@ unsigned char readbyte(void)
     return c;
 }
 
+void print_time_chunk(int val, const char *unit)
+{
+    if (val > 0) {
+        printf("%d %s%s ", val, unit, val != 1 ? "s" : "");
+    }
+}
+
+void print_time(int seconds)
+{
+    int days = seconds / (60 * 60 * 24);
+    int hours = (seconds / (60 * 60)) % 24;
+    int minutes = (seconds / 60) % 60;
+    seconds = seconds % 60;
+
+    print_time_chunk(days, "day");
+    print_time_chunk(hours, "hour");
+    print_time_chunk(minutes, "minute");
+    print_time_chunk(seconds, "second");
+
+    printf("\n");
+}
+
 char *getcolorbytype(int type)
 {
     switch (type) {
@@ -49,69 +71,105 @@ char *getcolorbytype(int type)
     }
 }
 
-void decan(int type, int id, int sensor, int len, uint8_t * data)
+int print_value(int sensor, uint8_t *data)
 {
-    int i;
+    int intval;
+    time_t timeval;
 
-    printf("Frame: %s%s" NC "[%02x] %s[%02x].%s[%02x] ", getcolorbytype(type),
-           type_names[type], type, id_names[id], id, sensor_names[sensor],
-           sensor);
-
-    if (type == TYPE_value_explicit && id == ID_enviro && sensor ==
-        SENSOR_pressure) {
-        int pressure =
+    switch (sensor) {
+    case SENSOR_pressure:
+        intval =
             data[0] << 24 |
             data[1] << 16 |
             data[2] << 8 |
             data[3] << 0;
 
-        printf("%u Pa\n", pressure);
-    } else if (type == TYPE_value_explicit && id == ID_diag && sensor ==
-               SENSOR_voltage) {
-        int num = (data[0] << 8) | data[1];
+        printf("%u Pa\n", intval);
+        break;
+    case SENSOR_voltage:
+        intval = (data[0] << 8) | data[1];
         data[7] = '\0';
-        printf("0x%02x (%sV)\n", num, data + 2);
-    } else if (type == TYPE_value_explicit && id == ID_diag && sensor ==
-               SENSOR_current) {
-        int num = (data[0] << 8) | data[1];
-        printf("%umA\n", num);
-    } else if ((type == TYPE_value_explicit || type == TYPE_value_periodic) &&
-               sensor >= SENSOR_temp0 && sensor <= SENSOR_temp8) {
-        int temp = (data[0] << 8) | data[1];
-        printf("%u.%u°C\n", temp / 10, temp % 10);
-    } else if ((type == TYPE_value_explicit || type == TYPE_value_periodic) &&
-               sensor == SENSOR_time) {
-        time_t time =
-            (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | (data[3] << 0);
-        printf("%s", ctime(&time));
-    } else if ((type == TYPE_value_explicit || type == TYPE_value_periodic) &&
-               sensor == SENSOR_laser) {
-        uint16_t dist = (data[0] << 8) | data[1];
-        printf("%u.%um\n", dist / 1000, dist % 1000);
-    } else if ((type == TYPE_value_explicit || type == TYPE_value_periodic) &&
-               sensor == SENSOR_coords) {
-
-        int32_t lat =
+        printf("0x%02x (%sV)\n", intval, data + 2);
+        break;
+    case SENSOR_current:
+        intval = (data[0] << 8) | data[1];
+        printf("%umA\n", intval);
+        break;
+    case SENSOR_temp0 ... SENSOR_temp8:
+        intval = (data[0] << 8) | data[1];
+        printf("%u.%u\xc2\xb0""C\n", intval / 10, intval % 10);
+        break;
+    case SENSOR_time:
+        timeval =
             (data[0] << 24) |
             (data[1] << 16) |
-            (data[2] << 8) |
+            (data[2] << 8)  |
             (data[3] << 0);
+        printf("%s", ctime(&timeval));
+        break;
+    case SENSOR_laser:
+        intval = (data[0] << 8) | data[1];
+        printf("%u.%um\n", intval / 1000, intval % 1000);
+        break;
+    case SENSOR_coords:
+        {
+            int32_t lat =
+                (data[0] << 24) |
+                (data[1] << 16) |
+                (data[2] << 8) |
+                (data[3] << 0);
 
-        int32_t lon = (data[4] << 24) |
-            (data[5] << 16) | (data[6] << 8) | (data[7] << 0);
+            int32_t lon = (data[4] << 24) |
+                (data[5] << 16) | (data[6] << 8) | (data[7] << 0);
 
-        float lat_f = ((lat) / 10000000) + ((lat) % 10000000) / 6000000.0;
-        float lon_f = ((lon) / 10000000) + ((lon) % 10000000) / 6000000.0;
-        printf(RED "https://maps.google.ca/maps?output=classic&q=%f,%f\n" NC,
-               lat_f, lon_f);
-    } else if ((type == TYPE_value_explicit || type == TYPE_value_periodic) &&
-               (sensor == SENSOR_gyro || sensor == SENSOR_compass)) {
-        int16_t x = (data[0] << 8) | data[1];
-        int16_t y = (data[2] << 8) | data[3];
-        int16_t z = (data[4] << 8) | data[5];
+            float lat_f = ((lat) / 10000000) + ((lat) % 10000000) / 6000000.0;
+            float lon_f = ((lon) / 10000000) + ((lon) % 10000000) / 6000000.0;
+            printf(RED "https://maps.google.ca/maps?output=classic&q=%f,%f\n",
+                lat_f, lon_f);
+            break;
+        }
+    case SENSOR_gyro:
+    case SENSOR_compass:
+    case SENSOR_accel:
+        {
+            int16_t x = (data[0] << 8) | data[1];
+            int16_t y = (data[2] << 8) | data[3];
+            int16_t z = (data[4] << 8) | data[5];
 
-        printf("%+d %+d %+d\n", x, y, z);
-    } else {
+            printf("%+d %+d %+d\n", x, y, z);
+            break;
+        }
+    case SENSOR_uptime:
+        intval =
+            (data[0] << 24) |
+            (data[1] << 16) |
+            (data[2] << 8)  |
+            (data[3] << 0);
+        print_time(intval);
+        break;
+    default:
+        return 1;
+    }
+
+    return 0;
+}
+
+void decan(int type, int id, int sensor, int len, uint8_t * data)
+{
+    int i;
+    int rc;
+
+    printf("Frame: %s%s" NC "[%02x] %s[%02x].%s[%02x] ", getcolorbytype(type),
+           type_names[type], type, id_names[id], id, sensor_names[sensor],
+           sensor);
+
+    rc = 1;
+
+    if (type == TYPE_value_explicit || type == TYPE_value_periodic) {
+        rc = print_value(sensor, data);
+    }
+
+    if (rc) {
         if (len > 0)
             printf("%d:", len);
 
