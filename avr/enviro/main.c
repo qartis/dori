@@ -21,7 +21,7 @@
 #include "temp.h"
 #include "adc.h"
 
-volatile uint8_t water_tips;
+volatile uint32_t water_tips;
 
 ISR(PCINT2_vect)
 {
@@ -83,14 +83,18 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 
 uint8_t send_rain_can(uint8_t type)
 {
-    uint8_t buf[1];
+    uint8_t buf[4];
+
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        buf[0] = water_tips;
+        buf[0] = (water_tips >> 24) & 0xff;
+        buf[1] = (water_tips >> 16) & 0xff;
+        buf[2] = (water_tips >> 8) & 0xff;
+        buf[3] = (water_tips >> 0) & 0xff;
         water_tips = 0;
     }
 
-    return mcp2515_send_wait(type, MY_ID, SENSOR_rain, buf, 1);
+    return mcp2515_send_wait(type, MY_ID, SENSOR_rain, buf, sizeof(buf));
 }
 
 uint8_t send_wind_can(uint8_t type)
@@ -254,14 +258,14 @@ uint8_t uart_irq(void)
     uint16_t humidity = get_humidity();
     printf("humid %u\n", humidity);
 
-    uint8_t buf[1];
+    uint32_t rain;
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        buf[0] = water_tips;
+        rain = water_tips;
         water_tips = 0;
     }
 
-    printf("rain: %u\n", buf[0]);
+    printf("rain: %lu\n", rain);
 
     return 0;
 }
