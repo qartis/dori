@@ -276,6 +276,10 @@ void process_can(uint8_t type, uint8_t id, uint16_t sensor, volatile uint8_t *da
     case TYPE_value_request:
         if ((id == MY_ID || id == ID_any) && sensor == SENSOR_uptime) {
 
+            if(stfu) {
+                break;
+            }
+
             uint8_t uptime_buf[4];
             uptime_buf[0] = uptime >> 24;
             uptime_buf[1] = uptime >> 16;
