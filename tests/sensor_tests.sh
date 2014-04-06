@@ -45,10 +45,10 @@ echo "../shell/send value_request diag.uptime"
 sleep 5
 
 #ENVIRO
-echo "../shell/send value_request enviro.temp1"
+echo "../shell/send value_request enviro.temp0"
 ../shell/send value_request enviro.temp1
 sleep 5
-echo "../shell/send value_request enviro.temp2"
+echo "../shell/send value_request enviro.temp1"
 ../shell/send value_request enviro.temp2
 sleep 5
 echo "../shell/send value_request enviro.rain"
