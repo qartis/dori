@@ -89,3 +89,11 @@ sleep 5
 #MODEMB
 echo "../shell/send value_request modemb.uptime"
 ../shell/send value_request modemb.uptime
+
+#DRIVE
+echo "../shell/send value_request drive.uptime"
+../shell/send value_request drive.uptime
+
+#CAM
+echo "../shell/send value_request cam.uptime"
+../shell/send value_request cam.uptime
