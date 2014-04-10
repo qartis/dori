@@ -10,10 +10,10 @@ public:
     bool operator()(const Row &a, const Row &b) {
         const char *ap = ( _col < (int)a.cols.size() ) ? a.cols[_col] : "",
               *bp = ( _col < (int)b.cols.size() ) ? b.cols[_col] : "";
-        if ( isdigit(*ap) && isdigit(*bp) ) {           // cheezy detection of numeric data
+        if ( isxdigit(*ap) && isxdigit(*bp) ) {           // cheezy detection of numeric data
             // Numeric sort
-            int av=0; sscanf(ap, "%d", &av);
-            int bv=0; sscanf(bp, "%d", &bv);
+            int av=0; sscanf(ap, "%x", &av);
+            int bv=0; sscanf(bp, "%x", &bv);
             return( _reverse ? av < bv : bv < av );
         } else {
             // Alphabetic sort

@@ -216,12 +216,12 @@ void Table::done() {
         int numValues = rows();
 
         for(int r = 0; r < rows(); r++) {
-            float f = 0;
-            if(sscanf(rowdata[r].cols[c], "%f", &f) == 0) {
+            int i = 0;
+            if(sscanf(rowdata[r].cols[c], "%x", &i) == 0) {
                 numValues = 0;
                 break;
             }
-            values[c][r] = f;
+            values[c][r] = i;
         }
 
         sparkline->setValues(values[c], numValues);
@@ -362,6 +362,7 @@ void Table::sortUI() {
 }
 
 void Table::event_callback2() {
+    printf("Table::event2\n");
     int COL = callback_col();
     TableContext context = callback_context();
     switch ( context ) {

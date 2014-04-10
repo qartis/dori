@@ -101,14 +101,14 @@ static void graphCallback(Fl_Widget *widget, void *data) {
     (void)widget;
     WidgetWindow *window = (WidgetWindow*)data;
 
-    system("rm plotfifo");
-    system("mkfifo plotfifo");
+    system("rm /tmp/plotfifo");
+    system("mkfifo /tmp/plotfifo");
 
     std::vector<Row>::iterator it = window->table->rowdata.begin();
 
-    system("gnuplot -p -e \"plot \\\"plotfifo\\\" with lines\" &");
+    system("gnuplot -p -e \"plot \\\"/tmp/plotfifo\\\" with lines\" &");
 
-    int fd = open("plotfifo", O_WRONLY);
+    int fd = open("/tmp/plotfifo", O_WRONLY);
 
     int xAxis = window->xAxis->value();
     int yAxis = window->yAxis->value();

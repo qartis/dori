@@ -45,9 +45,6 @@
 // exposed fileName (text edit)
 #include "file_chooser.h"
 
-#define PORT 1337
-#define SERVER "127.0.0.1"
-
 #define TERM_NORM  "\x1B[0m"
 #define TERM_RED  "\x1B[31m"
 #define TERM_GREEN  "\x1B[32m"
@@ -56,8 +53,6 @@
 #define TEMR_MAGENTA  "\x1B[35m"
 #define TERM_CYAN  "\x1B[36m"
 #define TERM_WHITE  "\x1B[37m"
-
-#define NUM_DB_FIELDS 7
 
 const char* MainWindow::shell_log_filename = "shell.log";
 
@@ -70,13 +65,14 @@ int MainWindow::sqlite_cb(void *arg, int ncols, char **cols, char **colNames)
 
     Row newRow;
 
-    for(int i = 0; i < ncols; i++) {
+    for (int i = 0; i < ncols; i++) {
         if(cols[i] == NULL) {
             sprintf(&buf[index++], "\t");
             newRow.cols.push_back(strdup("\t"));
             continue;
         }
         sprintf(&buf[index], "%s", cols[i]);
+        //printf("cb %s\n", cols[i]);
         newRow.cols.push_back(strdup(&buf[index]));
         index += strlen(cols[i]) + 1;
     }
@@ -128,7 +124,9 @@ void MainWindow::performQuery(void *arg) {
 
     window->needFlush = true;
 
+    window->table->readyToDraw = 0;
     int err = sqlite3_exec(window->db, window->queryInput->getSearchString(), sqlite_cb, window, NULL);
+    window->table->readyToDraw = 1;
     if(err != SQLITE_OK) {
         window->queryInput->color(FL_RED);
     }
@@ -155,91 +153,8 @@ void MainWindow::clearTable(void *arg) {
     }
 }
 
-static void handleFD(int fd, void *data) {
-    MainWindow* window = (MainWindow*)data;
-    static char field[NUM_DB_FIELDS][BUFLEN];
-    char query[BUFLEN];
-    static int index = 0;
-
-    static char buf[BUFLEN];
-    int rc;
-    static int count = 0;
-
-    rc = read(fd, buf + count, sizeof(buf) - count);
-
-    if (rc <= 0) {
-        perror("handlefd read");
-        Fl::remove_fd(fd);
-        return;
-    }
-
-    count += rc;
-
-    char * pos;
-
-    while((pos = (char *)memchr(buf, '\0', count)) != NULL) {
-        memcpy(field[index], buf, pos - buf + 1);
-        count -= (pos - buf + 1);
-        memmove(buf, pos + 1, count);
-        index++;
-
-        if(index == NUM_DB_FIELDS) {
-            int rowid = atoi(field[0]);
-
-            if(rowid == -1) {
-                int err = sqlite3_exec(window->db, "END TRANSACTION", NULL, NULL, NULL);
-                if(err != SQLITE_OK) {
-                    printf("sqlite error: %s\n", sqlite3_errmsg(window->db));
-                }
-
-                window->shell_log = fopen(window->shell_log_filename, "a");
-                setbuf(window->shell_log, NULL);
-
-                window->table->readyToDraw = 1;
-                window->receivedFirstDump = true;
-                window->performQuery(window);
-                index = 0;
-                continue;
-            }
-
-            if(window->shell_log) {
-                time_t ltime;
-                ltime=time(NULL);
-                char timestamp[128];
-                int length = sprintf(timestamp, "%s", asctime(localtime(&ltime)));
-                timestamp[length-1] = '\0';
-
-                fprintf(window->shell_log, TERM_RED "%s: '%s' '%s' '%s' '%s' '%s' '%s'\n" TERM_NORM, timestamp, field[1], field[2], field[3], field[4], field[5], field[6]);
-            }
-
-            sprintf(query, "INSERT INTO records (rowid, type, a, b, c, site, time) VALUES (%s, '%s', %s, %s, %s, %s, %s);", field[0], field[1], field[2], field[3], field[4], field[5], field[6]);
-            sqlite3_exec(window->db, query, NULL, NULL, NULL);
-            index = 0;
-        }
-    }
-}
-
-int send_max_row_cb(void *arg, int ncols, char **cols, char **rows) {
-    (void)rows;
-    int fd = *(int*)arg;
-
-    if(ncols == 0 || cols[0] == NULL) {
-        write(fd, "0", 1);
-    }
-    else {
-        int rowid = atoi(cols[0]);
-        char buf[32];
-        sprintf(buf, "%d", rowid + 1);
-        write(fd, buf, strlen(buf));
-    }
-
-    return 0;
-}
-
-
-MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), sockfd(0), needFlush(false), receivedFirstDump(false), shell_log(NULL)
+MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Window(x, y, w, h, label), db(NULL), queryInput(NULL), bufMsgStartIndex(0), bufReadIndex(0), needFlush(false), receivedFirstDump(false), shell_log(NULL)
 {
-    sqlite3_enable_shared_cache(1);
     queryInput = new QueryInput(w * 0.2, 0, w * 0.75, 20, "Query:");
     queryInput->performQuery = performQuery;
     queryInput->testQuery = testQuery;
@@ -262,57 +177,21 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     widgetWindow->user_data(this);
     widgetWindow->show();
 
-    struct sockaddr_in serv_addr;
-    struct hostent *server = NULL;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sockfd < 0) {
-        printf("error opening socket\n");
-        exit(0);
-    }
-
-    server = gethostbyname(SERVER);
-    if(server == NULL) {
-        printf("error, no such host\n");
-        exit(0);
-    }
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr,
-          (char *)&serv_addr.sin_addr.s_addr,
-          server->h_length);
-    serv_addr.sin_port = htons(PORT);
-
-    sqlite3_open("data/db", &db);
-    sqlite3_exec(db, "CREATE TABLE if not exists records(type, a, b, c, site, time timestamp);", NULL, NULL, NULL);
-
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
-        printf("No Gateway connection available, tk is in offline mode\n");
-        table->readyToDraw = 1;
-        receivedFirstDump = true;
-        performQuery(this);
-    }
-    else {
-        int err = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, NULL);
-        if(err != SQLITE_OK) {
-            printf("sqlite error: %s\n", sqlite3_errmsg(db));
-        }
-        Fl::add_fd(sockfd, FL_READ, handleFD, (void*)this);
-        char query[256];
-        sprintf(query, "SELECT MAX(rowid) from records;");
-        sqlite3_exec(db, query, send_max_row_cb, &sockfd, NULL);
-    }
+    sqlite3_open("/tmp/db", &db);
 }
 
 int MainWindow::handle(int event) {
     switch(event) {
-    case FL_KEYDOWN: {
+    case FL_KEYDOWN:
+    case FL_KEYUP: {
         int key = Fl::event_key();
+        printf("keydown %d\n", key);
         if(key == (FL_F + 1)) {
             hide();
             return 1;
         }
         else if(key == 's' && Fl::event_ctrl()) {
+            printf("chooser\n");
             Fl_File_Chooser chooser(".",
                                     "*.csv",
                                     Fl_File_Chooser::CREATE,
