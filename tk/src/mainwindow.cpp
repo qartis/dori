@@ -37,6 +37,7 @@
 #include "colorchooser.h"
 #include "toolbar.h"
 #include "viewport.h"
+#include "querytemplatewidget.h"
 #include "widgetwindow.h"
 #include "mainwindow.h"
 #include <time.h>
@@ -170,14 +171,16 @@ MainWindow::MainWindow(int x, int y, int w, int h, const char *label) : Fl_Windo
     add(queryInput);
     table->queryInput = queryInput;
 
+    sqlite3_open("/tmp/db", &db);
+
+    queryTemplateWidget = new QueryTemplateWidget(db, table->w(), 0, 300, table->h());
+
     end();
 
     // resize this window to the size of the buttons below
     widgetWindow = new WidgetWindow(w, 0, 200, 340, NULL, table);
     widgetWindow->user_data(this);
     widgetWindow->show();
-
-    sqlite3_open("/tmp/db", &db);
 }
 
 int MainWindow::handle(int event) {

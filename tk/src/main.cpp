@@ -14,6 +14,7 @@
 #include "ctype.h"
 #include "sparkline.h"
 #include "table.h"
+#include "querytemplatewidget.h"
 #include "widgetwindow.h"
 #include "mainwindow.h"
 

@@ -34,4 +34,5 @@ public:
 
     FILE *shell_log;
     static const char* shell_log_filename;
+    QueryTemplateWidget *queryTemplateWidget;
 };

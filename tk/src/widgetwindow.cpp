@@ -43,6 +43,7 @@
 #include "siteeditor.h"
 #include "siteeditorwindow.h"
 #include "viewport.h"
+#include "querytemplatewidget.h"
 #include "widgetwindow.h"
 #include "mainwindow.h"
 

@@ -241,7 +241,7 @@ void Table::remove_last_row() {
 }
 
 int Table::minimum_row(unsigned int column_index) {
-    int min_val;;
+    int min_val;
     int min_index;
 
     if(rowdata.size() == 0) {
