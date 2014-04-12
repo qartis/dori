@@ -188,8 +188,10 @@ uint8_t mcp2515_init(void)
 
 void mcp2515_reset(void)
 {
+    uint8_t rc;
+
     mcp2515_select();
-    spi_write(MCP_COMMAND_RESET);
+    rc = spi_write_timeout(MCP_COMMAND_RESET);
     mcp2515_unselect();
     _delay_ms(10);
 }
@@ -216,10 +218,6 @@ uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, uint16_t sensor, const void 
     retry = 255;
     while (mcp2515_busy && --retry) {
         _delay_ms(1);
-    }
-
-    if (mcp2515_busy) {
-        return ERR_MCP_HW;
     }
 
     return mcp2515_send_sensor(type, id, sensor, data, len);
@@ -257,6 +255,7 @@ uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const uin
     }
 
     if (mcp2515_busy) {
+        mcp2515_init();
         return ERR_MCP_HW;
     }
 
