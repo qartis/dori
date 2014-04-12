@@ -69,14 +69,18 @@ uint8_t read_register(uint8_t address)
 void mcp2515_dump(void)
 {
 	uint8_t tec, rec, eflg;
+    uint8_t intf;
 
     tec = read_register(MCP_REGISTER_TEC);
     rec = read_register(MCP_REGISTER_REC);
     eflg = read_register(MCP_REGISTER_EFLG);
 
+    intf = read_register(MCP_REGISTER_CANINTF);
+
 	printf_P(PSTR("TEC:x%x\n"), tec);
 	printf_P(PSTR("REC:x%x\n"), rec);
 	printf_P(PSTR("EFLG:x%x\n"), eflg);
+	printf_P(PSTR("INTF:x%x\n"), intf);
 
 	if ((rec > 127) || (tec > 127))
 		puts_P(PSTR("Error: Passive or Bus-Off"));
@@ -393,14 +397,6 @@ ISR(PCINT0_vect)
         mcp2515_busy = 0;
         modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
         canintf &= ~(MCP_INTERRUPT_TX0I);
-    }
-
-    if (canintf & MCP_INTERRUPT_ERRI) {
-        //eflg = read_register(MCP_REGISTER_EFLG);
-        //printf_P(PSTR("eflg%x\n"), eflg);
-
-        mcp2515_init();
-        return;
     }
 
     if (canintf & MCP_INTERRUPT_MERR) {
