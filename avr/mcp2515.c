@@ -192,10 +192,8 @@ uint8_t mcp2515_init(void)
 
 void mcp2515_reset(void)
 {
-    uint8_t rc;
-
     mcp2515_select();
-    rc = spi_write_timeout(MCP_COMMAND_RESET);
+    spi_write(MCP_COMMAND_RESET);
     mcp2515_unselect();
     _delay_ms(10);
 }
