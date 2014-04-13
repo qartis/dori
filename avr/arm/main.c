@@ -26,7 +26,6 @@
 
 uint8_t laser_cb(uint16_t dist)
 {
-    uint8_t i;
     uint8_t rc;
     uint8_t buf[4];
 
@@ -41,9 +40,7 @@ uint8_t laser_cb(uint16_t dist)
     }
 
     stepper_wake();
-    for (i = 0; i < 10; i++) {
-        stepper_cw();
-    }
+    stepper_cw();
     stepper_sleep();
 
     return 0;
@@ -61,7 +58,6 @@ uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
 
     rc = stepper_set_angle(start_angle);
     if (rc) {
-        printf("laser_sweep: set_angle %d\n", rc);
         return rc;
     }
 
@@ -246,7 +242,12 @@ uint8_t can_irq(void)
         if (rc != 0) {
             mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_laser, &rc, sizeof(rc));
         }
-        printf("sweep rc %d\n", rc);
+
+        rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, SENSOR_laser, NULL, 0);
+        if (rc) {
+            return rc;
+        }
+
         break;
     default:
         break;

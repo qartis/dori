@@ -189,15 +189,14 @@ void laser_begin_rapidfire(void)
     print_P(PSTR("*00084553#"));
 }
 
-uint8_t measure_rapid_fire(laser_callback_t cb, uint16_t end_angle)
+uint8_t __do_measure(laser_callback_t cb, uint16_t end_angle)
 {
     uint8_t rc;
     uint8_t read_flag;
     uint8_t retry;
 
     read_flag = 0;
-
-    laser_begin_rapidfire();
+    rc = 0;
 
     while (stepper_state < end_angle) {
         laser_alive = 0;
@@ -207,14 +206,14 @@ uint8_t measure_rapid_fire(laser_callback_t cb, uint16_t end_angle)
         /* 255 * 10 = 2550 ms */
         retry = 255;
         while (dist_mm == 0 && !error_flag && --retry) {
-            _delay_ms(10);
+            _delay_ms(5);
         }
 
         /* timeout or error */
         if (dist_mm == 0) {
             /* heard some measurements, so maybe rapidfire has ended */
             if (read_flag > 0) {
-                break;
+                return 0;
             }
 
             /* if we heard only errors or silence, we should reboot the laser */
@@ -234,9 +233,20 @@ uint8_t measure_rapid_fire(laser_callback_t cb, uint16_t end_angle)
         }
     }
 
+    return rc;
+}
+
+uint8_t measure_rapid_fire(laser_callback_t cb, uint16_t end_angle)
+{
+    uint8_t rc;
+
+    laser_begin_rapidfire();
+
+    rc = __do_measure(cb, end_angle);
+
     laser_off();
 
-    return 0;
+    return rc;
 }
 
 uint8_t laser_sweep(laser_callback_t cb, uint16_t end_angle)

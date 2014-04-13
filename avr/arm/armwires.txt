@@ -1,0 +1,14 @@
+arm up/down:
+    1 speaker wires
+
+12v supply:
+    1 speaker wires
+
+stepper:
+    2 speaker wires
+
+arm sensing:
+    colored cat5
+        solid blue: GND
+        striped blue: 5V
+        solid + striped green: ADC in
