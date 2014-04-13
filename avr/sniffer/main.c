@@ -159,7 +159,8 @@ uint8_t parse_arg(const char *arg)
 
 uint8_t uart_irq(void)
 {
-    char buf[UART_BUF_SIZE];
+    static char buf[UART_BUF_SIZE];
+    static char prev_buf[UART_BUF_SIZE];
     char *arg;
 
     uint8_t i = 0;
@@ -172,6 +173,13 @@ uint8_t uart_irq(void)
 
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
+
+    if (buf[0] == '\0') {
+        printf("using prev buf %s\n", prev_buf);
+        memcpy(buf, prev_buf, UART_BUF_SIZE);
+    }
+
+    memcpy(prev_buf, buf, UART_BUF_SIZE);
 
     arg = strtok(buf, " ");
 
@@ -226,6 +234,12 @@ uint8_t uart_irq(void)
         if (squelch != 2){
             squelch = 0;  // so we can hear the reply.
         }
+
+        if (type == 0xff || id == 0xff || sensor == 0xff) {
+            printf("arg error\n");
+            goto uart_irq_end;
+        }
+
         rc = mcp2515_send_wait(type, id, sensor, sendbuf, i);
         _delay_ms(200);
         printf_P(PSTR("snd %d\n"), rc);
@@ -267,10 +281,15 @@ uint8_t uart_irq(void)
         }
     } else if (strcmp_P(arg, PSTR("mcp")) == 0){
         mcp2515_dump();
+    } else if (strcmp_P(arg, PSTR("rst")) == 0){
+        mcp2515_init();
+        printf("\nDONE INIT\n");
     } else {
         show_usage();
     }
+
 uart_irq_end:
+
     putchar('>');
     return 0;
 }
@@ -283,13 +302,11 @@ uint8_t periodic_irq(void)
 uint8_t can_irq(void)
 {
     uint8_t i;
-
-    packet.unread = 0;
-
-
     uint8_t len = packet.len;
 
     if (squelch == 0 && filter[packet.id] != 0){
+        printf("%x %x: ", packet.type, packet.id);
+        /*
         printf_P(PSTR("[%lu:%02lu:%02lu] %S [%x] %S [%x] %S [%x] %db: "),
             now/3600, (now/60) % 60, now % 60,
             (PGM_P)pgm_read_word(&(type_names[packet.type])),
@@ -299,13 +316,16 @@ uint8_t can_irq(void)
             (PGM_P)pgm_read_word(&(sensor_names[packet.sensor])),
             packet.sensor,
             len);
+            */
 
         for (i = 0; i < len; i++) {
-            printf_P(PSTR("%x,"), packet.data[i]);
+            printf("%x,", packet.data[i]);
         }
 
         putchar('\n');
     }
+
+    packet.unread = 0;
 
     return 0;
 }
