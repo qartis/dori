@@ -88,8 +88,10 @@ int print_value(int sensor, uint8_t *data)
         break;
     case SENSOR_voltage:
         intval = (data[0] << 8) | data[1];
-        data[7] = '\0';
-        printf("0x%02x (%sV)\n", intval, data + 2);
+        double slope = 0.00516;
+        double voltage = slope * intval;
+        voltage += 10.0;
+        printf("0x%02x (%fV)\n", intval, voltage);
         break;
     case SENSOR_current:
         intval = (data[0] << 8) | data[1];
