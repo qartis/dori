@@ -36,6 +36,7 @@ ISR(BADISR_vect)
 
 #define NODE_INIT() \
     uint8_t rc; \
+    _delay_ms(5000); \
     uart_init(BAUD(UART_BAUD)); \
     DEBUG_INIT; \
     time_init(); \
