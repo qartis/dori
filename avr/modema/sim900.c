@@ -112,6 +112,11 @@ uint8_t TCPSend(uint8_t * buf, uint16_t count)
         printf_P(PSTR("wanted to send data, but didn't get prompt (state now %d)\n"),
                 state);
 
+        for (i = 0; i < count; i++) {
+            uart_putchar(TYPE_nop);
+            _delay_ms(5);
+        }
+
         err_num = __LINE__;
         mcp2515_send_wait(TYPE_sensor_error, MY_ID, 0, &err_num,
                 sizeof(err_num));
