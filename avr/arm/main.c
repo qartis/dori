@@ -213,7 +213,9 @@ uint8_t can_irq(void)
             (uint32_t)packet.data[2] << 8  |
             (uint32_t)packet.data[3] << 0;
 
-        stepper_set_state(stepper_angle);
+        rc = stepper_set_state(stepper_angle);
+        if (rc)
+            mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_arm, &rc, sizeof(rc));
         break;
     case TYPE_action_stepper_angle:
         stepper_angle =
