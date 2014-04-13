@@ -36,7 +36,7 @@ ISR(BADISR_vect)
 
 #define NODE_INIT() \
     uint8_t rc; \
-    _delay_ms(5000); \
+    _delay_ms(1000); \
     uart_init(BAUD(UART_BAUD)); \
     DEBUG_INIT; \
     time_init(); \
@@ -61,7 +61,6 @@ reinit: \
     cli(); \
     reinit = 0; \
     while (mcp2515_init()) { \
-        PORTD |=  (1 << PORTD7); \
         printwait_P(PSTR("mcp: init\n")); \
         _delay_ms(1500); \
     } \
