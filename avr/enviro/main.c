@@ -224,9 +224,6 @@ uint8_t can_irq(void)
 
 uint8_t uart_irq(void)
 {
-    return 0;
-
-
 
 
 

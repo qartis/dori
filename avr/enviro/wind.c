@@ -5,9 +5,15 @@
 
 uint16_t get_wind_speed(void)
 {
-    uint16_t val;
+    uint8_t i;
+    uint32_t val;
 
-    val = adc_read(6);
+#define NUM_SAMPLES 16
 
-    return val;
+    val = 0;
+    for (i = 0; i < NUM_SAMPLES; i++) {
+        val += adc_read(6);
+    }
+
+    return val / NUM_SAMPLES;
 }
