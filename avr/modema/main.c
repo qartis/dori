@@ -287,10 +287,15 @@ ISR(USART_RX_vect)
             tcp_irq(tcp_rx_buf, tcp_rx_buf_len);
             tcp_rx_buf_len = 0;
         }
-    } else if (state == STATE_EXPECTING_PROMPT && at_rx_buf[0] == '>') {
-        state = STATE_GOT_PROMPT;
-        at_rx_buf_len = 0;
-        at_rx_buf[0] = '\0';
+    } else if (state == STATE_EXPECTING_PROMPT) {
+        if (c == '>') {
+            state = STATE_GOT_PROMPT;
+            at_rx_buf_len = 0;
+            at_rx_buf[0] = '\0';
+        } else {
+            putchar('#');
+            putchar(c);
+        }
     } else if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
         state = STATE_CONNECTED;
 
