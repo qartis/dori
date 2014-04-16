@@ -450,8 +450,8 @@ uint8_t write_packet(void)
         return 0;
     }
 
-    if (((uint16_t) net_buf_len + 5 + packet.len)
-        >= sizeof(net_buf)) {
+    if (((uint16_t) net_buf_len + 5 + packet.len) >= sizeof(net_buf) ||
+            (packet.type == TYPE_xfer_chunk && packet.len == 0)) {
         rc = TCPSend(net_buf, net_buf_len);
         if (rc) {
             printf_P(PSTR("snd er %d\n"), rc);
