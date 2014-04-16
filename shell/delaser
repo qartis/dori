@@ -1,0 +1,2 @@
+#!/bin/bash
+xxd -c 4 -p /dev/stdin | perl -pe 's|(.{4})(.{4})|hex($1)/100.0 ." 0x$2"|e'

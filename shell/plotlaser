@@ -1,0 +1,10 @@
+#usage:
+#    cat laser.dat | delaser > laser.txt
+#    gnuplot plotlaser -
+
+set polar
+set title "laser sweep"
+set size square
+set grid polar
+set angles degrees
+plot "laser.txt" with lines
