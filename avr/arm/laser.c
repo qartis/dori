@@ -257,8 +257,9 @@ uint8_t laser_sweep(laser_callback_t cb, uint16_t end_angle)
 
     total_error_count = 0;
     seq_error_count = 0;
+    rc = 0;
 
-    for (;;) {
+    while (stepper_state < end_angle) {
         rc = measure_rapid_fire(cb, end_angle);
 
         if (rc == 0) {

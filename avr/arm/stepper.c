@@ -73,7 +73,11 @@ void stepper_ccw(void)
         }
     }
 
-    stepper_state -= stepper_stepsize;
+    if (stepper_stepsize > stepper_state) {
+        stepper_state = 0;
+    } else {
+        stepper_state -= stepper_stepsize;
+    }
 }
 
 void stepper_cw(void)
@@ -120,10 +124,10 @@ uint8_t stepper_set_angle(uint16_t goal)
 
     xfer_state = XFER_INIT;
 
-    while (stepper_state > goal && xfer_state == XFER_INIT)
+    while (stepper_state < goal && xfer_state == XFER_INIT)
         stepper_cw();
 
-    while (stepper_state < goal && xfer_state == XFER_INIT)
+    while (stepper_state > goal && xfer_state == XFER_INIT)
         stepper_ccw();
 
     stepper_sleep();
