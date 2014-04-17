@@ -113,6 +113,8 @@ reinit: \
 
 
 #define NODE_MAIN() \
+    wdt_enable(WDTO_8S); \
+\
     PROMPT \
 \
     for (;;) { \

@@ -2,6 +2,7 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <avr/wdt.h>
 #include <util/atomic.h>
 #include <stdio.h>
 
@@ -77,6 +78,7 @@ ISR(TIMER0_COMPA_vect)
         overflows = 0;
         now++;
         uptime++;
+        wdt_reset();
 
         HEARTBEAT_OFF();
 
