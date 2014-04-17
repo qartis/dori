@@ -15,40 +15,53 @@ void arm_init(void)
 
 uint16_t get_arm_angle(void)
 {
-    uint16_t val;
+    uint32_t val;
+    uint8_t i;
 
-    val = adc_read(4);
+#define NUM_SAMPLES 128
+
+    val = 0;
+
+    for (i = 0; i < NUM_SAMPLES; i++) {
+        val += adc_read(4);
+    }
+
+    val /= NUM_SAMPLES;
 
     return val;
 }
 
-uint8_t set_arm_percent(uint8_t pos)
+uint8_t set_arm_angle(uint16_t target_adc)
 {
     uint16_t goal;
     uint16_t now;
-    uint8_t retry;
+    uint16_t retry;
 
-    /* pos is 0..9 */
-    goal = map(pos, 0, 9, 530, 1000);
     now = get_arm_angle();
+    goal = target_adc;
 
     DDRD |= (1 << PORTD2) | (1 << PORTD7);
 
-    printf_P(PSTR("goal: %d"), goal);
-    printf_P(PSTR("now: %d"), now);
+    printf_P(PSTR("goal: %d, "), goal);
+    printf_P(PSTR("now: %d\n"), now);
 
-    if ((now + 20) > goal && (now - 20) < goal) {
-        puts_P(PSTR("done"));
+    if (goal < 520) {
+        goal = 520;
+    } else if (goal > 1000) {
+        goal = 1000;
+    }
 
-        return 0;
-    } else if (now > goal) {
+    if (now > goal) {
         PORTD |= (1 << PORTD2);
 
-        /* 255 * 30 = 7650 ms */
-        retry = 255;
-        while (get_arm_angle() > goal && --retry) {
-            _delay_ms(30);
+        /* 7650 * 1 = 7650 ms */
+        retry = 7650;
+        uint16_t angle;
+        while ( (angle = get_arm_angle()) > (goal - 1) && --retry) {
+            _delay_ms(1);
         }
+
+        printf("retry: %d, angle: %d\n", retry, angle);
 
         PORTD &= ~(1 << PORTD2);
 
@@ -56,11 +69,14 @@ uint8_t set_arm_percent(uint8_t pos)
     } else {
         PORTD |= (1 << PORTD7);
 
-        /* 255 * 30 = 7650 ms */
-        retry = 255;
-        while (get_arm_angle() < goal && --retry) {
-            _delay_ms(30);
+        /* 7650 * 1 = 7650 ms */
+        retry = 7650;
+        uint16_t angle;
+        while ( (angle = get_arm_angle()) < (goal + 1) && --retry) {
+            _delay_ms(1);
         }
+
+        printf("retry: %d, angle: %d\n", retry, angle);
 
         PORTD &= ~(1 << PORTD7);
 

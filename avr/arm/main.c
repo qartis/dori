@@ -89,7 +89,7 @@ uint8_t laser_do_sweep(uint16_t start_angle, uint16_t end_angle,
 uint8_t send_arm_angle(uint8_t type)
 {
     uint16_t angle;
-    uint8_t buf[3];
+    uint8_t buf[2];
 
     angle = get_arm_angle();
 
@@ -197,8 +197,8 @@ uint8_t can_irq(void)
         rc = process_value_request();
         break;
     case TYPE_action_arm_angle:
-        val = packet.data[0];
-        rc = set_arm_percent(val);
+        val = (packet.data[0] << 8) | packet.data[1];
+        rc = set_arm_angle(val);
         if (rc != 0) {
             val = get_arm_angle();
             buf[0] = val >> 8;
@@ -300,7 +300,7 @@ uint8_t debug_irq(void)
 
     case 'a':
         pos = atoi(buf + 1);
-        set_arm_percent(pos);
+        set_arm_angle(pos);
         break;
     case 't':
         {
