@@ -379,6 +379,12 @@ ISR(PCINT0_vect)
     canintf = read_register(MCP_REGISTER_CANINTF);
     //printf("int! %x\n", canintf);
 
+    if (canintf & MCP_INTERRUPT_ERRI) {
+        printf("MCP ERRI\n");
+        mcp2515_init();
+        return;
+    }
+
     if (canintf & MCP_INTERRUPT_RX0I) {
         read_packet(MCP_REGISTER_RXB0SIDH);
         modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_RX0I, 0x00);
