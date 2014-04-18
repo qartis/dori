@@ -280,8 +280,6 @@ uint8_t uart_irq(void)
 
 uint8_t debug_irq(void)
 {
-    return 0;
-
 
 
 
