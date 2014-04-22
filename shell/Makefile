@@ -19,4 +19,4 @@ decan: decan.c
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm send decan
+	rm -f send decan
