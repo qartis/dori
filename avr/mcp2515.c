@@ -380,7 +380,13 @@ ISR(PCINT0_vect)
     //printf("int! %x\n", canintf);
 
     if (canintf & MCP_INTERRUPT_ERRI) {
-        printf("MCP ERRI\n");
+        printf("MCP: ERRI\n");
+        mcp2515_init();
+        return;
+    }
+
+    if (canintf & MCP_INTERRUPT_MERR) {
+        printf("mcp: MERR\n");
         mcp2515_init();
         return;
     }
@@ -403,10 +409,6 @@ ISR(PCINT0_vect)
         canintf &= ~(MCP_INTERRUPT_TX0I);
     }
 
-    if (canintf & MCP_INTERRUPT_MERR) {
-        puts_P(PSTR("mcp: MERR"));
-        modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_MERR, 0x00);
-    }
 }
 
 void mcp2515_xfer_begin(void)
