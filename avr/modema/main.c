@@ -167,9 +167,6 @@ uint8_t debug_irq(void)
         case 'c':
             TRIGGER_USER_IRQ();
             break;
-        case '?':
-            printf_P(PSTR("state: %d\n"), state);
-            break;
         case 'x':
             state = STATE_CONNECTED;
             puts_P(PSTR("conn!\n"));
@@ -181,6 +178,12 @@ uint8_t debug_irq(void)
         case 'z':
             printf("%u\n", stack_space());
             printf("%u\n", free_ram());
+            break;
+        case '?':
+            mcp2515_dump();
+            break;
+        case 'm':
+            mcp2515_init();
             break;
         }
     } else if (buf[0] == 's') {
@@ -214,7 +217,7 @@ void tcp_irq(uint8_t * buf, uint8_t len)
     }
 
     for (i = 0; i < len; i++) {
-        //printf("%d: %02x\n", i, buf[i]);
+        printf("%d: %02x\n", i, buf[i]);
         tcp_buf[tcp_buf_len] = buf[i];
         tcp_buf_len++;
         if (tcp_buf_len >= sizeof(tcp_buf)) {
@@ -394,7 +397,7 @@ uint8_t periodic_irq(void)
         return 0;
     }
 
-    printf("STATE %d\nSTATE\n%d STATE %d\n", state, state, state);
+    printf("STATE %d\nSTATE %d\nSTATE %d\n", state, state, state);
     if (state == STATE_CONNECTED) {
         type = TYPE_nop;
         TCPSend(&type, sizeof(type));
