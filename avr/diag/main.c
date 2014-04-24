@@ -21,12 +21,7 @@
 #include "power.h"
 #include "temp.h"
 
-void timer_tophalf(void)
-{
-    irq_signal |= IRQ_USER;
-}
-
-uint8_t user_irq(void)
+uint8_t seconds_irq(void)
 {
     uint8_t rc;
     int16_t temp;

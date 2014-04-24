@@ -45,22 +45,17 @@ uint8_t bytes_in_ring(void)
 }
 #endif
 
-ISR(USART_TX_vect)
+ISR(USART_UDRE_vect)
 {
     uint8_t c;
-
-    /*
-    if (!(UCSR0A & (1 << UDRE0))) {
-        puts_P(PSTR("wtf!"));
-        return;
-    }
-    */
 
     if (tx_ring_in != tx_ring_out) {
         c = uart_tx_ring[tx_ring_out];
         tx_ring_out++;
         tx_ring_out %= UART_TX_BUF_SIZE;
         UDR0 = c;
+    } else {
+        UCSR0B &= ~(1 << UDRIE0);
     }
 }
 
@@ -77,48 +72,24 @@ void uart_tx_flush(void)
 #ifndef UART_CUSTOM_INTERRUPT
 ISR(USART_RX_vect)
 {
-    uint8_t data = UDR0;
+    uint8_t c;
+    
+    c = UDR0;
 
-    /*
-    if (irq_signal & IRQ_UART) {
-        return;
-    }
-    */
-
-    /*
-    if (data == '\b') {
-        if (bytes_in_ring() > 0) {
-            if (ring_in == 0) {
-                ring_in = UART_BUF_SIZE - 1;
-            } else {
-                ring_in--;
-            }
-
-            uart_putchar('\b');
-            uart_putchar(' ');
-            uart_putchar('\b');
-        }
-        return;
-    }
-    */
-
-    uart_ring[ring_in] = data;
+    uart_ring[ring_in] = c;
     ring_in++;
     ring_in %= UART_BUF_SIZE;
 
-    if (data == '\r')
-        data = '\n';
+    if (c == '\r') {
+        c = '\n';
 
     /* if the buffer contains a full line */
-    if (data == '\n') {
-        if (irq_signal & IRQ_UART) {
-            puts_P(PSTR("UART OVERRUN"));
-        }
+    if (c == '\n') {
         irq_signal |= IRQ_UART;
     }
 
 #ifdef ECHO
-    putchar(data);
+    uart_putchar(data);
 #endif
 }
 #endif
@@ -128,7 +99,7 @@ void uart_init(uint16_t ubrr)
     UBRR0H = ubrr >> 8;
     UBRR0L = ubrr;
 
-    UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0) | (1 << TXCIE0);
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0) | (1 << UDRIE0);
 
 #ifndef DEBUG
     stdout = &mystdout;
@@ -139,24 +110,25 @@ void uart_init(uint16_t ubrr)
 #ifndef UART_CUSTOM_INTERRUPT
 int uart_getchar(void)
 {
-   int c;
+   char c;
 
 #ifndef ICRNL
 ignore:
 #endif
-    while (ring_in == ring_out){ }
+    while (ring_in == ring_out) {};
 
     c = uart_ring[ring_out];
     ring_out++;
     ring_out %= UART_BUF_SIZE;
 
-    if (c == '\r'){
+    if (c == '\r') {
 #ifdef ICRNL
         c = '\n';
 #else
         goto ignore;
 #endif
     }
+
 #ifdef ECHO
     uart_putchar(c);
 #endif
@@ -168,7 +140,9 @@ uint8_t uart_haschar(void)
 {
     return (ring_in != ring_out);
 }
+
 #else /* UART_CUSTOM_INTERRUPT */
+
 int uart_getchar(void)
 {
     return 0;
@@ -177,32 +151,28 @@ int uart_getchar(void)
 
 int uart_putchar(char c)
 {
-#if 1
 #ifdef ONLCR
 again:
 #endif
-    while ((tx_ring_in + 1) % UART_TX_BUF_SIZE == tx_ring_out) {};
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        if ((UCSR0A & (1 << UDRE0)) && (tx_ring_in == tx_ring_out)) {
-            UDR0 = c;
-        } else {
-            uart_tx_ring[tx_ring_in] = c;
-            tx_ring_in++;
-            tx_ring_in %= UART_TX_BUF_SIZE;
+    ATOMIC_BLOCK (ATOMIC_RESTORESTATE) {
+        if (tx_ring_in == tx_ring_out) {
+            UCSR0B |= (1 << UDRIE0);
         }
+
+        uart_tx_ring[tx_ring_in] = c;
+        tx_ring_in++;
+        tx_ring_in %= UART_TX_BUF_SIZE;
     }
+
 #ifdef ONLCR
     if (c == '\n'){
         c = '\r';
         goto again;
     }
 #endif
-#else
-    while (!(UCSR0A & (1<<UDRE0))){ }
-    UDR0 = c;
-#endif
-    return c;
+
+    return 0;
 }
 
 void printu(uint16_t num)

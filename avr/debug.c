@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <util/atomic.h>
 
 #include "debug.h"
 #include "irq.h"
@@ -23,6 +22,27 @@ static FILE mystdout = FDEV_SETUP_STREAM(
     (int (*)(FILE*))debug_getchar,
     _FDEV_SETUP_RW);
 
+inline void disable_debug_timer(void)
+{
+    TCCR2B = 0;
+    PCMSK1 |= (1 << PCINT9);
+}
+
+inline void enable_debug_timer(void)
+{
+    TCCR2B = (1 << CS21); /* clk/8 */
+    PCMSK1 &= ~(1 << PCINT9);
+    TCNT2 = 0;
+}
+
+ISR(PCINT1_vect)
+{
+    /* turn on timer2, which will capture this
+       incoming byte. also disable pcint9 while
+       we're recieving the byte */
+    enable_debug_timer();
+}
+
 void debug_init(void)
 {
     /* 18432000 / 8 = 2304000
@@ -30,11 +50,14 @@ void debug_init(void)
        so if we overflow every 30 ticks
        that makes 76800 times per second,
        or 2 samples per bit at 38400 baud */
-
     OCR2A = (30-1);
     TCCR2A = 1 << WGM21;
-    TCCR2B = (1 << CS21); /* clk/8 */
     TIMSK2 = (1 << OCIE2A);
+
+    PCICR |= (1 << PCIE1);
+
+    /* detect activity on debug rx pin */
+    disable_debug_timer();
 
     /* tx */
     DDRC |= (1 << PORTC0);
@@ -50,13 +73,16 @@ void debug_init(void)
 
 void debug_putchar(char c)
 {
-redo:
-    //while ((debug_tx_ring_in + 1 % DEBUG_TX_BUF_SIZE) == debug_tx_ring_out) {}
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        debug_tx_ring[debug_tx_ring_in] = c;
-        debug_tx_ring_in = (debug_tx_ring_in + 1);
-        debug_tx_ring_in %= DEBUG_TX_BUF_SIZE;
+    uint8_t next_idx;
+
+again:
+    next_idx = (debug_tx_ring_in + 1) % DEBUG_TX_BUF_SIZE;
+    if (next_idx == debug_tx_ring_out) {
+        return;
     }
+
+    debug_tx_ring[debug_tx_ring_in] = c;
+    debug_tx_ring_in = next_idx;
 
     if (c == '\n') {
         c = '\r';
@@ -66,9 +92,10 @@ redo:
 
 ISR(TIMER2_COMPA_vect)
 {
+    static uint8_t rxbyte;
     static enum {
-        INIT,
         STARTBIT1,
+        STARTBIT2,
         BIT0, BIT0_WAIT,
         BIT1, BIT1_WAIT,
         BIT2, BIT2_WAIT,
@@ -80,25 +107,24 @@ ISR(TIMER2_COMPA_vect)
         STOPBIT1,
         STOPBIT2,
     } rxstate, txstate;
-    static uint8_t rxbyte;
 
     switch (rxstate) {
-    case INIT:
+    case STARTBIT1:
         if ((PINC & (1 << PINC1)))
             break;
 
-        rxstate = STARTBIT1;
+        rxstate = STARTBIT2;
         rxbyte = 0;
         break;
 
-    case STARTBIT1:
+    case STARTBIT2:
         /* verify that the start bit is LOW for at least half
            a bit period. if not, then it was just noise and we
-           go back to INIT */
+           go back to STARTBIT1 */
         if ((PINC & (1 << PINC1))) {
-            rxstate = INIT;
+            rxstate = STARTBIT1;
         } else {
-            rxstate++;
+            rxstate = BIT0;
         }
 
         break;
@@ -126,7 +152,7 @@ ISR(TIMER2_COMPA_vect)
         if (rxbyte == '\n')
             irq_signal |= IRQ_DEBUG;
 
-        rxstate = INIT;
+        rxstate = STARTBIT1;
         break;
 
     default:
@@ -134,12 +160,12 @@ ISR(TIMER2_COMPA_vect)
     }
 
     switch (txstate) {
-    case INIT:
+    case STARTBIT1:
         if (debug_tx_ring_in == debug_tx_ring_out)
             break;
 
         PORTC &= ~(1 << PORTC0);
-        txstate = STARTBIT1;
+        txstate = STARTBIT2;
         break;
 
     case BIT0: case BIT1: case BIT2: case BIT3:
@@ -162,11 +188,16 @@ ISR(TIMER2_COMPA_vect)
     case STOPBIT2:
         debug_tx_ring_out++;
         debug_tx_ring_out %= DEBUG_TX_BUF_SIZE;
-        txstate = INIT;
+        txstate = STARTBIT1;
         break;
 
     default:
         txstate++;
+    }
+
+    if (rxstate == STARTBIT1 && txstate == STARTBIT1 &&
+            debug_tx_ring_in == debug_tx_ring_out) {
+        disable_debug_timer();
     }
 }
 
@@ -174,7 +205,9 @@ uint8_t debug_getchar(void)
 {
     uint8_t c;
 
-    while (debug_buf_in == debug_buf_out) {};
+    if (debug_buf_in == debug_buf_out) {
+        return 0;
+    }
 
     c = debug_buf[debug_buf_out];
     debug_buf_out = (debug_buf_out + 1) % DEBUG_BUF_SIZE;
