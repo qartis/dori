@@ -41,11 +41,11 @@ ISR(USART_RX_vect)
     uint8_t c = UDR0;
 
     /* if we've got an unread line */
-    if (irq_signal & IRQ_USER)
+    if (irq_signal & IRQ_USER1)
         return;
 
     if (c == '\r') {
-        irq_signal |= IRQ_USER;
+        irq_signal |= IRQ_USER1;
         return;
     }
 
@@ -95,7 +95,7 @@ uint8_t send_time_can(uint8_t type)
     return mcp2515_sendpacket_wait(&p);
 }
 
-uint8_t user_irq(void)
+uint8_t user1_irq(void)
 {
     struct nmea_data_t result;
     char buf[BUFLEN];

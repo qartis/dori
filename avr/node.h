@@ -96,21 +96,50 @@ reinit: \
 #define CHECK_UART
 #endif
 
-#ifdef USER_IRQ
-#define TRIGGER_USER_IRQ() do { irq_signal |= IRQ_USER; } while(0)
-#define CHECK_USER \
-        if (irq_signal & IRQ_USER) { \
-            rc = user_irq(); \
-            irq_signal &= ~IRQ_USER; \
+#ifdef USER1_IRQ
+#define TRIGGER_USER1_IRQ() do { irq_signal |= IRQ_USER1; } while(0)
+#define CHECK_USER1 \
+        if (irq_signal & IRQ_USER1) { \
+            rc = user1_irq(); \
+            irq_signal &= ~IRQ_USER1; \
             if (rc) {\
                 printwait_P(PSTR("$$U\n"));\
                 goto reinit;\
             } \
         }
 #else
-#define CHECK_USER
+#define CHECK_USER1
 #endif
 
+#ifdef USER2_IRQ
+#define TRIGGER_USER2_IRQ() do { irq_signal |= IRQ_USER2; } while(0)
+#define CHECK_USER2 \
+        if (irq_signal & IRQ_USER2) { \
+            rc = user2_irq(); \
+            irq_signal &= ~IRQ_USER2; \
+            if (rc) {\
+                printwait_P(PSTR("$$U\n"));\
+                goto reinit;\
+            } \
+        }
+#else
+#define CHECK_USER2
+#endif
+
+#ifdef USER3_IRQ
+#define TRIGGER_USER3_IRQ() do { irq_signal |= IRQ_USER3; } while(0)
+#define CHECK_USER3 \
+        if (irq_signal & IRQ_USER3) { \
+            rc = user3_irq(); \
+            irq_signal &= ~IRQ_USER3; \
+            if (rc) {\
+                printwait_P(PSTR("$$U\n"));\
+                goto reinit;\
+            } \
+        }
+#else
+#define CHECK_USER3
+#endif
 
 #define NODE_MAIN() \
     wdt_enable(WDTO_8S); \
@@ -121,6 +150,10 @@ reinit: \
         if (0 && reinit) goto reinit; \
 \
         while (irq_signal == 0) { sleep(); } \
+\
+        CHECK_USER1; \
+        CHECK_USER2; \
+        CHECK_USER3; \
 \
         if (irq_signal & IRQ_CAN) { \
             rc = can_irq(); \
@@ -142,5 +175,4 @@ reinit: \
 \
         CHECK_UART; \
         CHECK_DEBUG; \
-        CHECK_USER; \
     }

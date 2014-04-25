@@ -86,7 +86,7 @@ again:
 
     if (c == '\n') {
         c = '\r';
-        goto redo;
+        goto again;
     }
 }
 
