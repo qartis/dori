@@ -43,7 +43,7 @@ typedef struct {
     client_type type;
 } client;
 
-static client clients[128];
+static client clients[MAX];
 static int nclients;
 static int dorifd;
 static int shellfd;
@@ -568,6 +568,12 @@ int main()
             if (fd == dorifd || fd == shellfd) {
                 len = sizeof(clientaddr);
                 newfd = accept(fd, (struct sockaddr *)&clientaddr, &len);
+
+                if (nclients == MAX) {
+                    printf("Max clients reached\n");
+                    continue;
+                }
+
                 clients[nclients].fd = newfd;
 
                 if (newfd > maxfd)
