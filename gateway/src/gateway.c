@@ -12,6 +12,8 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <time.h>
+#include <signal.h>
+#include <fcntl.h>
 #include "can.h"
 #include "can_names.h"
 
@@ -115,6 +117,7 @@ size_t write_to_client(client_type target_client, const char* buf, int buflen)
 
     num_clients_written = 0;
     for (i = 0; i < nclients; i++) {
+
         if (clients[i].type == target_client) {
 
             num_clients_written++;
@@ -138,7 +141,7 @@ ssize_t safe_write(int fd, const char *buf, size_t count)
 
     wroteb = 0;
     while (wroteb < count) {
-        rc = send(fd, buf + wroteb, count - wroteb, MSG_NOSIGNAL);
+        rc = write(fd, buf + wroteb, count - wroteb);
         if (rc < 1) {
             remove_client(fd);
             printf("err 1: client disconnected during write\n");
@@ -174,7 +177,7 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
 
     for (i = 0; i < ncols; i++) {
         printfd(*fd, "%s", cols[i]);
-        if (send(*fd, "", 1, MSG_NOSIGNAL) < 1) {
+        if (write(*fd, "", 1) < 1) {
             printf("err 2: client disconnected during write\n");
             remove_client(*fd);
             return -1;
@@ -496,6 +499,8 @@ int main()
     fd_set readfds;
     int optval, rc, fd;
 
+    signal(SIGPIPE, SIG_IGN);
+
     sqlite3_open("data/db", &db);
 
     if (db) {
@@ -594,6 +599,9 @@ int main()
                 clients[nclients].buf_len = 0;
                 memset(clients[nclients].buf, '\0', sizeof(clients[nclients].buf));
                 clients[nclients].fd = newfd;
+
+                int flags = fcntl(clients[nclients].fd, F_GETFL, 0);
+                fcntl(clients[nclients].fd, F_SETFL, flags | O_NONBLOCK);
 
                 if (newfd > maxfd)
                     maxfd = newfd;
