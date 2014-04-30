@@ -41,6 +41,8 @@ typedef enum {
 typedef struct {
     int fd;
     client_type type;
+    unsigned char buf[MAX];
+    int buf_len;
 } client;
 
 static client clients[MAX];
@@ -48,12 +50,6 @@ static int nclients;
 static int dorifd;
 static int shellfd;
 static int siteid;
-
-static unsigned char doribuf[BUFLEN];
-static int doribuf_len;
-
-static unsigned char shellbuf[BUFLEN];
-static int shellbuf_len;
 
 void error(const char *str)
 {
@@ -239,27 +235,24 @@ void db_log_can(uint8_t type, uint8_t id, uint16_t sensor, uint8_t len,
         if (rc != SQLITE_DONE) dberror(db);
 }
 
-void process_dori_bytes(char *buf, int len)
+void process_dori_bytes(client* c)
 {
-    memcpy(&doribuf[doribuf_len], buf, len);
-    doribuf_len += len;
-
-    while (doribuf_len > 0) {
-        uint8_t type = doribuf[CAN_TYPE_IDX];
+    while (c->buf_len > 0) {
+        uint8_t type = c->buf[CAN_TYPE_IDX];
 
         if (type == TYPE_nop) {
             printf("skipping nop\n");
-            doribuf_len -= 1;
-            memmove(doribuf, doribuf + 1, doribuf_len);
+            c->buf_len -= 1;
+            memmove(c->buf, c->buf + 1, c->buf_len);
             continue;
         }
 
-        if (doribuf_len < CAN_HEADER_LEN) {
+        if (c->buf_len < CAN_HEADER_LEN) {
             break;
         }
 
         // Extract the payload size from the CAN header
-        uint8_t data_len = doribuf[CAN_LEN_IDX];
+        uint8_t data_len = c->buf[CAN_LEN_IDX];
 
         if (data_len > 8) {
             printf("data_len > 8: %d\n", data_len);
@@ -267,19 +260,19 @@ void process_dori_bytes(char *buf, int len)
         }
 
         // Break out if we don't have a full packet yet
-        if (doribuf_len < CAN_HEADER_LEN + data_len) {
+        if (c->buf_len < CAN_HEADER_LEN + data_len) {
             return;
         }
 
-        uint8_t id = doribuf[CAN_ID_IDX];
-        uint16_t sensor = (doribuf[CAN_SENSOR_IDX] << 8) |
-                           doribuf[CAN_SENSOR_IDX + 1];
+        uint8_t id = c->buf[CAN_ID_IDX];
+        uint16_t sensor = (c->buf[CAN_SENSOR_IDX] << 8) |
+                           c->buf[CAN_SENSOR_IDX + 1];
 
         // Sanity checks here to prevent future crashes
         if (type >= TYPE_invalid) {
             printf("Invalid type: %02x\n", type);
 
-            doribuf_len -= (CAN_HEADER_LEN + data_len);
+            c->buf_len -= (CAN_HEADER_LEN + data_len);
 
             break;
         }
@@ -287,24 +280,23 @@ void process_dori_bytes(char *buf, int len)
         if (id >= ID_invalid) {
             printf("Invalid id: %02x\n", id);
 
-            doribuf_len -= (CAN_HEADER_LEN + data_len);
+            c->buf_len -= (CAN_HEADER_LEN + data_len);
 
-            memmove(doribuf, doribuf + CAN_HEADER_LEN + data_len,
-                    (doribuf_len) * sizeof(unsigned char));
+            memmove(c->buf, c->buf + CAN_HEADER_LEN + data_len,
+                    (c->buf_len) * sizeof(unsigned char));
             break;
         }
 
         if(sensor >= SENSOR_invalid) {
             printf("Invalid sensor: %02x\n", sensor);
-            doribuf_len -= (CAN_HEADER_LEN + data_len);
+            c->buf_len -= (CAN_HEADER_LEN + data_len);
 
-            memmove(doribuf, doribuf + CAN_HEADER_LEN + data_len,
-                    (doribuf_len) * sizeof(unsigned char));
+            memmove(c->buf, c->buf + CAN_HEADER_LEN + data_len,
+                    (c->buf_len) * sizeof(unsigned char));
             break;
         }
 
-
-        unsigned char *data = doribuf + CAN_HEADER_LEN;
+        unsigned char *data = c->buf + CAN_HEADER_LEN;
 
         printf("DORI sent Frame: %s [%02x] %s [%02x] %s [%02x] %d [",
                type_names[type],
@@ -353,7 +345,7 @@ void process_dori_bytes(char *buf, int len)
             }
         case TYPE_xfer_chunk:
             if(incoming_file != NULL) {
-                fwrite(doribuf + CAN_HEADER_LEN, data_len, 1, incoming_file);
+                fwrite(c->buf + CAN_HEADER_LEN, data_len, 1, incoming_file);
                 fflush(incoming_file);
                 fflush(incoming_file);
                 fsync(fileno(incoming_file));
@@ -363,7 +355,7 @@ void process_dori_bytes(char *buf, int len)
         }
 
 
-        db_log_can(type, id, sensor, data_len, doribuf + CAN_HEADER_LEN);
+        db_log_can(type, id, sensor, data_len, c->buf + CAN_HEADER_LEN);
 
         int rc = 0;
 
@@ -385,7 +377,7 @@ void process_dori_bytes(char *buf, int len)
                 rc = write(clients[i].fd, &data_len, sizeof(data_len));
                 if(rc < 0) break;
 
-                rc = write(clients[i].fd, doribuf + CAN_HEADER_LEN, data_len);
+                rc = write(clients[i].fd, c->buf + CAN_HEADER_LEN, data_len);
                 if(rc < 0) break;
             }
         }
@@ -395,34 +387,60 @@ void process_dori_bytes(char *buf, int len)
             remove_client(clients[i].fd);
         }
 
-        doribuf_len -= (CAN_HEADER_LEN + data_len);
+        c->buf_len -= (CAN_HEADER_LEN + data_len);
 
-        memmove(doribuf, doribuf + CAN_HEADER_LEN + data_len,
-                (doribuf_len) * sizeof(unsigned char));
+        memmove(c->buf, c->buf + CAN_HEADER_LEN + data_len,
+                (c->buf_len) * sizeof(unsigned char));
     }
 }
 
-void process_shell_bytes(char *buf, int len)
+void process_shell_bytes(client* c)
 {
-    memcpy(&shellbuf[shellbuf_len], buf, len);
-    shellbuf_len += len;
-
     // if the command that shell sends is unrecognized
     // we'll parse it as a CAN command
-    if (shellbuf_len < CAN_HEADER_LEN) {
+    if (c->buf_len < CAN_HEADER_LEN) {
         return;
     }
     // Extract the payload size from the CAN header
-    uint8_t data_len = shellbuf[CAN_LEN_IDX];
+    uint8_t data_len = c->buf[CAN_LEN_IDX];
 
     // Break out if we don't have a full packet yet
-    if (shellbuf_len < CAN_HEADER_LEN + data_len) {
+    if (c->buf_len < CAN_HEADER_LEN + data_len) {
         return;
     }
 
-    uint8_t type = shellbuf[CAN_TYPE_IDX];
-    uint8_t id = shellbuf[CAN_ID_IDX];
-    uint16_t sensor = (shellbuf[CAN_SENSOR_IDX] << 8) | shellbuf[CAN_SENSOR_IDX + 1];
+    uint8_t type = c->buf[CAN_TYPE_IDX];
+    uint8_t id = c->buf[CAN_ID_IDX];
+    uint16_t sensor = (c->buf[CAN_SENSOR_IDX] << 8) | c->buf[CAN_SENSOR_IDX + 1];
+
+    // Sanity checks here to prevent future crashes
+    if (type >= TYPE_invalid) {
+        printf("Invalid type: %02x\n", type);
+
+        c->buf_len -= (CAN_HEADER_LEN + data_len);
+
+        return;
+    }
+
+    if (id >= ID_invalid) {
+        printf("Invalid id: %02x\n", id);
+
+        c->buf_len -= (CAN_HEADER_LEN + data_len);
+
+        memmove(c->buf, c->buf + CAN_HEADER_LEN + data_len,
+                (c->buf_len) * sizeof(unsigned char));
+        return;
+    }
+
+    if(sensor >= SENSOR_invalid) {
+        printf("Invalid sensor: %02x\n", sensor);
+        c->buf_len -= (CAN_HEADER_LEN + data_len);
+
+        memmove(c->buf, c->buf + CAN_HEADER_LEN + data_len,
+                (c->buf_len) * sizeof(unsigned char));
+        return;
+    }
+
 
     printf("shell sent frame: %s [%02x] %s [%02x] %s [%04x] %d [",
            type_names[type],
@@ -435,13 +453,13 @@ void process_shell_bytes(char *buf, int len)
 
     int i;
     for (i = 0; i < data_len; i++) {
-        printf(" %02x ", shellbuf[CAN_HEADER_LEN + i]);
+        printf(" %02x ", c->buf[CAN_HEADER_LEN + i]);
     }
 
     printf("]\n");
 
     int rc;
-    rc = write_to_client(DORI, (const char*)shellbuf, shellbuf_len);
+    rc = write_to_client(DORI, (const char*)c->buf, c->buf_len);
 
     if(rc == 0) {
         printf("No DORI available\n");
@@ -459,14 +477,14 @@ void process_shell_bytes(char *buf, int len)
                data_len);
         int j;
         for (j = 0; j < data_len; j++) {
-            printf(" %02x ", shellbuf[CAN_HEADER_LEN + j]);
+            printf(" %02x ", c->buf[CAN_HEADER_LEN + j]);
         }
     }
 
-    shellbuf_len -= (CAN_HEADER_LEN + data_len);
+    c->buf_len -= (CAN_HEADER_LEN + data_len);
 
-    memmove(shellbuf, &shellbuf[CAN_HEADER_LEN + data_len],
-            (shellbuf_len) * sizeof(char));
+    memmove(c->buf, &c->buf[CAN_HEADER_LEN + data_len],
+            (c->buf_len) * sizeof(char));
 }
 
 int main()
@@ -477,7 +495,6 @@ int main()
     socklen_t len;
     fd_set readfds;
     int optval, rc, fd;
-    char buf[BUFLEN];
 
     sqlite3_open("data/db", &db);
 
@@ -574,6 +591,8 @@ int main()
                     continue;
                 }
 
+                clients[nclients].buf_len = 0;
+                memset(clients[nclients].buf, '\0', sizeof(clients[nclients].buf));
                 clients[nclients].fd = newfd;
 
                 if (newfd > maxfd)
@@ -592,7 +611,7 @@ int main()
 
             } else {
                 client *c = find_client(fd);
-                rc = read(fd, buf, sizeof(buf));
+                rc = read(fd, c->buf + c->buf_len, sizeof(c->buf) - c->buf_len);
                 if (rc == 0 || rc < 0) {
                     if (c->type == DORI) {
                         printf("DORI disconnected\n");
@@ -605,11 +624,12 @@ int main()
                     remove_client(fd);
 
                 } else {
+                    c->buf_len += rc;
                     printf("Got %d bytes: ", rc);
                     int j = 0;
                     for (j = 0; j < rc; j++) {
-                        printf("%02x(%c) ", (unsigned char)buf[j],
-                                isprint(buf[j]) ? buf[j] : '?');
+                        printf("%02x(%c) ", (unsigned char)c->buf[j],
+                                isprint(c->buf[j]) ? c->buf[j] : '?');
                     }
                     printf("\n");
 
@@ -618,9 +638,9 @@ int main()
                         continue;
                     }
                     if (c->type == DORI) {
-                        process_dori_bytes(buf, rc);
+                        process_dori_bytes(c);
                     } else if (c->type == SHELL) {
-                        process_shell_bytes(buf, rc);
+                        process_shell_bytes(c);
                     } else {
                         printf("unknown type: %d\n", c->type);
                     }
