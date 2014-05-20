@@ -2,10 +2,11 @@
 #define STR(X) #X
 
 volatile uint8_t reinit;
+struct mcp2515_packet_t packet __attribute__ ((section (".noinit")));
+uint8_t boot_mcusr __attribute__ ((section (".noinit")));
+
 
 void sleep(void);
-
-uint8_t boot_mcusr __attribute__ ((section (".noinit")));
 
 void get_mcusr(void) __attribute__((section(".init3"), naked, used));
 void get_mcusr(void)
@@ -18,7 +19,9 @@ void get_mcusr(void)
 ISR(BADISR_vect)
 {
     uart_tx_empty();
-    printwait_P(PSTR("BADISR\n"));
+    for (;;) {
+        printwait_P(PSTR("BADISR\n"));
+    }
 }
 
 #ifdef DEBUG
@@ -36,7 +39,7 @@ ISR(BADISR_vect)
 
 #define NODE_INIT() \
     uint8_t rc; \
-    _delay_ms(1000); \
+    _delay_ms(300); \
     uart_init(BAUD(UART_BAUD)); \
     DEBUG_INIT; \
     time_init(); \
@@ -44,13 +47,13 @@ ISR(BADISR_vect)
     set_sleep_mode(SLEEP_MODE_IDLE); \
 \
     _delay_ms(300); \
-    printwait_P(PSTR("\n" XSTR(MY_ID) " start: " XSTR(VERSION) " ")); \
-    printwait_P((boot_mcusr & (1 << WDRF)) ? PSTR("wd") : PSTR("")); \
-    printwait_P((boot_mcusr & (1 << BORF)) ? PSTR("bo") : PSTR("")); \
-    printwait_P((boot_mcusr & (1 << EXTRF)) ? PSTR("ext") : PSTR("")); \
-    printwait_P((boot_mcusr & (1 << PORF)) ? PSTR("po") : PSTR("")); \
-    printwait_P((boot_mcusr & ((1 << PORF) | (1 << EXTRF) | (1 << BORF) | (1 << WDRF))) == 0 ? PSTR("software") : PSTR("")); \
-    printwait_P(PSTR(" reboot\n")); \
+    printf_P(PSTR("\n" XSTR(MY_ID) " start: " XSTR(VERSION) " ")); \
+    printf_P((boot_mcusr & (1 << WDRF)) ? PSTR("wd") : PSTR("")); \
+    printf_P((boot_mcusr & (1 << BORF)) ? PSTR("bo") : PSTR("")); \
+    printf_P((boot_mcusr & (1 << EXTRF)) ? PSTR("ext") : PSTR("")); \
+    printf_P((boot_mcusr & (1 << PORF)) ? PSTR("po") : PSTR("")); \
+    printf_P((boot_mcusr & ((1 << PORF) | (1 << EXTRF) | (1 << BORF) | (1 << WDRF))) == 0 ? PSTR("software") : PSTR("")); \
+    printf_P(PSTR(" reboot\n")); \
 \
 \
     goto reinit; \
@@ -142,14 +145,14 @@ reinit: \
 #endif
 
 #define NODE_MAIN() \
-    wdt_enable(WDTO_8S); \
+    /*wdt_enable(WDTO_8S);*/ \
 \
     PROMPT \
 \
     for (;;) { \
         if (0 && reinit) goto reinit; \
 \
-        while (irq_signal == 0) { sleep(); } \
+        while (irq_signal == 0) { /*sleep();*/ } \
 \
         CHECK_USER1; \
         CHECK_USER2; \

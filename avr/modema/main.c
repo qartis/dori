@@ -21,22 +21,28 @@
 #include "debug.h"
 #include "irq.h"
 #include "free_ram.h"
+#include "ring.h"
 
 #define streq_P(a,b) (strcmp_P(a, b) == 0)
 #define strstart(a,b) (strncmp_P(a, PSTR(b), strlen(b)) == 0)
 
 #define MODEM_SILENCE_TIMEOUT (30 * 3)
 
+volatile uint16_t canary;
 
 static uint8_t at_tx_buf[64];
-static uint8_t tcp_toread;
+volatile uint8_t tcp_toread;
 
 volatile uint32_t modem_alive_time;
 
-uint8_t uart_irq(void)
-{
-    return 0;
-}
+volatile uint8_t tcp_ring_array[64];
+volatile struct ring_t tcp_ring;
+
+uint8_t can_ring_urgent;
+volatile uint8_t can_ring_array[64];
+volatile struct ring_t can_ring;
+
+
 
 void powercycle_modem(void)
 {
@@ -57,18 +63,20 @@ void powercycle_modem(void)
     _delay_ms(100);
 }
 
-void handle_packet(uint8_t type, uint8_t id, uint16_t sensor, uint8_t len,
-        uint8_t * data)
+void handle_packet(void)
 {
     uint8_t i;
     uint8_t bufno;
-    uint8_t uptime_buf[4];
+    uint8_t can_buf[4];
+    uint8_t can_buf_len;
+    uint8_t rc;
 
-    switch (type) {
+    switch (packet.type) {
     case TYPE_at_0_write ... TYPE_at_7_write:
-        bufno = type - TYPE_at_0_write;
-        for (i = 0; i < len; i++)
-            at_tx_buf[bufno * 8 + i] = data[i];
+        bufno = packet.type - TYPE_at_0_write;
+        for (i = 0; i < packet.len; i++) {
+            at_tx_buf[bufno * 8 + i] = packet.data[i];
+        }
 
         break;
 
@@ -78,51 +86,72 @@ void handle_packet(uint8_t type, uint8_t id, uint16_t sensor, uint8_t len,
         break;
 
     case TYPE_action_modema_powercycle:
+        printf("ACTION_POWERCYCLE\n");
         powercycle_modem();
         break;
 
     case TYPE_action_modema_connect:
-        TRIGGER_USER_IRQ();
+        TRIGGER_USER1_IRQ();
         break;
 
     case TYPE_action_modema_disconnect:
         TCPDisconnect();
         break;
+
     case TYPE_set_ip:
-        ip[0] = data[0];
-        ip[1] = data[1];
-        ip[2] = data[2];
-        ip[3] = data[3];
+        ip[0] = packet.data[0];
+        ip[1] = packet.data[1];
+        ip[2] = packet.data[2];
+        ip[3] = packet.data[3];
         break;
+
     case TYPE_value_request:
-        if ((id == MY_ID || id == ID_any) && sensor == SENSOR_uptime) {
-            uptime_buf[0] = uptime >> 24;
-            uptime_buf[1] = uptime >> 16;
-            uptime_buf[2] = uptime >> 8;
-            uptime_buf[3] = uptime >> 0;
-            uint8_t rc;
-            uint8_t send_buf[16];
+        if (packet.id != MY_ID && packet.id != ID_any) {
+            break;
+        }
+        if (packet.sensor == SENSOR_boot) {
+            can_buf[0] = boot_mcusr;
+            can_buf_len = 1;
+        } else if (packet.sensor == SENSOR_interval) {
+            can_buf[0] = periodic_interval >> 8;
+            can_buf[1] = periodic_interval;
+            can_buf_len = 2;
+        } else if (packet.sensor == SENSOR_uptime) {
+            can_buf[0] = uptime >> 24;
+            can_buf[1] = uptime >> 16;
+            can_buf[2] = uptime >> 8;
+            can_buf[3] = uptime >> 0;
+            can_buf_len = 4;
+        } else {
+            break;
+        }
 
-            rc = mcp2515_send_wait(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+        rc = mcp2515_send_wait(TYPE_value_explicit, MY_ID, packet.sensor,
+                can_buf, can_buf_len);
+        (void)rc;
 
-            send_buf[0] = TYPE_value_explicit;
-            send_buf[1] = MY_ID;
-            send_buf[2] = SENSOR_uptime >> 8;
-            send_buf[3] = SENSOR_uptime;
+        if (ring_space(&can_ring) >= CAN_HEADER_LEN + can_buf_len) {
+            ring_put(&can_ring, TYPE_value_explicit);
+            ring_put(&can_ring, MY_ID);
+            ring_put(&can_ring, packet.sensor >> 8);
+            ring_put(&can_ring, packet.sensor >> 0);
+            ring_put(&can_ring, can_buf_len);
 
-            send_buf[4] = sizeof(uptime_buf);
-
-            for (i = 0; i < sizeof(uptime_buf); i++) {
-                send_buf[5 + i] = uptime_buf[i];
+            for (i = 0; i < can_buf_len; i++) {
+                ring_put(&can_ring, can_buf[i]);
             }
 
-            TCPSend(send_buf, 5 + sizeof(uptime_buf));
+            can_ring_urgent = 1;
+
+            TRIGGER_USER3_IRQ();
+        } else {
+            printf("DROP %d\n", __LINE__);
         }
         break;
     }
 }
 
-uint8_t user_irq(void)
+uint8_t user1_irq(void)
 {
     uint8_t rc;
 
@@ -151,50 +180,108 @@ uint8_t user_irq(void)
     return rc;
 }
 
+void tcp_enqueue_packet(void)
+{
+    uint8_t i;
+
+    if (ring_space(&can_ring) < CAN_HEADER_LEN + packet.len) {
+        printf("DROP %d\n", __LINE__);
+        return;
+    }
+
+    if (packet.type != TYPE_value_periodic && packet.type != TYPE_xfer_chunk
+            && packet.type != TYPE_xfer_cts) {
+        can_ring_urgent = 1;
+    }
+
+    ring_put(&can_ring, packet.type);
+    ring_put(&can_ring, packet.id);
+    ring_put(&can_ring, (packet.sensor >> 8));
+    ring_put(&can_ring, (packet.sensor & 0xFF));
+    ring_put(&can_ring, packet.len);
+
+    for (i = 0; i < packet.len; i++) {
+        ring_put(&can_ring, packet.data[i]);
+    }
+
+    TRIGGER_USER3_IRQ();
+
+    printf("ENQ %d %d\n", 5 + packet.len, packet.type);
+}
+
+
 uint8_t debug_irq(void)
 {
-    uint8_t rc;
     char buf[64];
     fgets(buf, sizeof(buf), stdin);
     debug_flush();
     buf[strlen(buf) - 1] = '\0';
 
-    if (buf[1] == '\0') {
-        switch (buf[0]) {
-        case 'p':
-            powercycle_modem();
-            break;
-        case 'c':
-            TRIGGER_USER_IRQ();
-            break;
-        case 'x':
-            state = STATE_CONNECTED;
-            puts_P(PSTR("conn!\n"));
-            break;
-        case 'd':
-            TCPDisconnect();
-            state = STATE_CLOSED;
-            break;
-        case 'z':
-            printf("%u\n", stack_space());
-            printf("%u\n", free_ram());
-            break;
-        case '?':
-            mcp2515_dump();
-            break;
-        case 'm':
-            mcp2515_init();
-            break;
-        }
-    } else if (buf[0] == 's') {
-        rc = TCPSend((uint8_t *) buf + 1, strlen(buf) - 1);
-        printf("send: %d\n", rc);
-    } else if (buf[0] == 'z') {
+    switch (buf[0]) {
+    case 'p':
+        printf("DEBUG POWERCYCLE\n");
+        powercycle_modem();
+        break;
+    case '1':
+        TRIGGER_USER1_IRQ();
+        break;
+    case '2':
+        TRIGGER_USER2_IRQ();
+        break;
+    case '3':
+        TRIGGER_USER3_IRQ();
+        break;
+    case '4':
+        packet.type = TYPE_value_periodic;
+        packet.id = ID_arm;
+        packet.sensor = SENSOR_voltage;
+        packet.len = 5;
+        packet.data[0] = 1;
+        packet.data[1] = 2;
+        packet.data[2] = 3;
+        packet.data[3] = 4;
+        packet.data[4] = 5;
+        tcp_enqueue_packet();
+        break;
+    case '5':
+        packet.type = TYPE_value_explicit;
+        packet.id = ID_drive;
+        packet.sensor = SENSOR_current;
+        packet.len = 6;
+        packet.data[0] = 1;
+        packet.data[1] = 2;
+        packet.data[2] = 3;
+        packet.data[3] = 4;
+        packet.data[4] = 5;
+        packet.data[5] = 6;
+        tcp_enqueue_packet();
+        break;
+    case 'x':
+        state = STATE_CONNECTED;
+        puts_P(PSTR("conn!\n"));
+        break;
+    case 'c':
+        TRIGGER_USER1_IRQ();
+        break;
+
+    case 'd':
+        TCPDisconnect();
+        state = STATE_CLOSED;
+        break;
+    case 'z':
         printf("%u\n", stack_space());
         printf("%u\n", free_ram());
-    } else {
+        break;
+    case '?':
+        mcp2515_dump();
+        break;
+    case 'm':
+        mcp2515_init();
+        break;
+    case 'A':
         print(buf);
         uart_putchar('\r');
+        break;
     }
 
     _delay_ms(100);
@@ -203,68 +290,88 @@ uint8_t debug_irq(void)
     return 0;
 }
 
-void tcp_irq(uint8_t * buf, uint8_t len)
+uint8_t user2_irq(void)
 {
     uint8_t rc;
     uint8_t i;
     struct mcp2515_packet_t p;
-    static uint8_t tcp_buf[32];
-    static uint8_t tcp_buf_len = 0;
 
-    if (buf[len - 1] == '\n') {
-        buf[len - 1] = '\0';
-        len--;
-    }
-
-    for (i = 0; i < len; i++) {
-        printf("%d: %02x\n", i, buf[i]);
-        tcp_buf[tcp_buf_len] = buf[i];
-        tcp_buf_len++;
-        if (tcp_buf_len >= sizeof(tcp_buf)) {
-            printf("WTF WTF WTF\n");
-        }
-    }
-
-    sei();
-
-    while (tcp_buf_len > 0) {
-        p.type = tcp_buf[0];
+    while (!ring_empty(&tcp_ring)) {
+        p.type = ring_get_idx(&tcp_ring, 0);
 
         if (p.type == TYPE_nop) {
             printf(">NOP\n");
-            tcp_buf_len -= 1;
-            memmove(tcp_buf, tcp_buf + 1, tcp_buf_len);
+            ring_get(&tcp_ring);
             continue;
         }
 
-        if (tcp_buf_len < 5)
-            return;
+        if (ring_bytes(&tcp_ring) < 5) {
+            return 0;
+        }
 
-        if (tcp_buf[4] > 8)
-            tcp_buf[4] = 8;
+        p.len = ring_get_idx(&tcp_ring, 4);
+        if (p.len > 8) {
+            p.len = 8;
+        }
 
-        if (tcp_buf_len < (1 + 1 + 2 + 1 + tcp_buf[4]))
-            return;
+        if (ring_bytes(&tcp_ring) < (1 + 1 + 2 + 1 + p.len)) {
+            printf("return 0\n");
+            return 0;
+        }
 
-        p.type = tcp_buf[0];
-        p.id = tcp_buf[1];
-        p.sensor = (tcp_buf[2] << 8) | tcp_buf[3];
-        p.len = tcp_buf[4];
+        p.type = ring_get(&tcp_ring);
+        p.id = ring_get(&tcp_ring);
+        p.sensor =
+            (ring_get(&tcp_ring) << 8) |
+            (ring_get(&tcp_ring) << 0);
 
-        for (i = 0; i < tcp_buf[4]; i++)
-            p.data[i] = tcp_buf[5 + i];
+        (void)ring_get(&tcp_ring);
 
-        tcp_buf_len -= 5 + p.len;
-        memmove(tcp_buf, tcp_buf + 5 + p.len, tcp_buf_len);
+        for (i = 0; i < p.len; i++) {
+            p.data[i] = ring_get(&tcp_ring);
+        }
 
         rc = mcp2515_send2(&p);
-        if (rc)
-            printf_P(PSTR("can er %d\n"), rc);
-        else
-            puts_P(PSTR("CAN sent"));
 
-        handle_packet(p.type, p.id, p.sensor, p.len, p.data);
+        if (rc) {
+            //printf("can er %d\n", rc);
+        } else {
+            //printf("CAN sent\n");
+        }
+
+        packet = p;
+
+        handle_packet();
     }
+
+    return 0;
+}
+
+uint8_t user3_irq(void)
+{
+    uint8_t rc;
+
+    if (state == STATE_GOT_PROMPT) {
+        printf("u3: busy\n");
+        return 0;
+    }
+
+    if (ring_empty(&can_ring)) {
+        return 0;
+    }
+
+    /* TODO: maybe have a maximum timeout to send stale data */
+
+    if ((ring_bytes(&can_ring) < can_ring.size / 2) && can_ring_urgent == 0) {
+        printf("u3: waiting\n");
+        return 0;
+    }
+
+    rc = TCPSend();
+
+    TRIGGER_USER3_IRQ();
+
+    return rc;
 }
 
 ISR(USART_RX_vect)
@@ -273,34 +380,29 @@ ISR(USART_RX_vect)
     static char at_rx_buf[64];
     static uint8_t at_rx_buf_len = 0;
 
-    static uint8_t tcp_rx_buf[64];
-    static uint8_t tcp_rx_buf_len = 0;
-
     c = UDR0;
 
     modem_alive_time = now;
 
     /* if we're reading a tcp chunk */
     if (tcp_toread > 0) {
-        tcp_rx_buf[tcp_rx_buf_len] = c;
-        tcp_rx_buf[tcp_rx_buf_len + 1] = '\0';
+        if (ring_space(&tcp_ring) > 0) {
+            ring_put(&tcp_ring, c);
+        }
         tcp_toread--;
-        tcp_rx_buf_len++;
         if (tcp_toread == 0) {
-            tcp_irq(tcp_rx_buf, tcp_rx_buf_len);
-            tcp_rx_buf_len = 0;
+            TRIGGER_USER2_IRQ();
         }
     } else if (state == STATE_EXPECTING_PROMPT) {
         if (c == '>') {
             state = STATE_GOT_PROMPT;
             at_rx_buf_len = 0;
             at_rx_buf[0] = '\0';
-        } else {
-            putchar('#');
-            putchar(c);
         }
     } else if (c == ':' && strstart(at_rx_buf, "+IPD,")) {
         state = STATE_CONNECTED;
+
+        TRIGGER_USER3_IRQ();
 
         uint8_t len = atoi(at_rx_buf + strlen("+IPD,"));
         tcp_toread = len;
@@ -320,8 +422,7 @@ ISR(USART_RX_vect)
         } else if (streq_P(at_rx_buf, PSTR("ERROR"))) {
             flag_error = 1;
         } else if (streq_P(at_rx_buf, PSTR("RING"))) {
-            printf("ring\n");
-            TRIGGER_USER_IRQ();
+            TRIGGER_USER1_IRQ();
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP INITIAL"))) {
             state = STATE_IP_INITIAL;
         } else if (streq_P(at_rx_buf, PSTR("STATE: IP START"))) {
@@ -384,24 +485,29 @@ void check_modem_alive(void)
     _delay_ms(500);
 
     if (state == STATE_ERROR) {
+        printf("STATE ERROR POWERCYCLE\n");
         powercycle_modem();
     }
 }
 
 uint8_t periodic_irq(void)
 {
-    uint8_t type;
-
     if (state == STATE_EXPECTING_PROMPT || state == STATE_GOT_PROMPT) {
-        printf("prompt\nprompt\n");
+        printf("prompt\n");
         return 0;
     }
 
-    printf("STATE %d\nSTATE %d\nSTATE %d\n", state, state, state);
+    printf("STATE %d\n", state);
+
     if (state == STATE_CONNECTED) {
-        type = TYPE_nop;
-        TCPSend(&type, sizeof(type));
-        printf("sent nop\n");
+        if (ring_space(&can_ring) > 0) {
+            ring_put(&can_ring, TYPE_nop);
+            can_ring_urgent = 1;
+            /* TODO: only send NOP after inactivity */
+            TRIGGER_USER3_IRQ();
+        } else {
+            printf("DROP %d\n", __LINE__);
+        }
     }
 
     if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
@@ -413,116 +519,46 @@ uint8_t periodic_irq(void)
     return 0;
 }
 
-uint8_t write_packet(void)
-{
-    uint8_t i;
-    uint8_t rc;
-    /* this should be 256 when we launch */
-    static uint8_t net_buf[128];
-    static uint16_t net_buf_len;
-    uint8_t explicit_buf[32];
-    uint8_t explicit_buf_len;
-
-    if (packet.type != TYPE_value_periodic && packet.type != TYPE_xfer_chunk
-        && packet.type != TYPE_xfer_cts) {
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-            explicit_buf_len = 0;
-
-            explicit_buf[explicit_buf_len++] = packet.type;
-            explicit_buf[explicit_buf_len++] = packet.id;
-            explicit_buf[explicit_buf_len++] = (packet.sensor >> 8);
-            explicit_buf[explicit_buf_len++] = (packet.sensor & 0xFF);
-            explicit_buf[explicit_buf_len++] = packet.len;
-
-            for (i = 0; i < packet.len; i++) {
-                explicit_buf[explicit_buf_len++] = packet.data[i];
-            }
-        }
-
-        rc = TCPSend(explicit_buf, explicit_buf_len);
-        if (rc) {
-            printf_P(PSTR("snd er %d\n"), rc);
-            return rc;
-        }
-
-        if (packet.type == TYPE_ircam_header || packet.type ==
-                TYPE_laser_sweep_header) {
-            net_buf_len = 0;
-        }
-
-        return 0;
-    }
-
-    if (((uint16_t) net_buf_len + 5 + packet.len) >= sizeof(net_buf) ||
-            (packet.type == TYPE_xfer_chunk && packet.len == 0)) {
-        rc = TCPSend(net_buf, net_buf_len);
-        if (rc) {
-            printf_P(PSTR("snd er %d\n"), rc);
-            return rc;
-        }
-
-        net_buf_len = 0;
-    }
-
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        net_buf[net_buf_len++] = packet.type;
-        net_buf[net_buf_len++] = packet.id;
-        net_buf[net_buf_len++] = (packet.sensor >> 8);
-        net_buf[net_buf_len++] = (packet.sensor & 0xFF);
-        net_buf[net_buf_len++] = packet.len;
-
-        for (i = 0; i < packet.len; i++) {
-            net_buf[net_buf_len++] = packet.data[i];
-        }
-    }
-
-    //printf_P(PSTR("+%u\n"), net_buf_len);
-
-    return 0;
-}
-
 uint8_t can_irq(void)
 {
     uint8_t rc;
-    uint8_t *ptr;
 
-    ptr = (uint8_t *) packet.data;
-    handle_packet(packet.type, packet.id, packet.sensor, packet.len, ptr);
+    while (mcp2515_get_packet(&packet) == 0) {
+        handle_packet();
 
-    if (state == STATE_CONNECTED) {
-        rc = write_packet();
-        if (rc) {
-            puts_P(PSTR("sending failed"));
-            goto done;
-        }
+        if (state == STATE_CONNECTED) {
+            tcp_enqueue_packet();
 
-        if (packet.type == TYPE_xfer_chunk || packet.type == TYPE_ircam_header
-                || packet.type == TYPE_laser_sweep_header) {
-            printf("CTS:%d\n", packet.id);
-            rc = mcp2515_send(TYPE_xfer_cts, packet.id, NULL, 0);
+            if (packet.type == TYPE_xfer_chunk || packet.type == TYPE_ircam_header
+                    || packet.type == TYPE_laser_sweep_header) {
+                printf("CTS:%d\n", packet.id);
+                rc = mcp2515_send(TYPE_xfer_cts, packet.id, NULL, 0);
+                (void)rc;
+            }
         }
     }
-
-done:
-    packet.unread = 0;
 
     return 0;
 }
 
 void sleep(void)
 {
+    /*
     sleep_enable();
     sleep_bod_disable();
     sei();
     sleep_cpu();
     sleep_disable();
+    */
 }
+
 
 int main(void)
 {
     NODE_INIT();
 
-    //PRR |= (1 << PRTWI) | (1 << PRADC);
+    tcp_ring = ring_init(tcp_ring_array, sizeof(tcp_ring_array));
+    can_ring = ring_init(can_ring_array, sizeof(can_ring_array));
 
     sei();
 

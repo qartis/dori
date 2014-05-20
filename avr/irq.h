@@ -6,6 +6,7 @@ enum {
     IRQ_SECONDS  = (1 << 4),
     IRQ_USER1    = (1 << 5),
     IRQ_USER2    = (1 << 6),
+    IRQ_USER3    = (1 << 7),
 };
 
 extern volatile uint8_t irq_signal;
