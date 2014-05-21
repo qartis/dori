@@ -5,7 +5,6 @@
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 
-#include "timer.h"
 #include "fbus.h"
 #include "uart.h"
 
