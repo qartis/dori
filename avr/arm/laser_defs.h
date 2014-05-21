@@ -22,10 +22,9 @@
     ({ \
      ddr |= (1 << pin); \
      port |= (1 << pin); \
-     _delay_ms(200); \
+     _delay_ms(500); \
      ddr &= ~(1 << pin); \
      port &= ~(1 << pin); \
-     _delay_ms(100); \
     })
 
 

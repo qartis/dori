@@ -58,6 +58,10 @@ ISR(USART_RX_vect)
 
     c = UDR0;
 
+    if (c == 0x00) {
+        return;
+    }
+
     laser_alive = 1;
 
     if (dist_mm != 0) {
@@ -158,8 +162,8 @@ uint16_t measure_once(void)
 
     print_P(PSTR("*00004#"));
 
-    /* 600 * 5 = 3000 ms */
-    retry = 600;
+    /* 1200 * 5 = 6000 ms */
+    retry = 1200;
     while (dist_mm == 0 && !error_flag && --retry) {
         _delay_ms(5);
     }
@@ -290,7 +294,7 @@ void laser_init(void)
 {
     /* ON button */
     /* OFF button */
-    DDRD &= ~((1 << PORTD6) | (1 << PORTD3));
+    DDRD &= ~((1 << PORTD3) | (1 << PORTD6));
 
     laser_off();
 }
