@@ -41,6 +41,11 @@ void print_time(int seconds)
     int days = seconds / (60 * 60 * 24);
     int hours = (seconds / (60 * 60)) % 24;
     int minutes = (seconds / 60) % 60;
+
+    if (seconds == 0) {
+        printf("0 seconds");
+    }
+
     seconds = seconds % 60;
 
     print_time_chunk(days, "day");
