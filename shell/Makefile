@@ -15,7 +15,7 @@ all: send decan
 send: send.c ../include/shell.h ../can.h
 	$(CC) $(CFLAGS) $< -o $@
 
-decan: decan.c
+decan: decan.c ../can.h
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
