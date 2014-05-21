@@ -22,21 +22,34 @@ static FILE mystdout = FDEV_SETUP_STREAM(
     (int (*)(FILE*))debug_getchar,
     _FDEV_SETUP_RW);
 
+volatile uint8_t timer_busy;
+
 inline void disable_debug_timer(void)
 {
     TCCR2B = 0;
     PCMSK1 |= (1 << PCINT9);
+    timer_busy = 0;
 }
 
 inline void enable_debug_timer(void)
 {
+    if (timer_busy == 1) {
+        return;
+    }
+
     TCCR2B = (1 << CS21); /* clk/8 */
     PCMSK1 &= ~(1 << PCINT9);
     TCNT2 = 0;
+
+    timer_busy = 1;
 }
 
 ISR(PCINT1_vect)
 {
+    if (PINC & (1 << PINC1)) {
+        return;
+    }
+
     /* turn on timer2, which will capture this
        incoming byte. also disable pcint9 while
        we're recieving the byte */
@@ -88,6 +101,8 @@ again:
         c = '\r';
         goto again;
     }
+
+    enable_debug_timer();
 }
 
 ISR(TIMER2_COMPA_vect)
@@ -110,30 +125,27 @@ ISR(TIMER2_COMPA_vect)
 
     switch (rxstate) {
     case STARTBIT1:
-        if ((PINC & (1 << PINC1)))
+        /* verify that the start bit is LOW for at least half
+           a bit period. if not, then it was just noise and we
+           go back to STARTBIT1 */
+        if ((PINC & (1 << PINC1))) {
             break;
+        }
 
         rxstate = STARTBIT2;
         rxbyte = 0;
         break;
 
     case STARTBIT2:
-        /* verify that the start bit is LOW for at least half
-           a bit period. if not, then it was just noise and we
-           go back to STARTBIT1 */
-        if ((PINC & (1 << PINC1))) {
-            rxstate = STARTBIT1;
-        } else {
-            rxstate = BIT0;
-        }
-
+        rxstate = BIT0;
         break;
 
     case BIT0: case BIT1: case BIT2: case BIT3:
     case BIT4: case BIT5: case BIT6: case BIT7:
         rxbyte >>= 1;
-        if (PINC & (1 << PINC1))
+        if (PINC & (1 << PINC1)) {
             rxbyte |= (1 << 7);
+        }
 
         rxstate++;
         break;
