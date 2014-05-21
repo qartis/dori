@@ -108,6 +108,9 @@
     X(temp7,    0x17) \
     X(temp8,    0x18) \
     X(uptime,   0x20) \
+    X(boot,     0x21) \
+    X(interval, 0x22) \
+    X(ircam,    0x23) \
 \
     X(invalid, 0xff)
 

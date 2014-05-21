@@ -15,31 +15,23 @@
 #include "uart.h"
 #include "irq.h"
 #include "errno.h"
+#include "ring.h"
+
 
 #define MCP2515_PORT PORTB
 #define MCP2515_CS PORTB2
 #define MCP2515_DDR DDRB
 
-/* for use by application code */
-volatile struct mcp2515_packet_t packet;
+#define TRIGGER_CAN_IRQ() do { irq_signal |= IRQ_CAN; } while(0)
 
+/* for use by application code */
 volatile uint8_t mcp2515_busy;
 volatile uint8_t stfu;
 volatile enum XFER_STATE xfer_state;
 
-void mcp2515_tophalf(void)
-{
-    if (irq_signal & IRQ_CAN) {
-        puts_P(PSTR("CAN overrun"));
-    }
-
-    irq_signal |= IRQ_CAN;
-    packet.unread = 1;
-
-#ifdef CAN_TOPHALF
-    can_tophalf();
-#endif
-}
+volatile uint8_t mcp_ring_array[64];
+volatile struct ring_t mcp_ring;
+uint32_t busy_since;
 
 inline void mcp2515_select(void)
 {
@@ -49,6 +41,32 @@ inline void mcp2515_select(void)
 inline void mcp2515_unselect(void)
 {
     MCP2515_PORT |= (1 << MCP2515_CS);
+}
+
+uint8_t mcp2515_get_packet(struct mcp2515_packet_t *packet)
+{
+    uint8_t i;
+
+    if (ring_bytes(&mcp_ring) < CAN_HEADER_LEN) {
+        return 1;
+    }
+
+    if (ring_bytes(&mcp_ring) < CAN_HEADER_LEN + ring_get_idx(&mcp_ring, 4)) {
+        return 1;
+    }
+
+    packet->type = ring_get(&mcp_ring);
+    packet->id = ring_get(&mcp_ring);
+    packet->sensor = ring_get(&mcp_ring);
+    packet->sensor <<= 8;
+    packet->sensor |= ring_get(&mcp_ring);
+    packet->len = ring_get(&mcp_ring);
+
+    for (i = 0; i < packet->len; i++) {
+        packet->data[i] = ring_get(&mcp_ring);
+    }
+
+    return 0;
 }
 
 uint8_t read_register(uint8_t address)
@@ -132,6 +150,8 @@ uint8_t mcp2515_init(void)
 {
     uint8_t rc;
     uint8_t retry;
+
+    mcp_ring = ring_init(mcp_ring_array, sizeof(mcp_ring_array));
 
     /* mcp2515's clock feed */
     DDRB |= (1 << PORTB1);
@@ -225,19 +245,9 @@ uint8_t mcp2515_send_wait(uint8_t type, uint8_t id, uint16_t sensor, const void 
     return mcp2515_send_sensor(type, id, sensor, data, len);
 }
 
-void mcp2515_handle_packet(uint8_t type, uint8_t id, uint16_t sensor, const volatile uint8_t *data, uint8_t len)
+uint8_t mcp2515_handle_sos(uint8_t type, uint8_t id)
 {
-    uint16_t new_periodic_interval;
-
-    if (type == TYPE_set_interval && (id == MY_ID || id == ID_any)) {
-        periodic_prev = now;
-        new_periodic_interval =
-            (uint16_t)data[0] << 8 |
-            (uint16_t)data[1] << 0;
-
-        if (new_periodic_interval > 5)
-            periodic_interval = new_periodic_interval;
-    } else if (type == TYPE_sos_reboot && (id == MY_ID || id == ID_any)) {
+    if (type == TYPE_sos_reboot && (id == MY_ID || id == ID_any)) {
         cli();
         wdt_enable(WDTO_15MS);
         for (;;) {};
@@ -245,11 +255,56 @@ void mcp2515_handle_packet(uint8_t type, uint8_t id, uint16_t sensor, const vola
         stfu = 1;
     } else if (type == TYPE_sos_nostfu && (id == MY_ID || id == ID_any)) {
         stfu = 0;
+    } else {
+        return 1;
     }
+
+    return 0;
 }
+
+uint8_t mcp2515_handle_packet(uint8_t type, uint8_t id, uint16_t sensor, const volatile uint8_t *data, uint8_t len)
+{
+    uint16_t new_periodic_interval;
+
+    if ((type == TYPE_value_explicit || type == TYPE_value_periodic) &&
+            sensor == SENSOR_time) {
+        uint32_t new_time =
+            (uint32_t)data[0] << 24 |
+            (uint32_t)data[1] << 16 |
+            (uint32_t)data[2] << 8  |
+            (uint32_t)data[3] << 0;
+        time_set(new_time);
+        /* TODO FIXME remove this line VVV*/
+        return 1;
+    } else if (type == TYPE_set_interval && (id == MY_ID || id == ID_any)) {
+        periodic_prev = now;
+        new_periodic_interval =
+            (uint16_t)data[0] << 8 |
+            (uint16_t)data[1] << 0;
+
+        if (new_periodic_interval > 5) {
+            periodic_interval = new_periodic_interval;
+        }
+    } else if (type == TYPE_xfer_cancel && id == MY_ID) {
+        puts_P(PSTR("ccl"));
+        xfer_state = XFER_CANCEL;
+    } else if (type == TYPE_xfer_cts && id == MY_ID) {
+        if (xfer_state == XFER_CHUNK_SENT) {
+            puts_P(PSTR("cts"));
+            xfer_state = XFER_GOT_CTS;
+        }
+    } else {
+        return 1;
+    }
+
+    return 0;
+}
+
 
 uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const uint8_t *data, uint8_t len)
 {
+    uint8_t rc;
+
     mcp2515_handle_packet(type, id, sensor, data, len);
 
     if (stfu) {
@@ -257,19 +312,32 @@ uint8_t mcp2515_send_sensor(uint8_t type, uint8_t id, uint16_t sensor, const uin
     }
 
     if (mcp2515_busy) {
-        mcp2515_init();
+        if (busy_since + 5 > uptime) {
+            //printf("NO reinit, drop\n");
+        } else {
+            printf("REINIT REINIT\n");
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+                rc = mcp2515_init();
+            }
+            if (rc != 0) {
+                for (;;) {
+                    printf("WTF1\n");
+                }
+            }
+        }
         return ERR_MCP_HW;
     }
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        load_tx0(type, id, sensor, (const uint8_t *)data, len);
-        mcp2515_busy = 1;
+    load_tx0(type, id, sensor, (const uint8_t *)data, len);
+    mcp2515_busy = 1;
+    busy_since = uptime;
 
-        modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
-        mcp2515_select();
-        spi_write(MCP_COMMAND_RTS_TX0);
-        mcp2515_unselect();
-    }
+    modify_register(MCP_REGISTER_CANINTF, MCP_INTERRUPT_TX0I, 0x00);
+    mcp2515_select();
+    spi_write(MCP_COMMAND_RTS_TX0);
+    mcp2515_unselect();
+
+    mcp2515_handle_sos(type, id);
 
     return 0;
 }
@@ -280,96 +348,105 @@ void load_tx0(uint8_t type, uint8_t id, uint16_t sensor, const uint8_t *data, ui
 
     id = ((id & 0b00011100) << 3) | (1 << EXIDE) | (id & 0b00000011);
 
-    mcp2515_select();
-
-    spi_write(MCP_COMMAND_LOAD_TX0);
-    spi_write(type);
-    spi_write(id);
-    spi_write(sensor >> 8);
-    spi_write(sensor & 0xFF);
-
     if (len > 8) {
         len = 8;
     }
 
-    spi_write(len);
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        mcp2515_select();
 
-    for (i = 0; i < len; i++) {
-        spi_write(data[i]);
+        spi_write(MCP_COMMAND_LOAD_TX0);
+        spi_write(type);
+        spi_write(id);
+        spi_write(sensor >> 8);
+        spi_write(sensor & 0xFF);
+
+        spi_write(len);
+
+        for (i = 0; i < len; i++) {
+            spi_write(data[i]);
+        }
+
+        mcp2515_unselect();
     }
-
-    mcp2515_unselect();
 }
 
 void read_packet(uint8_t regnum)
 {
     uint8_t i;
+    uint8_t rc;
+    uint8_t type;
+    uint8_t id;
+    uint16_t sensor;
+    uint8_t len;
+    uint8_t data[8];
 
     mcp2515_select();
     spi_write(MCP_COMMAND_READ);
     spi_write(regnum);
 
-    packet.type = spi_recv();
-    packet.id = spi_recv();
-    packet.more = (packet.id & 0b00010000) >> 4;
-    packet.id = ((packet.id & 0b11100000) >> 3) | (packet.id & 0b00000011);
+    type = spi_recv();
+    id = spi_recv();
+    id = ((id & 0b11100000) >> 3) | (id & 0b00000011);
 
-    packet.sensor = spi_recv();
-    packet.sensor <<= 8;
-    packet.sensor |= spi_recv();
+    sensor = spi_recv();
+    sensor <<= 8;
+    sensor |= spi_recv();
 
-    packet.len = spi_recv() & 0x0f;
+    len = spi_recv() & 0x0f;
 
-    if (packet.len > 8) {
-        packet.len = 8;
+    if (len > 8) {
+        len = 8;
     }
 
-    for (i = 0; i < packet.len; i++) {
-        packet.data[i] = spi_recv();
+    for (i = 0; i < len; i++) {
+        data[i] = spi_recv();
     }
-
-    packet.data[i] = '\0';
 
     mcp2515_unselect();
 
-    if ((packet.type == TYPE_value_explicit ||
-        packet.type == TYPE_value_periodic) &&
-        packet.sensor == SENSOR_time) {
-        uint32_t new_time =
-            (uint32_t)packet.data[0] << 24 |
-            (uint32_t)packet.data[1] << 16 |
-            (uint32_t)packet.data[2] << 8  |
-            (uint32_t)packet.data[3] << 0;
-        time_set(new_time);
-    }
+    mcp2515_packet_time = uptime;
 
     if (MY_ID == ID_any) {
-        mcp2515_tophalf();
+        goto trigger_irq;
+    }
+
+    rc = mcp2515_handle_sos(type, id);
+    if (rc == 0) {
+        printf("SOSd\n");
         return;
     }
 
-    // Should both modems handle this??
-    if (packet.type == TYPE_xfer_cancel && packet.id == MY_ID) {
-        puts_P(PSTR("ccl"));
-        xfer_state = XFER_CANCEL;
-        return;
-    } else if (packet.type == TYPE_xfer_cts && packet.id == MY_ID) {
-        if (xfer_state == XFER_CHUNK_SENT) {
-            puts_P(PSTR("cts"));
-            xfer_state = XFER_GOT_CTS;
-        }
+    rc = mcp2515_handle_packet(type, id, sensor, data, len);
+    if (rc == 0) {
+        printf("Handled\n");
         return;
     }
 
-    if (MY_ID == ID_modema || MY_ID == ID_modemb) {
-        mcp2515_tophalf();
+    if (MY_ID == ID_modema || MY_ID == ID_modemb || id == MY_ID) {
+        goto trigger_irq;
     }
 
-    mcp2515_handle_packet(packet.type, packet.id, packet.sensor, packet.data, packet.len);
+    return;
 
-    if (packet.id == MY_ID) {
-        mcp2515_tophalf();
+trigger_irq:
+    if (ring_space(&mcp_ring) < CAN_HEADER_LEN + len) {
+        TRIGGER_CAN_IRQ();
+        printf("CAN OVERRUN\n");
+        return;
     }
+
+    ring_put(&mcp_ring, type);
+    ring_put(&mcp_ring, id);
+    ring_put(&mcp_ring, (sensor >> 8));
+    ring_put(&mcp_ring, (sensor >> 0));
+    ring_put(&mcp_ring, len);
+
+    for (i = 0; i < len; i++) {
+        ring_put(&mcp_ring, data[i]);
+    }
+
+    TRIGGER_CAN_IRQ();
 }
 
 ISR(PCINT0_vect)
@@ -377,17 +454,17 @@ ISR(PCINT0_vect)
     uint8_t canintf;
 
     canintf = read_register(MCP_REGISTER_CANINTF);
-    //printf("int! %x\n", canintf);
 
     if (canintf & MCP_INTERRUPT_ERRI) {
         printf("MCP: ERRI\n");
-        mcp2515_init();
-        return;
-    }
-
-    if (canintf & MCP_INTERRUPT_MERR) {
-        printf("mcp: MERR\n");
-        mcp2515_init();
+        uint8_t rc;
+        rc = mcp2515_init();
+        printf("DONE REINIT\n");
+        if (rc != 0) {
+            for (;;) {
+                printf("WTF2\n");
+            }
+        }
         return;
     }
 
@@ -409,6 +486,7 @@ ISR(PCINT0_vect)
         canintf &= ~(MCP_INTERRUPT_TX0I);
     }
 
+    /* we IGNORE merr */
 }
 
 void mcp2515_xfer_begin(void)
@@ -422,7 +500,6 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint16_t sensor, const void *da
     uint8_t rc;
     uint8_t i;
 
-
     printf("state %d\n", xfer_state);
     _delay_ms(500);
 
@@ -430,7 +507,6 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint16_t sensor, const void *da
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             if (xfer_state == XFER_CANCEL) {
                 printf("CANCELLED\n");
-                _delay_ms(20);
                 return ERR_MCP_XFER_CANCEL;
             }
             xfer_state = XFER_CHUNK_SENT;
