@@ -73,7 +73,7 @@ void uart_tx_flush(void)
 ISR(USART_RX_vect)
 {
     uint8_t c;
-    
+
     c = UDR0;
 
     uart_ring[ring_in] = c;
@@ -82,6 +82,7 @@ ISR(USART_RX_vect)
 
     if (c == '\r') {
         c = '\n';
+    }
 
     /* if the buffer contains a full line */
     if (c == '\n') {
@@ -89,7 +90,7 @@ ISR(USART_RX_vect)
     }
 
 #ifdef ECHO
-    uart_putchar(data);
+    uart_putchar(c);
 #endif
 }
 #endif
