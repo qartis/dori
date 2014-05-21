@@ -28,7 +28,6 @@
 
 #define MODEM_SILENCE_TIMEOUT (30 * 3)
 
-volatile uint16_t canary;
 
 static uint8_t at_tx_buf[64];
 volatile uint8_t tcp_toread;
@@ -157,15 +156,15 @@ uint8_t user1_irq(void)
 
     printf("user irq\n");
 
+    slow_write("AT\r", strlen("AT\r"));
+    _delay_ms(100);
+    slow_write("ATH\r", strlen("ATH\r"));
+
     if ((now - modem_alive_time < MODEM_SILENCE_TIMEOUT) &&
         state == STATE_CONNECTED) {
         printf("still connected\n");
         return 0;
     }
-
-    slow_write("AT\r", strlen("AT\r"));
-    _delay_ms(100);
-    slow_write("ATH\r", strlen("ATH\r"));
 
     _delay_ms(500);
     puts_P(PSTR("conn"));
