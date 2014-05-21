@@ -149,7 +149,7 @@ uint8_t ircam_read_fbuf(void)
 
     mcp2515_xfer_begin();
 
-    rc = mcp2515_xfer(TYPE_ircam_header, MY_ID, 0, data, sizeof(data));
+    rc = mcp2515_xfer(TYPE_ircam_header, MY_ID, SENSOR_ircam, data, sizeof(data));
     if (rc) {
         printf("header rc: %d\n", rc);
         return rc;
@@ -187,7 +187,7 @@ uint8_t ircam_read_fbuf(void)
             return ERR_CAM_READ;
         }
 
-        rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, 0, (const char*)&rcv_buf[ACK_SIZE], req_size);
+        rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, SENSOR_ircam, (const char*)&rcv_buf[ACK_SIZE], req_size);
         if (rc) {
             printf("xfer rc: %d\n", rc);
             return rc;
