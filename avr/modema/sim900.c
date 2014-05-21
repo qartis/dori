@@ -12,6 +12,7 @@
 #include "uart.h"
 #include "can.h"
 #include "mcp2515.h"
+#include "ring.h"
 
 volatile enum state state;
 volatile uint8_t flag_ok;
@@ -98,23 +99,31 @@ uint8_t TCPDisconnect(void)
     return 0;
 }
 
-uint8_t TCPSend(uint8_t * buf, uint16_t count)
+uint8_t TCPSend(void)
 {
     uint8_t rc;
     uint16_t i;
     uint16_t err_num;
+    uint8_t count;
+    uint8_t c;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        count = ring_bytes(&can_ring);
+        can_ring_urgent = 0;
+    }
+
+    printf("TCPSend(%d)\n", count);
 
     state = STATE_EXPECTING_PROMPT;
     sendATCommand(PSTR("AT+CIPSEND=%d"), count);
 
     rc = wait_for_state(STATE_GOT_PROMPT);
     if (rc != 0) {
-        printf_P(PSTR("wanted to send data, but didn't get prompt (state now %d)\n"),
-                state);
+        printf("NO PROMPT\n");
 
         for (i = 0; i < count; i++) {
             uart_putchar(TYPE_nop);
-            _delay_ms(5);
+            _delay_us(500);
         }
 
         err_num = __LINE__;
@@ -126,11 +135,10 @@ uint8_t TCPSend(uint8_t * buf, uint16_t count)
         return 1;
     }
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        for (i = 0; i < count; i++) {
-            uart_putchar(buf[i]);
-            _delay_ms(5);
-        }
+    for (i = 0; i < count; i++) {
+        c = ring_get(&can_ring);
+        uart_putchar(c);
+        _delay_us(500);
     }
 
     rc = wait_for_state(STATE_CONNECTED);

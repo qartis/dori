@@ -1,3 +1,4 @@
+#define CAN_HEADER_LEN 5
 typedef uint8_t mcp2515_id_t;
 typedef uint8_t mcp2515_type_t;
 
@@ -6,10 +7,9 @@ typedef uint8_t (*mcp2515_xfer_callback_t)(void);
 struct mcp2515_packet_t {
     mcp2515_type_t type;
     mcp2515_id_t id;
-    uint8_t more;
     uint16_t sensor;
     uint8_t len;
-    uint8_t data[9];
+    uint8_t data[8];
     uint8_t unread;
 };
 
@@ -22,12 +22,10 @@ enum XFER_STATE {
 
 volatile enum XFER_STATE xfer_state;
 volatile uint8_t mcp2515_busy;
+volatile uint32_t mcp2515_packet_time;
 
-extern volatile struct mcp2515_packet_t packet;
-
-#ifdef CAN_TOPHALF
-void can_tophalf(void);
-#endif
+extern volatile uint8_t mcp_ring_array[64];
+extern volatile struct ring_t mcp_ring;
 
 
 #define BRP0        0
@@ -208,3 +206,4 @@ void mcp2515_dump(void);
 
 void mcp2515_xfer_begin(void);
 uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint16_t sensor, const void *data, uint8_t len);
+uint8_t mcp2515_get_packet(struct mcp2515_packet_t *packet);
