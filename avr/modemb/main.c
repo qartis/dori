@@ -202,7 +202,7 @@ ISR(USART_RX_vect)
             sms_buflen = buflen;
         }
 
-        TRIGGER_USER_IRQ();
+        TRIGGER_USER1_IRQ();
     }
 
     buflen = 0;
@@ -342,7 +342,7 @@ void process_can(uint8_t type, uint8_t id, uint16_t sensor, volatile uint8_t *da
 
 
 
-uint8_t user_irq(void)
+uint8_t user1_irq(void)
 {
     uint8_t rc;
     uint8_t type, id, len;
@@ -539,52 +539,52 @@ uint8_t can_irq(void)
 
     printf_P(PSTR("can_irq\n"));
 
-    process_can(packet.type, packet.id, packet.sensor, packet.data, packet.len);
+    while (mcp2515_get_packet(&packet) == 0) {
+        process_can(packet.type, packet.id, packet.sensor, packet.data, packet.len);
 
-    if (packet.type == TYPE_value_request) {
-        /* ignore */
-        goto done;
-    } else if (stfu) {
-        printf("stfuing\n");
-        goto done;
+        if (packet.type == TYPE_value_request) {
+            /* ignore */
+            continue;
+        } else if (stfu) {
+            printf("stfuing\n");
+            continue;
+        }
+
+        output[0] = to_hex((packet.type & 0xf0) >> 4);
+        output[1] = to_hex((packet.type & 0x0f) >> 0);
+
+        output[2] = to_hex((packet.id & 0xf0) >> 4);
+        output[3] = to_hex((packet.id & 0x0f) >> 0);
+
+        output[4] = to_hex((packet.sensor & 0xf000) >> 12);
+        output[5] = to_hex((packet.sensor & 0x0f00) >> 8);
+        output[6] = to_hex((packet.sensor & 0x00f0) >> 4);
+        output[7] = to_hex((packet.sensor & 0x000f) >> 0);
+
+        output[8] = to_hex((packet.len & 0xf0) >> 4);
+        output[9] = to_hex((packet.len & 0x0f) >> 0);
+
+        printf_P(PSTR("%02x%02x%04x%02x"), packet.type, packet.id, packet.sensor,
+                packet.len);
+        putchar('\n');
+
+        for (i = 0, j = 0; i < packet.len; i++, j += 2) {
+            output[10 + j] = to_hex((packet.data[i] & 0xF0) >> 4);
+            output[11 + j] = to_hex((packet.data[i] & 0x0F) >> 0);
+        }
+
+        output[10 + j] = '\0';
+
+        printf_P(PSTR("snd'%s'\n"), output);
+        rc = fbus_sendsms(sms_dest, output);
+
+        if (rc) {
+            puts_P(PSTR("problem sending SMS"));
+        } else {
+            puts_P(PSTR("sent ok"));
+        }
     }
 
-    output[0] = to_hex((packet.type & 0xf0) >> 4);
-    output[1] = to_hex((packet.type & 0x0f) >> 0);
-
-    output[2] = to_hex((packet.id & 0xf0) >> 4);
-    output[3] = to_hex((packet.id & 0x0f) >> 0);
-
-    output[4] = to_hex((packet.sensor & 0xf000) >> 12);
-    output[5] = to_hex((packet.sensor & 0x0f00) >> 8);
-    output[6] = to_hex((packet.sensor & 0x00f0) >> 4);
-    output[7] = to_hex((packet.sensor & 0x000f) >> 0);
-
-    output[8] = to_hex((packet.len & 0xf0) >> 4);
-    output[9] = to_hex((packet.len & 0x0f) >> 0);
-
-    printf_P(PSTR("%02x%02x%04x%02x"), packet.type, packet.id, packet.sensor,
-            packet.len);
-    putchar('\n');
-
-    for (i = 0, j = 0; i < packet.len; i++, j += 2) {
-        output[10 + j] = to_hex((packet.data[i] & 0xF0) >> 4);
-        output[11 + j] = to_hex((packet.data[i] & 0x0F) >> 0);
-    }
-
-    output[10 + j] = '\0';
-
-    printf_P(PSTR("snd'%s'\n"), output);
-    rc = fbus_sendsms(sms_dest, output);
-
-    if (rc) {
-        puts_P(PSTR("problem sending SMS"));
-    } else {
-        puts_P(PSTR("sent ok"));
-    }
-
-done:
-    packet.unread = 0;
     return 0;
 }
 

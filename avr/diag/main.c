@@ -20,6 +20,7 @@
 #include "uart.h"
 #include "power.h"
 #include "temp.h"
+#include "debug.h"
 
 uint8_t seconds_irq(void)
 {
@@ -95,10 +96,13 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
             rc = temp_read(i, &temp);
             if (rc) {
                 rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID,
-                                       SENSOR_temp5 + i, NULL, 0);
+                        SENSOR_temp5 + i, NULL, 0);
 
-                if (rc)
+                if (rc) {
                     return rc;
+                }
+
+                continue;
             }
 
             buf[0] = temp >> 8;
@@ -108,17 +112,19 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 
             rc = mcp2515_send_wait(type, MY_ID, SENSOR_temp5 + i, buf, 2);
 
-            if (rc)
+            if (rc) {
                 return rc;
+            }
         }
     } else {
         rc = temp_read(index, &temp);
         if (rc) {
             rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID,
-                                   SENSOR_temp5 + index, NULL, 0);
+                    SENSOR_temp5 + index, NULL, 0);
 
-            if (rc)
+            if (rc) {
                 return rc;
+            }
         }
 
         buf[0] = temp >> 8;
@@ -126,8 +132,9 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
 
         rc = mcp2515_send_wait(type, MY_ID, SENSOR_temp5 + index, buf, 2);
 
-        if (rc)
+        if (rc) {
             return rc;
+        }
     }
 
     return 0;
@@ -176,14 +183,16 @@ uint8_t send_all_can(uint8_t type)
     uint8_t rc;
 
     rc = send_temp_can(TEMP_ALL_CHANNELS, type);
-    if (rc)
+    if (rc) {
         return rc;
+    }
 
     _delay_ms(500);
 
     rc = send_voltage_can(type);
-    if (rc)
+    if (rc) {
         return rc;
+    }
 
     _delay_ms(500);
 
@@ -197,40 +206,49 @@ uint8_t periodic_irq(void)
 
 uint8_t can_irq(void)
 {
-    uint8_t uptime_buf[4];
+    uint8_t can_buf[4];
 
-    switch (packet.type) {
-    case TYPE_value_request:
-        switch (packet.sensor) {
-        case SENSOR_temp5 ... SENSOR_temp8:
-            send_temp_can(packet.sensor - SENSOR_temp5, TYPE_value_explicit);
-            break;
-        case SENSOR_voltage:
-            send_voltage_can(TYPE_value_explicit);
-            break;
-        case SENSOR_current:
-            send_current_can(TYPE_value_explicit);
-            break;
-        case SENSOR_uptime:
-            uptime_buf[0] = uptime >> 24;
-            uptime_buf[1] = uptime >> 16;
-            uptime_buf[2] = uptime >> 8;
-            uptime_buf[3] = uptime >> 0;
+    while (mcp2515_get_packet(&packet) == 0) {
+        switch (packet.type) {
+        case TYPE_value_request:
+            switch (packet.sensor) {
+            case SENSOR_temp5 ... SENSOR_temp8:
+                send_temp_can(packet.sensor - SENSOR_temp5, TYPE_value_explicit);
+                break;
+            case SENSOR_voltage:
+                send_voltage_can(TYPE_value_explicit);
+                break;
+            case SENSOR_current:
+                send_current_can(TYPE_value_explicit);
+                break;
+            case SENSOR_uptime:
+                can_buf[0] = uptime >> 24;
+                can_buf[1] = uptime >> 16;
+                can_buf[2] = uptime >> 8;
+                can_buf[3] = uptime >> 0;
 
-            mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
-            break;
-        case SENSOR_none:
-            send_all_can(TYPE_value_explicit);
+                mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, can_buf, 4);
+                break;
+            case SENSOR_boot:
+                can_buf[0] = boot_mcusr;
+                mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_boot, can_buf, 1);
+                break;
+            case SENSOR_interval:
+                can_buf[0] = periodic_interval >> 8;
+                can_buf[1] = periodic_interval;
+                mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_interval, can_buf, 1);
+                break;
+            case SENSOR_none:
+                send_all_can(TYPE_value_explicit);
+                break;
+            default:
+                mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+            }
             break;
         default:
-            mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+            break;
         }
-        break;
-    default:
-        break;
     }
-
-    packet.unread = 0;
 
     return 0;
 }
@@ -238,6 +256,12 @@ uint8_t can_irq(void)
 uint8_t uart_irq(void)
 {
     return 0;
+}
+
+uint8_t debug_irq(void)
+{
+    return 0;
+}
 
 
 
@@ -256,6 +280,7 @@ uint8_t uart_irq(void)
 
 
 
+#if 0
     char buf[UART_BUF_SIZE];
 
     fgets(buf, sizeof(buf), stdin);
@@ -290,14 +315,10 @@ uint8_t uart_irq(void)
 
     return 0;
 }
+#endif
 
 void sleep(void)
 {
-    sleep_enable();
-    sleep_bod_disable();
-    sei();
-    sleep_cpu();
-    sleep_disable();
 }
 
 int main(void)

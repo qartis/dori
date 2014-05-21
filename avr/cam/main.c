@@ -51,44 +51,43 @@ uint8_t can_irq(void)
 
     rc = 0;
 
-    switch (packet.type) {
-    case TYPE_ircam_read:
-        IRCAM_ON();
+    while (mcp2515_get_packet(&packet) == 0) {
+        switch (packet.type) {
+        case TYPE_ircam_read:
+            IRCAM_ON();
 
-        _delay_ms(1000);
+            _delay_ms(1000);
 
-        rc = ircam_init_xfer();
-        if(rc == 0) {
-            rc = ircam_read_fbuf();
-            if(rc) {
-                mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, (uint8_t*)&rc, sizeof(rc));
-                break;
+            rc = ircam_init_xfer();
+            if (rc == 0) {
+                rc = ircam_read_fbuf();
             }
-            printf("read_fbuf rc = %d\n", rc);
+
+            if (rc) {
+                mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, (uint8_t*)&rc, sizeof(rc));
+            }
+
+            IRCAM_OFF();
+
+            break;
+        case TYPE_ircam_reset:
+            ircam_reset();
+
+            break;
+        case TYPE_value_request:
+            if (packet.sensor == SENSOR_uptime) {
+                uptime_buf[0] = uptime >> 24;
+                uptime_buf[1] = uptime >> 16;
+                uptime_buf[2] = uptime >> 8;
+                uptime_buf[3] = uptime >> 0;
+
+                mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+            } else {
+                mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+            }
+            break;
         }
-
-        IRCAM_OFF();
-
-        break;
-    case TYPE_ircam_reset:
-        ircam_reset();
-
-        break;
-    case TYPE_value_request:
-        if (packet.sensor == SENSOR_uptime) {
-            uptime_buf[0] = uptime >> 24;
-            uptime_buf[1] = uptime >> 16;
-            uptime_buf[2] = uptime >> 8;
-            uptime_buf[3] = uptime >> 0;
-
-            mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
-        } else {
-            mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
-        }
-        break;
     }
-
-    packet.unread = 0;
 
     return rc;
 }
@@ -108,9 +107,9 @@ uint8_t debug_irq(void)
     debug_flush();
 
     if (strcmp(buf, "on") == 0) {
-        PORTD |= (1 << PORTD6);
+        PORTD |= (1 << PORTD4);
     } else if (strcmp(buf, "off") == 0) {
-        PORTD &= ~(1 << PORTD6);
+        PORTD &= ~(1 << PORTD4);
     } else if (strcmp(buf, "snap") == 0) {
         IRCAM_ON();
         _delay_ms(500);
@@ -146,7 +145,7 @@ int main(void)
     sei();
 
     // For the ircam
-    DDRD |= (1 << PORTD6);
+    DDRD |= (1 << PORTD4);
 
     NODE_MAIN();
 }

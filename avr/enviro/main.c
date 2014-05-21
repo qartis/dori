@@ -20,6 +20,12 @@
 #include "humidity.h"
 #include "temp.h"
 #include "adc.h"
+#include "debug.h"
+
+uint8_t debug_irq(void)
+{
+    return 0;
+}
 
 volatile uint32_t water_tips;
 
@@ -182,40 +188,42 @@ uint8_t can_irq(void)
 
     rc = 0;
 
-    switch (packet.type) {
-    case TYPE_value_request:
-        switch (packet.sensor) {
-        case SENSOR_temp0 ... SENSOR_temp4:
-            rc = send_temp_can(packet.sensor - SENSOR_temp0,
-                               TYPE_value_explicit);
-            break;
-        case SENSOR_rain:
-            rc = send_rain_can(TYPE_value_explicit);
-            break;
-        case SENSOR_wind:
-            rc = send_wind_can(TYPE_value_explicit);
-            break;
-        case SENSOR_humidity:
-            rc = send_humidity_can(TYPE_value_explicit);
-            break;
-        case SENSOR_pressure:
-            rc = send_pressure_can(TYPE_value_explicit);
-            break;
-        case SENSOR_uptime:
-            uptime_buf[0] = uptime >> 24;
-            uptime_buf[1] = uptime >> 16;
-            uptime_buf[2] = uptime >> 8;
-            uptime_buf[3] = uptime >> 0;
+    while (mcp2515_get_packet(&packet) == 0) {
+        switch (packet.type) {
+        case TYPE_value_request:
+            switch (packet.sensor) {
+            case SENSOR_temp0 ... SENSOR_temp4:
+                rc = send_temp_can(packet.sensor - SENSOR_temp0,
+                                TYPE_value_explicit);
+                break;
+            case SENSOR_rain:
+                rc = send_rain_can(TYPE_value_explicit);
+                break;
+            case SENSOR_wind:
+                rc = send_wind_can(TYPE_value_explicit);
+                break;
+            case SENSOR_humidity:
+                rc = send_humidity_can(TYPE_value_explicit);
+                break;
+            case SENSOR_pressure:
+                rc = send_pressure_can(TYPE_value_explicit);
+                break;
+            case SENSOR_uptime:
+                uptime_buf[0] = uptime >> 24;
+                uptime_buf[1] = uptime >> 16;
+                uptime_buf[2] = uptime >> 8;
+                uptime_buf[3] = uptime >> 0;
 
-            rc = mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
-            break;
+                rc = mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+                break;
 
-        case SENSOR_none:
-            rc = send_all_can(TYPE_value_explicit);
-            break;
+            case SENSOR_none:
+                rc = send_all_can(TYPE_value_explicit);
+                break;
 
-        default:
-            rc = mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+            default:
+                rc = mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+            }
         }
     }
 

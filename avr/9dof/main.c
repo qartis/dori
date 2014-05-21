@@ -25,6 +25,11 @@
 
 #define TIME_SYNC_INTERVAL 60 * 60 * 2
 
+uint8_t debug_irq(void)
+{
+    return 0;
+}
+
 volatile uint32_t coords_read_time;
 volatile uint32_t last_time_sync;
 volatile uint32_t num_sats_read_time;
@@ -89,8 +94,6 @@ uint8_t send_time_can(uint8_t type)
     p.data[2] = (now >> 8) & 0xff;
     p.data[3] = (now >> 0) & 0xff;
     p.len = 4;
-
-    time_set(now);
 
     return mcp2515_sendpacket_wait(&p);
 }
@@ -278,21 +281,6 @@ uint8_t uart_irq(void)
     return 0;
 }
 
-uint8_t debug_irq(void)
-{
-
-
-
-
-    char buf[64];
-
-    fgets(buf, sizeof(buf), stdin);
-
-    send_all_can(TYPE_value_explicit);
-
-    return 0;
-}
-
 uint8_t periodic_irq(void)
 {
     send_all_can(TYPE_value_periodic);
@@ -304,46 +292,46 @@ uint8_t can_irq(void)
 {
     uint8_t uptime_buf[4];
 
-    switch (packet.type) {
-    case TYPE_value_request:
-        switch (packet.sensor) {
-        case SENSOR_accel:
-            send_accel_can(TYPE_value_explicit);
-            break;
-        case SENSOR_sats:
-            send_sats_can(TYPE_value_explicit);
-            break;
-        case SENSOR_gyro:
-            send_gyro_can(TYPE_value_explicit);
-            break;
-        case SENSOR_compass:
-            send_compass_can(TYPE_value_explicit);
-            break;
-        case SENSOR_coords:
-            send_coords_can(TYPE_value_explicit);
-            break;
-        case SENSOR_time:
-            send_time_can(TYPE_value_explicit);
-            break;
-        case SENSOR_uptime:
-            uptime_buf[0] = uptime >> 24;
-            uptime_buf[1] = uptime >> 16;
-            uptime_buf[2] = uptime >> 8;
-            uptime_buf[3] = uptime >> 0;
+    while (mcp2515_get_packet(&packet) == 0) {
+        switch (packet.type) {
+        case TYPE_value_request:
+            switch (packet.sensor) {
+            case SENSOR_accel:
+                send_accel_can(TYPE_value_explicit);
+                break;
+            case SENSOR_sats:
+                send_sats_can(TYPE_value_explicit);
+                break;
+            case SENSOR_gyro:
+                send_gyro_can(TYPE_value_explicit);
+                break;
+            case SENSOR_compass:
+                send_compass_can(TYPE_value_explicit);
+                break;
+            case SENSOR_coords:
+                send_coords_can(TYPE_value_explicit);
+                break;
+            case SENSOR_time:
+                send_time_can(TYPE_value_explicit);
+                break;
+            case SENSOR_uptime:
+                uptime_buf[0] = uptime >> 24;
+                uptime_buf[1] = uptime >> 16;
+                uptime_buf[2] = uptime >> 8;
+                uptime_buf[3] = uptime >> 0;
 
-            mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
-            break;
+                mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+                break;
 
-        case SENSOR_none:
-            send_all_can(TYPE_value_explicit);
-            break;
+            case SENSOR_none:
+                send_all_can(TYPE_value_explicit);
+                break;
 
-        default:
-            mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+            default:
+                mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+            }
         }
     }
-
-    packet.unread = 0;
 
     return 0;
 }

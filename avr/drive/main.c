@@ -18,9 +18,20 @@
 #include "mcp2515.h"
 #include "time.h"
 #include "node.h"
+#include "debug.h"
+
+uint8_t debug_irq(void)
+{
+    return 0;
+}
 
 uint8_t uart_irq(void)
 {
+    return 0;
+
+
+
+
     char buf[128];
     int32_t goal;
     uint8_t rc;
@@ -50,34 +61,34 @@ uint8_t can_irq(void)
     int16_t left_ms;
     int16_t right_ms;
 
-    switch (packet.type) {
-    case TYPE_action_drive:
-        left_ms = (packet.data[0] << 8) | packet.data[1];
-        right_ms = (packet.data[2] << 8) | packet.data[3];
+    while (mcp2515_get_packet(&packet) == 0) {
+        switch (packet.type) {
+        case TYPE_action_drive:
+            left_ms = (packet.data[0] << 8) | packet.data[1];
+            right_ms = (packet.data[2] << 8) | packet.data[3];
 
-        motor_drive(left_ms, right_ms);
+            motor_drive(left_ms, right_ms);
 
-        mcp2515_send(TYPE_drive_done, MY_ID, NULL, 0);
-        break;
-    case TYPE_value_request:
-        if (packet.sensor == SENSOR_uptime) {
-            uint8_t uptime_buf[4];
-            uptime_buf[0] = uptime >> 24;
-            uptime_buf[1] = uptime >> 16;
-            uptime_buf[2] = uptime >> 8;
-            uptime_buf[3] = uptime >> 0;
+            mcp2515_send(TYPE_drive_done, MY_ID, NULL, 0);
+            break;
+        case TYPE_value_request:
+            if (packet.sensor == SENSOR_uptime) {
+                uint8_t uptime_buf[4];
+                uptime_buf[0] = uptime >> 24;
+                uptime_buf[1] = uptime >> 16;
+                uptime_buf[2] = uptime >> 8;
+                uptime_buf[3] = uptime >> 0;
 
-            mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
-        } else {
-            mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+                mcp2515_send_sensor(TYPE_value_explicit, MY_ID, SENSOR_uptime, uptime_buf, sizeof(uptime_buf));
+            } else {
+                mcp2515_send_sensor(TYPE_sensor_error, MY_ID, packet.sensor, NULL, 0);
+            }
+            break;
+
+        default:
+            break;
         }
-        break;
-
-    default:
-        break;
     }
-
-    packet.unread = 0;
 
     return 0;
 }

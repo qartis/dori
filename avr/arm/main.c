@@ -192,70 +192,70 @@ uint8_t can_irq(void)
 
     rc = 0;
 
-    switch (packet.type) {
-    case TYPE_value_request:
-        rc = process_value_request();
-        break;
-    case TYPE_action_arm_angle:
-        val = (packet.data[0] << 8) | packet.data[1];
-        rc = set_arm_angle(val);
-        if (rc != 0) {
-            val = get_arm_angle();
-            buf[0] = val >> 8;
-            buf[1] = val & 0xff;
-            mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_arm, buf, sizeof(buf));
+    while (mcp2515_get_packet(&packet) == 0) {
+        switch (packet.type) {
+        case TYPE_value_request:
+            rc = process_value_request();
+            break;
+        case TYPE_action_arm_angle:
+            val = (packet.data[0] << 8) | packet.data[1];
+            rc = set_arm_angle(val);
+            if (rc != 0) {
+                val = get_arm_angle();
+                buf[0] = val >> 8;
+                buf[1] = val & 0xff;
+                mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_arm, buf, sizeof(buf));
+            }
+            break;
+        case TYPE_action_stepper_setstate:
+            stepper_angle =
+                (uint32_t)packet.data[0] << 24 |
+                (uint32_t)packet.data[1] << 16 |
+                (uint32_t)packet.data[2] << 8  |
+                (uint32_t)packet.data[3] << 0;
+
+            rc = stepper_set_state(stepper_angle);
+            if (rc)
+                mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_arm, &rc, sizeof(rc));
+            break;
+        case TYPE_action_stepper_angle:
+            stepper_angle =
+                (uint16_t)packet.data[0] << 8 |
+                (uint16_t)packet.data[1] << 0;
+
+            rc = stepper_set_angle(stepper_angle);
+            if (rc != 0) {
+                mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_stepper, &rc, sizeof(rc));
+            }
+            break;
+        case TYPE_laser_sweep_begin:
+            start_angle =
+                (uint16_t)packet.data[0] << 8 |
+                (uint16_t)packet.data[1] << 0;
+
+            end_angle =
+                (uint16_t)packet.data[2] << 8 |
+                (uint16_t)packet.data[3] << 0;
+
+            stepsize =
+                (uint16_t)packet.data[4] << 8 |
+                (uint16_t)packet.data[5] << 0;
+
+            rc = laser_do_sweep(start_angle, end_angle, stepsize);
+            if (rc != 0) {
+                mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_laser, &rc, sizeof(rc));
+            }
+
+            rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, SENSOR_laser, NULL, 0);
+            if (rc) {
+                return rc;
+            }
+
+            break;
+        default:
+            break;
         }
-        break;
-    case TYPE_action_stepper_setstate:
-        stepper_angle =
-            (uint32_t)packet.data[0] << 24 |
-            (uint32_t)packet.data[1] << 16 |
-            (uint32_t)packet.data[2] << 8  |
-            (uint32_t)packet.data[3] << 0;
-
-        rc = stepper_set_state(stepper_angle);
-        if (rc)
-            mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_arm, &rc, sizeof(rc));
-        break;
-    case TYPE_action_stepper_angle:
-        stepper_angle =
-            (uint16_t)packet.data[0] << 8 |
-            (uint16_t)packet.data[1] << 0;
-
-        rc = stepper_set_angle(stepper_angle);
-        if (rc != 0) {
-            mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_stepper, &rc, sizeof(rc));
-        }
-        break;
-    case TYPE_laser_sweep_begin:
-        start_angle =
-            (uint16_t)packet.data[0] << 8 |
-            (uint16_t)packet.data[1] << 0;
-
-        end_angle =
-            (uint16_t)packet.data[2] << 8 |
-            (uint16_t)packet.data[3] << 0;
-
-        stepsize =
-            (uint16_t)packet.data[4] << 8 |
-            (uint16_t)packet.data[5] << 0;
-
-        rc = laser_do_sweep(start_angle, end_angle, stepsize);
-        if (rc != 0) {
-            mcp2515_send_sensor(TYPE_sensor_error, ID_arm, SENSOR_laser, &rc, sizeof(rc));
-        }
-
-        rc = mcp2515_xfer(TYPE_xfer_chunk, MY_ID, SENSOR_laser, NULL, 0);
-        if (rc) {
-            return rc;
-        }
-
-        break;
-    default:
-        break;
     }
-
-    packet.unread = 0;
 
     return rc;
 }
@@ -265,25 +265,33 @@ uint8_t debug_irq(void)
     char buf[DEBUG_BUF_SIZE];
     uint16_t dist;
     uint8_t pos;
+    uint8_t type;
     uint8_t rc;
 
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf)-1] = '\0';
 
     switch (buf[0]) {
+    case 'a':
+        printf("%d\n", adc_read(6));
+        break;
+
     case 'm':
         dist = measure_once();
 
-        if (dist == 0)
+        if (dist == 0) {
             printf("laser error\n");
-        else
+            type = TYPE_sensor_error;
+        } else {
             printf("dist: %umm\n", dist);
+            type = TYPE_value_explicit;
+        }
 
         buf[0] = (dist >> 8) & 0xFF;
         buf[1] = (dist >> 0) & 0xFF;
 
-        rc = mcp2515_send_sensor(TYPE_value_explicit, ID_arm, SENSOR_laser, (uint8_t *)buf, 2);
-        printf("rc %d\n", rc);
+        //rc = mcp2515_send_sensor(type, ID_arm, SENSOR_laser, (uint8_t *)buf, 2);
+        //printf("rc %d\n", rc);
 
         break;
     case 'x':
@@ -298,7 +306,7 @@ uint8_t debug_irq(void)
         }
         break;
 
-    case 'a':
+    case 'j':
         pos = atoi(buf + 1);
         set_arm_angle(pos);
         break;
