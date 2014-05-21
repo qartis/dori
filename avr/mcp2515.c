@@ -494,7 +494,7 @@ void mcp2515_xfer_begin(void)
     xfer_state = XFER_INIT;
 }
 
-uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint16_t sensor, const void *data, uint8_t len)
+uint8_t mcp2515_xfer(uint8_t type, uint8_t id, uint16_t sensor, const void *data, uint8_t len)
 {
     uint8_t retry;
     uint8_t rc;
@@ -512,14 +512,14 @@ uint8_t mcp2515_xfer(uint8_t type, uint8_t dest, uint16_t sensor, const void *da
             xfer_state = XFER_CHUNK_SENT;
         }
 
-        rc = mcp2515_send_wait(type, dest, sensor, data, len);
+        rc = mcp2515_send_wait(type, id, sensor, data, len);
         if (rc) {
             puts_P(PSTR("xfsd er"));
             return rc;
         }
 
         /* if we resend this packet, this will flag it as a duplicate */
-        dest = ID_none;
+        sensor = SENSOR_invalid;
 
         /* TODO change this timeout when DORI is launched */
         /* 255 * 80ms = 20400ms */
