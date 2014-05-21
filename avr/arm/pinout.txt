@@ -1,11 +1,15 @@
 
-1  13
-2  14
-3  15
-4  16
-5  17
-6  18
-7
+
+
+
+
+1  13       19 laser Vin
+2  14       20 laser rx
+3  15       21 laser tx
+4  16       22 laser off
+5  17       23 laser on
+6  18       24 laser v+ sense (pc7)
+7           25 laser gnd
 8
 9
 10
