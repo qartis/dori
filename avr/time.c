@@ -8,6 +8,7 @@
 
 #include "time.h"
 #include "irq.h"
+#include "mcp2515.h"
 
 #ifndef DEFAULT_PERIOD
 #define DEFAULT_PERIOD 9000
@@ -46,9 +47,15 @@ ISR(TIMER0_COMPA_vect)
 
     if (overflows >= OVERFLOW_TICKS) {
         overflows = 0;
-        now++;
         uptime++;
-        wdt_reset();
+
+        if (now > 0) {
+            now++;
+        }
+
+        if (mcp2515_packet_time + 30 >= uptime) {
+            wdt_reset();
+        }
 
 #ifdef SECONDS_IRQ
         irq_signal |= IRQ_SECONDS;
