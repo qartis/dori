@@ -157,6 +157,23 @@ int print_value(int sensor, uint8_t *data)
             (data[3] << 0);
         print_time(intval);
         break;
+    case SENSOR_boot:
+#define PORF 0
+#define EXTRF 1
+#define BORF 2
+#define WDRF 3
+        intval = data[0];
+        printf((intval & (1 << WDRF)) ? "wd" : "");
+        printf((intval & (1 << BORF)) ? "bo" : "");
+        printf((intval & (1 << EXTRF)) ? "ext" : "");
+        printf((intval & (1 << PORF)) ? "po" : "");
+        printf((intval & ((1 << PORF) | (1 << EXTRF) | (1 << BORF) | (1 << WDRF))) == 0 ? "soft    ware" : "");
+        printf(" reboot\n"); 
+        break;
+    case SENSOR_interval:
+        intval = data[0] << 8 | data[1];
+        printf("%d seconds\n", intval);
+        break;
     default:
         return 1;
     }
