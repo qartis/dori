@@ -170,6 +170,12 @@ uint8_t send_current_can(uint8_t type)
     uint8_t buf[2];
     uint16_t current;
 
+    _delay_ms(2000);
+    _delay_ms(2000);
+    _delay_ms(2000);
+    _delay_ms(2000);
+    _delay_ms(2000);
+
     current = get_current();
 
     buf[0] = current >> 8;
@@ -260,40 +266,13 @@ uint8_t uart_irq(void)
 
 uint8_t debug_irq(void)
 {
-    return 0;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if 0
     char buf[UART_BUF_SIZE];
 
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
 
-    if (buf[0] == 's') {
-        printf("sleeping\n");
-        _delay_ms(500);
-        sleep();
-        printf("YO YO\n");
-        _delay_ms(500);
-        printf("we're back\n");
-    } else if (buf[0] == '\0') {
+    if (buf[0] == '\0') {
+        _delay_ms(1000);
         uint16_t current = get_current();
         printf("I: %umA\n", current);
 
@@ -315,7 +294,6 @@ uint8_t debug_irq(void)
 
     return 0;
 }
-#endif
 
 void sleep(void)
 {

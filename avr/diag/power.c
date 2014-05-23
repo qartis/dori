@@ -5,7 +5,7 @@
 #include "adc.h"
 #include "power.h"
 
-#define SAMPLES 2048
+#define SAMPLES 1
 
 uint16_t get_voltage(void)
 {
@@ -19,10 +19,13 @@ uint16_t get_voltage(void)
 
     val = 0;
 
+    printf("hello\n");
+
     for (i = 0; i < SAMPLES; i++) {
         val += adc_read(6);
         _delay_us(100);
     }
+    printf("done\n");
 
     DDRC &= ~(1 << PORTC0);
 

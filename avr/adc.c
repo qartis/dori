@@ -1,4 +1,5 @@
 #include <avr/io.h>
+#include <stdio.h>
 #include <util/delay.h>
 #include <stdint.h>
 
@@ -25,9 +26,12 @@ uint16_t adc_read(uint8_t channel)
         _delay_us(500);
     }
 
+//    printf("a\n");
+
     ADMUX = (1 << REFS0) | channel; /* AVCC */
 
     ADCSRA |= (1 << ADSC);
+    printf("b\n");
     while (ADCSRA & (1 << ADSC)) {};
 
     uint8_t low = ADCL;
