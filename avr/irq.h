@@ -10,3 +10,12 @@ enum {
 };
 
 extern volatile uint8_t irq_signal;
+
+uint8_t user1_irq(void);
+uint8_t user2_irq(void);
+uint8_t user3_irq(void);
+uint8_t can_irq(void);
+uint8_t debug_irq(void);
+uint8_t uart_irq(void);
+uint8_t periodic_irq(void);
+

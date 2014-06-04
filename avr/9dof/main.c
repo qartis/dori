@@ -347,9 +347,12 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    uint8_t rc;
+
+    node_init();
 
     sei();
+
     i2c_init(I2C_FREQ(400000));
 
     rc = hmc_init();
@@ -369,5 +372,5 @@ int main(void)
 
     hmc_set_continuous();
 
-    NODE_MAIN();
+    node_main();
 }

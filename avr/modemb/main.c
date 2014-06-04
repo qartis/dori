@@ -599,7 +599,9 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    uint8_t rc;
+
+    node_init();
 
     stfu = 1;
 
@@ -616,5 +618,5 @@ int main(void)
         printf("fbus is alive\n");
     }
 
-    NODE_MAIN();
+    node_main();
 }

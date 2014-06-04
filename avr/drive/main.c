@@ -104,11 +104,11 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    node_init();
 
     motor_init();
 
     sei();
 
-    NODE_MAIN();
+    node_main();
 }

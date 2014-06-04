@@ -286,7 +286,7 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    node_init();
 
     temp_init();
     adc_init();
@@ -298,5 +298,5 @@ int main(void)
 
     sei();
 
-    NODE_MAIN();
+    node_main();
 }

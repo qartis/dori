@@ -140,12 +140,12 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    node_init();
 
     sei();
 
     // For the ircam
     DDRD |= (1 << PORTD4);
 
-    NODE_MAIN();
+    node_main();
 }

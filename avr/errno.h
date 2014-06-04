@@ -9,4 +9,5 @@ enum {
     ERR_STEPPER_INIT,
     ERR_CAM_INIT,
     ERR_CAM_READ,
+    ERR_INIT,
 };

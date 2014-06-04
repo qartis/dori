@@ -1,5 +1,22 @@
-PROG_DEVICE ?= /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A4007hkl-if00-port0
-PROG_TYPE = stk500v2
+PROG ?= vedran
+
+$(warning $(PROG))
+
+ifeq (${PROG},dragon)
+	PROG_DEVICE = usb
+	PROG_TYPE = dragon_isp
+endif
+
+ifeq (${PROG},vedran)
+	PROG_DEVICE = /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A4007hkl-if00-port0
+	PROG_TYPE = stk500v2
+endif
+
+ifeq (${PROG},andrew)
+	PROG_DEVICE = /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_20008Dd-if00-port0
+	PROG_TYPE = stk500v2
+endif
+
 GCC_PART ?= atmega88
 DUDE_PART ?= m88
 CC = avr-gcc

@@ -301,7 +301,7 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    node_init();
 
     heater_init();
     temp_init();
@@ -309,5 +309,5 @@ int main(void)
 
     sei();
 
-    NODE_MAIN();
+    node_main();
 }

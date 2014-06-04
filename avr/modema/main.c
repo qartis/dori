@@ -554,7 +554,7 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    node_init();
 
     tcp_ring = ring_init(tcp_ring_array, sizeof(tcp_ring_array));
     can_ring = ring_init(can_ring_array, sizeof(can_ring_array));
@@ -563,5 +563,5 @@ int main(void)
 
     check_modem_alive();
 
-    NODE_MAIN();
+    node_main();
 }

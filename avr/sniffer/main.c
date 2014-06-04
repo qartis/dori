@@ -341,9 +341,9 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    node_init();
 
     sei();
 
-    NODE_MAIN();
+    node_main();
 }

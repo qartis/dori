@@ -341,7 +341,7 @@ void sleep(void)
 
 int main(void)
 {
-    NODE_INIT();
+    node_init();
     adc_init();
     laser_init();
     arm_init();
@@ -349,5 +349,5 @@ int main(void)
 
     sei();
 
-    NODE_MAIN();
+    node_main();
 }
