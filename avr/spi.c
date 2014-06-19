@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+#include <util/atomic.h>
 
 #include "spi.h"
 
@@ -59,8 +60,10 @@ uint8_t spi_write_timeout(uint8_t data)
 
 uint8_t spi_write(uint8_t data)
 {
-    SPDR = data;
-    while (!(SPSR & (1<<SPIF))) {};
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        SPDR = data;
+        while (!(SPSR & (1<<SPIF))) {};
+    }
     return SPDR;
 }
 
