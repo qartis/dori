@@ -20,7 +20,6 @@
 #include "uart.h"
 #include "power.h"
 #include "temp.h"
-#include "debug.h"
 
 uint8_t seconds_irq(void)
 {
@@ -259,12 +258,12 @@ uint8_t can_irq(void)
     return 0;
 }
 
-uint8_t uart_irq(void)
+uint8_t debug_irq(void)
 {
     return 0;
 }
 
-uint8_t debug_irq(void)
+uint8_t uart_irq(void)
 {
     char buf[UART_BUF_SIZE];
 
@@ -301,6 +300,7 @@ void sleep(void)
 
 int main(void)
 {
+    sei();
     node_init();
 
     heater_init();
