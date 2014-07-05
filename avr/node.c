@@ -54,12 +54,11 @@ void node_init(void)
     printf_P((boot_mcusr & ((1 << PORF) | (1 << EXTRF) | (1 << BORF) | (1 << WDRF))) == 0 ? PSTR("software") : PSTR(""));
     printf_P(PSTR(" reboot\n"));
 
-
     goto reinit;
 
 reinit:
-    uart_tx_flush();
-    _delay_ms(100);
+    //uart_tx_flush();
+    _delay_ms(1000);
     cli();
     reinit = 0;
     while (mcp2515_init()) {
