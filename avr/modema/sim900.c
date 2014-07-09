@@ -61,7 +61,7 @@ void slow_write(const void *buf, uint16_t count)
     }
 }
 
-void sendATCommand(const char *PROGMEM fmt, ...)
+void send_at_cmd(const char *PROGMEM fmt, ...)
 {
     char buf[128];
     char fmt_copy[128];
@@ -81,25 +81,20 @@ void sendATCommand(const char *PROGMEM fmt, ...)
     slow_write("\r", strlen("\r"));
 }
 
-uint8_t TCPDisconnect(void)
+uint8_t tcp_disconnect(void)
 {
     state = STATE_CLOSED;
-
-    sendATCommand(PSTR("AT+CIPCLOSE"));
-//    wait_for_state(STATE_CLOSED);
+    send_at_cmd(PSTR("AT+CIPCLOSE"));
 
     _delay_ms(1000);
 
-    sendATCommand(PSTR("AT+CIPSHUT"));
-//    wait_for_state(STATE_CLOSED);
-
-    sendATCommand(PSTR("AT+CIPSTATUS"));
-//    rc = wait_for_state(STATE_IP_INITIAL);
+    send_at_cmd(PSTR("AT+CIPSHUT"));
+    send_at_cmd(PSTR("AT+CIPSTATUS"));
 
     return 0;
 }
 
-uint8_t TCPSend(void)
+uint8_t tcp_send(void)
 {
     uint8_t rc;
     uint16_t i;
@@ -112,10 +107,10 @@ uint8_t TCPSend(void)
         can_ring_urgent = 0;
     }
 
-    printf("TCPSend(%d)\n", count);
+    printf("tcp_send(%d)\n", count);
 
     state = STATE_EXPECTING_PROMPT;
-    sendATCommand(PSTR("AT+CIPSEND=%d"), count);
+    send_at_cmd(PSTR("AT+CIPSEND=%d"), count);
 
     rc = wait_for_state(STATE_GOT_PROMPT);
     if (rc != 0) {
@@ -151,21 +146,21 @@ uint8_t TCPSend(void)
     return rc;
 }
 
-uint8_t TCPConnect(void)
+uint8_t tcp_connect(void)
 {
     uint8_t rc;
     uint8_t retry;
 
-    TCPDisconnect();
+    tcp_disconnect();
 
     /* Turn on header for received data */
-    sendATCommand(PSTR("AT+CIPMUX=0"));
+    send_at_cmd(PSTR("AT+CIPMUX=0"));
 
     _delay_ms(10);
 
-    sendATCommand(PSTR("AT+CIPHEAD=1"));
+    send_at_cmd(PSTR("AT+CIPHEAD=1"));
 
-    sendATCommand(PSTR("AT+CIPSTATUS"));
+    send_at_cmd(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_INITIAL);
     if (rc != 0) {
         puts_P(PSTR("err: INITIAL"));
@@ -175,13 +170,13 @@ uint8_t TCPConnect(void)
 
     puts_P(PSTR("state: IP INITIAL"));
 
-    sendATCommand(PSTR("AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\""));
+    send_at_cmd(PSTR("AT+CSTT=\"goam.com\",\"wapuser1\",\"wap\""));
 
     _delay_ms(100);
 
     retry = 3;
     do {
-        sendATCommand(PSTR("AT+CIPSTATUS"));
+        send_at_cmd(PSTR("AT+CIPSTATUS"));
         rc = wait_for_state(STATE_IP_START);
     } while (rc != 0 && --retry);
 
@@ -195,15 +190,15 @@ uint8_t TCPConnect(void)
 
     /* This command takes a little while */
     flag_ok = 0;
-    sendATCommand(PSTR("AT+CIICR"));
+    send_at_cmd(PSTR("AT+CIICR"));
     wait_for_ok();
 
     _delay_ms(100);
-    sendATCommand(PSTR("AT+CIPSTATUS"));
+    send_at_cmd(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_GPRSACT);
     if (rc != 0) {
         _delay_ms(500);
-        sendATCommand(PSTR("AT+CIPSTATUS"));
+        send_at_cmd(PSTR("AT+CIPSTATUS"));
         rc = wait_for_state(STATE_IP_GPRSACT);
         if (rc != 0) {
             puts_P(PSTR("err: GPRSACT"));
@@ -215,10 +210,10 @@ uint8_t TCPConnect(void)
     puts_P(PSTR("state: IP GPRSACT"));
 
     /* attach to GPRS network, display IP address */
-    sendATCommand(PSTR("AT+CIFSR"));
+    send_at_cmd(PSTR("AT+CIFSR"));
     _delay_ms(1500);
 
-    sendATCommand(PSTR("AT+CIPSTATUS"));
+    send_at_cmd(PSTR("AT+CIPSTATUS"));
     rc = wait_for_state(STATE_IP_STATUS);
     if (rc != 0) {
         puts_P(PSTR("err: STATUS"));
@@ -228,12 +223,12 @@ uint8_t TCPConnect(void)
 
     puts_P(PSTR("state: IP STATUS"));
 
-    sendATCommand(PSTR("AT+CIPSTART=\"TCP\",\"%d.%d.%d.%d\",\"53\""), ip[0],
+    send_at_cmd(PSTR("AT+CIPSTART=\"TCP\",\"%d.%d.%d.%d\",\"53\""), ip[0],
                   ip[1], ip[2], ip[3]);
 
     rc = wait_for_state(STATE_CONNECTED);
     if (rc != 0) {
-        sendATCommand(PSTR("AT+CIPSTATUS"));
+        send_at_cmd(PSTR("AT+CIPSTATUS"));
         rc = wait_for_state(STATE_CONNECTED);
     }
 

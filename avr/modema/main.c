@@ -27,25 +27,25 @@
 #define strstart(a,b) (strncmp_P(a, PSTR(b), strlen(b)) == 0)
 
 #define MODEM_SILENCE_TIMEOUT (30 * 3)
-
+#define TCP_WAIT_TIMEOUT (30)
 
 static uint8_t at_tx_buf[64];
 volatile uint8_t tcp_toread;
 
 volatile uint32_t modem_alive_time;
 
-volatile uint8_t tcp_ring_array[64];
+volatile uint8_t tcp_ring_array[128];
 volatile struct ring_t tcp_ring;
 
 uint8_t can_ring_urgent;
-volatile uint8_t can_ring_array[64];
+uint32_t can_ring_time;
+volatile uint8_t can_ring_array[128];
 volatile struct ring_t can_ring;
-
 
 
 void powercycle_modem(void)
 {
-    printf("pwrcycl\n");
+    puts_P(PSTR("pwr"));
     DDRD |= (1 << PORTD2);
     PORTD |= (1 << PORTD2);
 
@@ -76,7 +76,6 @@ void handle_packet(void)
         for (i = 0; i < packet.len; i++) {
             at_tx_buf[bufno * 8 + i] = packet.data[i];
         }
-
         break;
 
     case TYPE_at_send:
@@ -85,7 +84,7 @@ void handle_packet(void)
         break;
 
     case TYPE_action_modema_powercycle:
-        printf("ACTION_POWERCYCLE\n");
+        puts_P(PSTR("ACTION_POWERCYCLE"));
         powercycle_modem();
         break;
 
@@ -94,7 +93,7 @@ void handle_packet(void)
         break;
 
     case TYPE_action_modema_disconnect:
-        TCPDisconnect();
+        tcp_disconnect();
         break;
 
     case TYPE_set_ip:
@@ -141,6 +140,7 @@ void handle_packet(void)
             }
 
             can_ring_urgent = 1;
+            can_ring_time = uptime;
 
             TRIGGER_USER3_IRQ();
         } else {
@@ -154,21 +154,21 @@ uint8_t user1_irq(void)
 {
     uint8_t rc;
 
-    printf("user irq\n");
+    puts_P(PSTR("user1"));
 
     slow_write("AT\r", strlen("AT\r"));
     _delay_ms(100);
     slow_write("ATH\r", strlen("ATH\r"));
 
-    if ((now - modem_alive_time < MODEM_SILENCE_TIMEOUT) &&
+    if ((uptime - modem_alive_time < MODEM_SILENCE_TIMEOUT) &&
         state == STATE_CONNECTED) {
-        printf("still connected\n");
+        puts_P(PSTR("still connected"));
         return 0;
     }
 
     _delay_ms(500);
     puts_P(PSTR("conn"));
-    rc = TCPConnect();
+    rc = tcp_connect();
     if (rc) {
         printf("conn: %d\n", rc);
 
@@ -203,6 +203,8 @@ void tcp_enqueue_packet(void)
         ring_put(&can_ring, packet.data[i]);
     }
 
+    can_ring_time = uptime;
+
     TRIGGER_USER3_IRQ();
 
     printf("ENQ %d %d\n", 5 + packet.len, packet.type);
@@ -218,10 +220,10 @@ uint8_t debug_irq(void)
 
     switch (buf[0]) {
     case 'p':
-        printf("DEBUG POWERCYCLE\n");
         powercycle_modem();
         break;
     case '1':
+    case 'c':
         TRIGGER_USER1_IRQ();
         break;
     case '2':
@@ -257,15 +259,10 @@ uint8_t debug_irq(void)
         break;
     case 'x':
         state = STATE_CONNECTED;
-        puts_P(PSTR("conn!\n"));
+        puts_P(PSTR("conn!"));
         break;
-    case 'c':
-        TRIGGER_USER1_IRQ();
-        break;
-
     case 'd':
-        TCPDisconnect();
-        state = STATE_CLOSED;
+        tcp_disconnect();
         break;
     case 'z':
         printf("%u\n", stack_space());
@@ -299,7 +296,7 @@ uint8_t user2_irq(void)
         p.type = ring_get_idx(&tcp_ring, 0);
 
         if (p.type == TYPE_nop) {
-            printf(">NOP\n");
+            puts_P(PSTR(">NOP"));
             ring_get(&tcp_ring);
             continue;
         }
@@ -314,7 +311,7 @@ uint8_t user2_irq(void)
         }
 
         if (ring_bytes(&tcp_ring) < (1 + 1 + 2 + 1 + p.len)) {
-            printf("return 0\n");
+            puts_P(PSTR("return 0"));
             return 0;
         }
 
@@ -324,6 +321,7 @@ uint8_t user2_irq(void)
             (ring_get(&tcp_ring) << 8) |
             (ring_get(&tcp_ring) << 0);
 
+        /* we already retrieved the length, so drop it */
         (void)ring_get(&tcp_ring);
 
         for (i = 0; i < p.len; i++) {
@@ -333,9 +331,7 @@ uint8_t user2_irq(void)
         rc = mcp2515_send2(&p);
 
         if (rc) {
-            //printf("can er %d\n", rc);
-        } else {
-            //printf("CAN sent\n");
+            printf("can er %d\n", rc);
         }
 
         packet = p;
@@ -351,7 +347,7 @@ uint8_t user3_irq(void)
     uint8_t rc;
 
     if (state == STATE_GOT_PROMPT) {
-        printf("u3: busy\n");
+        puts_P(PSTR("u3: busy"));
         return 0;
     }
 
@@ -359,14 +355,14 @@ uint8_t user3_irq(void)
         return 0;
     }
 
-    /* TODO: maybe have a maximum timeout to send stale data */
-
-    if ((ring_bytes(&can_ring) < can_ring.size / 2) && can_ring_urgent == 0) {
-        printf("u3: waiting\n");
+    if ((can_ring_time + TCP_WAIT_TIMEOUT > uptime) &&
+            (ring_bytes(&can_ring) < can_ring.size / 2) &&
+            (can_ring_urgent == 0)) {
+        puts_P(PSTR("u3: waiting"));
         return 0;
     }
 
-    rc = TCPSend();
+    rc = tcp_send();
 
     TRIGGER_USER3_IRQ();
 
@@ -376,19 +372,22 @@ uint8_t user3_irq(void)
 ISR(USART_RX_vect)
 {
     char c;
+    uint8_t len;
     static char at_rx_buf[64];
     static uint8_t at_rx_buf_len = 0;
 
     c = UDR0;
 
-    modem_alive_time = now;
+    modem_alive_time = uptime;
 
     /* if we're reading a tcp chunk */
     if (tcp_toread > 0) {
         if (ring_space(&tcp_ring) > 0) {
             ring_put(&tcp_ring, c);
         }
+
         tcp_toread--;
+
         if (tcp_toread == 0) {
             TRIGGER_USER2_IRQ();
         }
@@ -403,7 +402,7 @@ ISR(USART_RX_vect)
 
         TRIGGER_USER3_IRQ();
 
-        uint8_t len = atoi(at_rx_buf + strlen("+IPD,"));
+        len = atoi(at_rx_buf + strlen("+IPD,"));
         tcp_toread = len;
 
         at_rx_buf_len = 0;
@@ -469,7 +468,7 @@ ISR(USART_RX_vect)
 void check_modem_alive(void)
 {
     /* send <ESC> to cancel any pending tcp SEND prompts */
-    slow_write("\x1b", 1);
+    slow_write("\x1b\x1b", 2);
     _delay_ms(50);
 
     slow_write("AT\r", strlen("AT\r"));
@@ -484,7 +483,7 @@ void check_modem_alive(void)
     _delay_ms(500);
 
     if (state == STATE_ERROR) {
-        printf("STATE ERROR POWERCYCLE\n");
+        puts_P(PSTR("STATE ERROR POWERCYCLE"));
         powercycle_modem();
     }
 }
@@ -492,7 +491,7 @@ void check_modem_alive(void)
 uint8_t periodic_irq(void)
 {
     if (state == STATE_EXPECTING_PROMPT || state == STATE_GOT_PROMPT) {
-        printf("prompt\n");
+        puts_P(PSTR("prompt"));
         return 0;
     }
 
@@ -502,6 +501,7 @@ uint8_t periodic_irq(void)
         if (ring_space(&can_ring) > 0) {
             ring_put(&can_ring, TYPE_nop);
             can_ring_urgent = 1;
+            can_ring_time = uptime;
             /* TODO: only send NOP after inactivity */
             TRIGGER_USER3_IRQ();
         } else {
@@ -509,7 +509,7 @@ uint8_t periodic_irq(void)
         }
     }
 
-    if (now - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
+    if (uptime - modem_alive_time >= MODEM_SILENCE_TIMEOUT) {
         tcp_toread = 0;
 
         check_modem_alive();
@@ -550,7 +550,6 @@ void sleep(void)
     sleep_disable();
     */
 }
-
 
 int main(void)
 {
