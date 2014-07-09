@@ -9,6 +9,7 @@ void sleep(void);
 
 void node_init(void);
 uint8_t node_main(void);
+uint8_t node_debug_common(const char *cmd);
 
 #ifdef DEBUG
 #define DEBUG_INIT debug_init();

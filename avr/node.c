@@ -1,11 +1,13 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <avr/io.h>
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <util/atomic.h>
 #include <util/delay.h>
 
 #include "node.h"
@@ -65,6 +67,34 @@ reinit:
         printwait_P(PSTR("mcp: init\n"));
         _delay_ms(1500);
     }
+}
+
+uint8_t node_debug_common(const char *cmd)
+{
+    uint8_t rc;
+
+    if (strcmp(cmd, "mcp") == 0) {
+        mcp2515_dump();
+        return 0;
+    } else if (strcmp(cmd, "mcp_reinit") == 0) {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            rc = mcp2515_init();
+        }
+
+        if (rc != 0) {
+            puts_P(PSTR("!mcpinit"));
+        }
+        return 0;
+    } else if (strcmp(cmd, "uptime") == 0) {
+        printf_P(PSTR("%lds\n"), uptime);
+        return 0;
+    } else if (strcmp(cmd, "reboot") == 0) {
+        cli();
+        wdt_enable(WDTO_15MS);
+        for (;;) {};
+    }
+
+    return 1;
 }
 
 uint8_t node_main(void)

@@ -265,10 +265,16 @@ uint8_t debug_irq(void)
 
 uint8_t uart_irq(void)
 {
+    uint8_t rc;
     char buf[UART_BUF_SIZE];
 
     fgets(buf, sizeof(buf), stdin);
     buf[strlen(buf) - 1] = '\0';
+
+    rc = node_debug_common(buf);
+    if (rc == 0) {
+        return 0;
+    }
 
     if (buf[0] == '\0') {
         _delay_ms(1000);
