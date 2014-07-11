@@ -53,6 +53,24 @@ static int dorifd;
 static int shellfd;
 static int siteid;
 
+const char *ptime(void)
+{
+    time_t t;
+    struct tm *tm;
+    static char buf[64];
+
+    time(&t);
+    tm = localtime(&t);
+    strftime(buf, sizeof(buf), "%c", tm);
+
+    return buf;
+}
+
+#define log(args...) do { \
+        printf("[%s] ", ptime()); \
+        printf(args); \
+    } while (0);
+
 void error(const char *str)
 {
     perror(str);
@@ -61,7 +79,8 @@ void error(const char *str)
 
 void dberror(sqlite3 * database)
 {
-    printf("db error: %s\n", sqlite3_errmsg(database));
+    log("db error: %s\n", sqlite3_errmsg(database));
+    exit(1);
 }
 
 client *find_client_type(client_type type)
@@ -123,7 +142,7 @@ size_t write_to_client(client_type target_client, const char* buf, int buflen)
             num_clients_written++;
             rc = write(clients[i].fd, buf, buflen);
             if(rc <= 0) {
-                printf("Error writing to client type %d", target_client);
+                log("Error writing to client type %d", target_client);
                 remove_client(clients[i].fd);
                 return -1;
             }
@@ -144,7 +163,7 @@ ssize_t safe_write(int fd, const char *buf, size_t count)
         rc = write(fd, buf + wroteb, count - wroteb);
         if (rc < 1) {
             remove_client(fd);
-            printf("err 1: client disconnected during write\n");
+            log("err 1: client disconnected during write\n");
             break;
         }
 
@@ -178,7 +197,7 @@ int sqlite_cb(void *arg, int ncols, char **cols, char **rows)
     for (i = 0; i < ncols; i++) {
         printfd(*fd, "%s", cols[i]);
         if (write(*fd, "", 1) < 1) {
-            printf("err 2: client disconnected during write\n");
+            log("err 2: client disconnected during write\n");
             remove_client(*fd);
             return -1;
         }
@@ -201,7 +220,7 @@ void exec_query(char *query)
 {
     int rc = sqlite3_exec(db, query, NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
-        printf("sqlite error: %s\n", sqlite3_errmsg(db));
+        log("sqlite error: %s\n", sqlite3_errmsg(db));
     }
 }
 
@@ -244,7 +263,7 @@ void process_dori_bytes(client* c)
         uint8_t type = c->buf[CAN_TYPE_IDX];
 
         if (type == TYPE_nop) {
-            printf("skipping nop\n");
+            log("skipping nop\n");
             c->buf_len -= 1;
             memmove(c->buf, c->buf + 1, c->buf_len);
             continue;
@@ -258,7 +277,7 @@ void process_dori_bytes(client* c)
         uint8_t data_len = c->buf[CAN_LEN_IDX];
 
         if (data_len > 8) {
-            printf("data_len > 8: %d\n", data_len);
+            log("data_len > 8: %d\n", data_len);
             data_len = 8;
         }
 
@@ -273,7 +292,7 @@ void process_dori_bytes(client* c)
 
         // Sanity checks here to prevent future crashes
         if (type >= TYPE_invalid) {
-            printf("Invalid type: %02x\n", type);
+            log("Invalid type: %02x\n", type);
 
             c->buf_len -= (CAN_HEADER_LEN + data_len);
 
@@ -281,7 +300,7 @@ void process_dori_bytes(client* c)
         }
 
         if (id >= ID_invalid) {
-            printf("Invalid id: %02x\n", id);
+            log("Invalid id: %02x\n", id);
 
             c->buf_len -= (CAN_HEADER_LEN + data_len);
 
@@ -291,7 +310,7 @@ void process_dori_bytes(client* c)
         }
 
         if(sensor >= SENSOR_invalid) {
-            printf("Invalid sensor: %02x\n", sensor);
+            log("Invalid sensor: %02x\n", sensor);
             c->buf_len -= (CAN_HEADER_LEN + data_len);
 
             memmove(c->buf, c->buf + CAN_HEADER_LEN + data_len,
@@ -301,7 +320,7 @@ void process_dori_bytes(client* c)
 
         unsigned char *data = c->buf + CAN_HEADER_LEN;
 
-        printf("DORI sent Frame: %s [%02x] %s [%02x] %s [%02x] %d [",
+        log("DORI sent Frame: %s [%02x] %s [%02x] %s [%02x] %d [",
                type_names[type],
                type,
                id_names[id],
@@ -418,7 +437,7 @@ void process_shell_bytes(client* c)
 
     // Sanity checks here to prevent future crashes
     if (type >= TYPE_invalid) {
-        printf("Invalid type: %02x\n", type);
+        log("Invalid type: %02x\n", type);
 
         c->buf_len -= (CAN_HEADER_LEN + data_len);
 
@@ -426,7 +445,7 @@ void process_shell_bytes(client* c)
     }
 
     if (id >= ID_invalid) {
-        printf("Invalid id: %02x\n", id);
+        log("Invalid id: %02x\n", id);
 
         c->buf_len -= (CAN_HEADER_LEN + data_len);
 
@@ -436,7 +455,7 @@ void process_shell_bytes(client* c)
     }
 
     if(sensor >= SENSOR_invalid) {
-        printf("Invalid sensor: %02x\n", sensor);
+        log("Invalid sensor: %02x\n", sensor);
         c->buf_len -= (CAN_HEADER_LEN + data_len);
 
         memmove(c->buf, c->buf + CAN_HEADER_LEN + data_len,
@@ -445,7 +464,7 @@ void process_shell_bytes(client* c)
     }
 
 
-    printf("shell sent frame: %s [%02x] %s [%02x] %s [%04x] %d [",
+    log("shell sent frame: %s [%02x] %s [%02x] %s [%04x] %d [",
            type_names[type],
            type,
            id_names[id],
@@ -465,11 +484,11 @@ void process_shell_bytes(client* c)
     rc = write_to_client(DORI, (const char*)c->buf, c->buf_len);
 
     if(rc == 0) {
-        printf("No DORI available\n");
+        log("No DORI available\n");
     } else if(rc < 0) {
-        printf("Error while writing to DORI\n");
+        log("Error while writing to DORI\n");
     } else {
-        printf("Sending frame to %d clients: %s [%02x] %s [%02x] %s [%04x] %d [",
+        log("Sending frame to %d clients: %s [%02x] %s [%02x] %s [%04x] %d [",
                rc,
                type_names[type],
                type,
@@ -482,6 +501,7 @@ void process_shell_bytes(client* c)
         for (j = 0; j < data_len; j++) {
             printf(" %02x ", c->buf[CAN_HEADER_LEN + j]);
         }
+        printf("\n");
     }
 
     c->buf_len -= (CAN_HEADER_LEN + data_len);
@@ -569,14 +589,14 @@ int main()
         } else if (rc == 0) {
             char nop = TYPE_nop;
             write_to_client(DORI, &nop, sizeof(nop));
-            printf("sending nop\n");
+            log("sending nop\n");
 
             /*
             client *dori = find_client_type(DORI);
             if (dori != NULL) {
                 FD_CLR(dori->fd, &master);
                 remove_client(dori->fd);
-                printf("DORI disconnected\n");
+                log("DORI disconnected\n");
             }
             */
             continue;
@@ -592,8 +612,8 @@ int main()
                 newfd = accept(fd, (struct sockaddr *)&clientaddr, &len);
 
                 if (nclients == MAX) {
-                    printf("Max clients reached\n");
-                    continue;
+                    log("Max clients reached\n");
+                    exit(1);
                 }
 
                 clients[nclients].buf_len = 0;
@@ -608,9 +628,9 @@ int main()
 
                 if (fd == shellfd) {
                     clients[nclients].type = SHELL;
-                    printf("shell connected\n");
+                    log("shell connected\n");
                 } else if (fd == dorifd) {
-                    printf("DORI connected\n");
+                    log("DORI connected\n");
                     clients[nclients].type = DORI;
                 }
 
@@ -622,18 +642,18 @@ int main()
                 rc = read(fd, c->buf + c->buf_len, sizeof(c->buf) - c->buf_len);
                 if (rc == 0 || rc < 0) {
                     if (c->type == DORI) {
-                        printf("DORI disconnected\n");
+                        log("DORI disconnected\n");
                     } else if (c->type == SHELL) {
-                        printf("shell disconnected\n");
-                    }
-					else {
-                        printf("unknown client disconnected\n");
+                        log("shell disconnected\n");
+                    } else {
+                        log("unknown client disconnected\n");
+                        exit(1);
 					}
                     remove_client(fd);
 
                 } else {
                     c->buf_len += rc;
-                    printf("Got %d bytes: ", rc);
+                    log("Got %d bytes from fd %d: ", rc, fd);
                     int j = 0;
                     for (j = 0; j < rc; j++) {
                         printf("%02x(%c) ", (unsigned char)c->buf[j],
@@ -642,15 +662,15 @@ int main()
                     printf("\n");
 
                     if (c == NULL) {
-                        printf("couldn't find client!\n");
-                        continue;
+                        log("couldn't find client!\n");
+                        exit(1);
                     }
                     if (c->type == DORI) {
                         process_dori_bytes(c);
                     } else if (c->type == SHELL) {
                         process_shell_bytes(c);
                     } else {
-                        printf("unknown type: %d\n", c->type);
+                        log("unknown type: %d\n", c->type);
                     }
                 }
             }

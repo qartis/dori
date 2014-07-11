@@ -181,14 +181,27 @@ int print_value(int sensor, uint8_t *data)
     return 0;
 }
 
+const char *ptime(void)
+{
+    time_t t;
+    struct tm *tm;
+    static char buf[64];
+
+    time(&t);
+    tm = localtime(&t);
+    strftime(buf, sizeof(buf), "%c", tm);
+
+    return buf;
+}
+
 void decan(int type, int id, int sensor, int len, uint8_t * data)
 {
     int i;
     int rc;
 
-    printf("Frame: %s%s" NC "[%02x] %s[%02x].%s[%02x] ", getcolorbytype(type),
-           type_names[type], type, id_names[id], id, sensor_names[sensor],
-           sensor);
+    printf("[%s] %s%s" NC "[%02x] %s[%02x].%s[%02x] ", ptime(),
+            getcolorbytype(type), type_names[type], type, id_names[id],
+            id, sensor_names[sensor], sensor);
 
     rc = 1;
 
