@@ -39,7 +39,6 @@ uint8_t seconds_irq(void)
     uint32_t V;
     uint8_t i;
 
-
     V = adc_voltage * 50000;    /* 5.00V */
     V >>= 10; /*  / 1024 */
     V += 100000; /* add 10V */
@@ -169,11 +168,7 @@ uint8_t send_current_can(uint8_t type)
     uint8_t buf[2];
     uint16_t current;
 
-    _delay_ms(2000);
-    _delay_ms(2000);
-    _delay_ms(2000);
-    _delay_ms(2000);
-    _delay_ms(2000);
+    _delay_ms(500);
 
     current = get_current();
 
