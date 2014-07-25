@@ -117,12 +117,10 @@ uint8_t send_temp_can(int8_t index, uint8_t type)
     } else {
         rc = temp_read(index, &temp);
         if (rc) {
-            rc = mcp2515_send_wait(TYPE_sensor_error, MY_ID,
+            mcp2515_send_wait(TYPE_sensor_error, MY_ID,
                     SENSOR_temp5 + index, NULL, 0);
 
-            if (rc) {
-                return rc;
-            }
+            return rc;
         }
 
         buf[0] = temp >> 8;
