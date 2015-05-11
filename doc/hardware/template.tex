@@ -1,0 +1,105 @@
+%% Copyright 1998 Pepe Kubon
+%%
+%% `thes-full.tex' --- the example thesis, FULL version, used
+%%                     with  the `csthesis' package 
+%% Use: latex thes-full to generate the DVI output, then 
+%%      bibtex thes-full to generate the bibliography
+%%      makeindex thes-full to get the index, and
+%%      latex thes-full (2x) 
+%%
+%% You are allowed to distribute this file together with all files
+%% mentioned in READ.ME.
+%%
+%% You are not allowed to modify its contents.
+%%
+
+\documentclass[12pt]{report}
+%\documentclass[11pt,twoside]{report}%% for two-sided printing
+\usepackage{pdfpages} 
+\usepackage{anysize,fancyhdr,graphics}
+\usepackage{csthesis}
+\usepackage{longtable}
+%\usepackage{makeidx}  %%% standard INDEX
+\usepackage[titletoc]{appendix}%%Ensure word appendix appears in toc
+
+
+\usepackage[T1]{fontenc}
+%\usepackage[titletoc]{appendix}
+\usepackage[utf8]{inputenc}
+\usepackage{CJKutf8}
+\usepackage{wrapfig}
+\usepackage[font={scriptsize}]{caption}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{amsmath}
+
+\usetikzlibrary{positioning,shapes,arrows,matrix,calc}
+
+\newcommand{\brand}{}
+\newcommand{\degrees}{\,^{\circ}\mathrm{C}}
+
+\newcommand*{\TitleFont}{%
+      \usefont{\encodingdefault}{\rmdefault}{b}{n}%
+      \fontsize{11pt}%
+      \selectfont}
+      
+\makeindex  
+
+
+
+\begin{document}
+\setlength{\pdfpagewidth}{8.5in}
+\setlength{\pdfpageheight}{11in}
+%%% set switches
+%\contentspagefalse  
+\figurespagefalse
+\tablespagefalse
+\dedicationpagefalse
+\quotationpagefalse
+\otherlistpagefalse
+
+%%% front matter 
+\include{files/titapp} %% title, approval
+
+\newpage
+
+\include{files/abstract} %% abstract
+%\include{files/dedquot} %% dedication and quotation, if any 
+%\include{files/ack} %%  acknowledgments
+
+%%%  generate contents, lists of figures, etc.
+\lists
+
+%% preface (foreword), if any
+%\include{files/preface} 
+
+%%% prepare main section
+\beforetext
+
+%%% main matter
+\include{body} 
+
+
+\begin{appendices}
+%\include{files/appone}
+%\include{files/apptwo}
+\include{files/bom}
+\end{appendices}
+
+
+
+\nocite{*}     % everything cited automatically
+\renewcommand{\baselinestretch}{\tighttextstretch} %% get smaller spacing
+\normalsize
+\bibliographystyle{plain}   %% dash under repeated name, von ignored
+\addcontentsline{toc}{chapter}{Bibliography}
+\typeout{Bibliography}
+\begin{CJK*}{UTF8}{gbsn}
+\bibliography{draft}
+\end{CJK*}
+\renewcommand{\baselinestretch}{\textstretch} %% get normal spacing
+\normalsize
+
+
+
+\end{document}

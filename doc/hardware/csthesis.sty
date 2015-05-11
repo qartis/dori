@@ -1,0 +1,421 @@
+%%
+%% This is file `csthesis.sty',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% csthesis.dtx  (with options: `package')
+%% 
+%% IMPORTANT NOTICE:
+%% 
+%% For the copyright see the source file.
+%% 
+%% Any modified versions of this file must be renamed
+%% with new filenames distinct from csthesis.sty.
+%% 
+%% For distribution of the original source see the terms
+%% for copying and modification in the file csthesis.dtx.
+%% 
+%% This generated file may be distributed as long as the
+%% original source files, as listed above, are part of the
+%% same distribution. (The sources need not necessarily be
+%% in the same archive or directory.)
+%%
+%% Comp. Science, SFU thesis style `csthesis', to be used with LaTeX2e
+%% Copyright (C) 1998 Petr Pp Kubon
+%%
+%% History:
+%%   1) 1989: Created by Stephen Chan (CSS) from Stanford PhD Thesis style
+%%   2) 1996: Modifications and additions by Margaret Sharon (ACS)
+%%   3) 1997-8: Further modified by Pepe Kubon to reflect current
+%%   regulations
+%%   4) 2003: Added "Contents" to the table of contents, Greg Baker
+%%   5) 2006: Trivial change to approval page, Greg Baker
+%%   6) 2011: Updated title page, Chris McIntosh
+%%
+\def\fileversion{V1.24}
+\def\filedate{2011/12/20}
+
+
+\def \mySkip{\baselineskip}%%%-- Change this if you need more spacing between ``elements''.
+\def \myAppSkip{0.5in}%%%-- Change this if you need more or less spacing between committee members on the approval page (if your approval page has become two pages, lower this value).
+
+
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{csthesis}
+\typeout{Package `csthesis' \fileversion\space<\filedate>[Pepe Kubon]}
+\oddsidemargin 3.8cm\advance\oddsidemargin by -1in
+\evensidemargin 3.8cm\advance\evensidemargin by -1in
+\if@twoside
+  \advance\evensidemargin by -1.3cm
+\fi  % Adjust evensidemargin if twoside option specified **MS**
+\textwidth 8.5in\advance\textwidth by -3.8cm\advance\textwidth by -2.5cm
+\topmargin 1in\advance\topmargin by -2.5cm
+\textheight 11in
+\advance\textheight by -5cm % To account for header and TeX's top margin
+\advance\textheight by -2.5cm % Bottom margin
+\marginparwidth 40pt \marginparsep 10pt
+
+%% space between text, header, footer, and footnotes
+\setlength{\headsep}{2\baselineskip}%% 27pt for 11pt size
+\setlength{\footskip}{\headsep}
+\addtolength{\footskip}{.5\baselineskip}%% 34pt for 11pt
+\addtolength{\skip\footins}{1ex}%% push 1st ftn further from text
+\settoheight{\footnotesep}{\footnotesize !}%% space between footnotes
+\addtolength{\footnotesep}{4pt}%% 10.25pt for 11pt size
+\brokenpenalty=10000
+
+%%% line spacing - localizing magic numbers (Pp)
+\newcommand{\textstretch}{1.3}
+\newcommand{\tighttextstretch}{1}
+\ifcase\@ptsize
+  \newcommand{\doublestretch}{1.67}
+\or
+  \newcommand{\doublestretch}{1.62}
+\or
+  \newcommand{\doublestretch}{1.66}
+\fi
+\renewcommand{\baselinestretch}{\textstretch}
+
+\def\@xfloat#1[#2]{\ifhmode \@bsphack\@floatpenalty -\@Mii\else
+   \@floatpenalty-\@Miii\fi\def\@captype{#1}\ifinner
+      \@parmoderr\@floatpenalty\z@
+    \else\@next\@currbox\@freelist{\@tempcnta\csname ftype@#1\endcsname
+       \multiply\@tempcnta\@xxxii\advance\@tempcnta\sixt@@n
+       \@tfor \@tempa :=#2\do
+                        {\if\@tempa h\advance\@tempcnta \@ne\fi
+                         \if\@tempa t\advance\@tempcnta \tw@\fi
+                         \if\@tempa b\advance\@tempcnta 4\relax\fi
+                         \if\@tempa p\advance\@tempcnta 8\relax\fi
+         }\global\count\@currbox\@tempcnta}\@fltovf\fi
+    \global\setbox\@currbox
+    \color@vbox\normalcolor
+    \vbox\bgroup
+    \def\baselinestretch{\tighttextstretch}\@normalsize
+    \boxmaxdepth\z@
+    \hsize\columnwidth \@parboxrestore}
+\long\def\@footnotetext#1{\insert\footins{%
+    \def\baselinestretch{\tighttextstretch}\footnotesize
+    \interlinepenalty\interfootnotelinepenalty
+    \splittopskip\footnotesep
+    \splitmaxdepth \dp\strutbox \floatingpenalty \@MM
+    \hsize\columnwidth \@parboxrestore
+   \edef\@currentlabel{\csname p@footnote\endcsname\@thefnmark}\@makefntext
+    {\rule{\z@}{\footnotesep}\ignorespaces
+      #1\strut}}}
+
+%%%  remove some space before paragraph and subparagraph
+\renewcommand{\paragraph}%
+  {\@startsection{paragraph}{4}{0mm}{2.5ex plus1ex minus.2ex}%
+    {-1em}{\normalfont\normalsize\bfseries}}
+\renewcommand{\subparagraph}%
+  {\@startsection{subparagraph}{5}{\parindent}{2ex plus1ex minus.2ex}%
+    {-1em}{\normalfont\normalsize\bfseries}}
+
+%%% switches
+\newif\ifcontentspage
+\newif\iffigurespage
+\newif\iftablespage
+\newif\ifdedicationpage
+\newif\ifquotationpage
+\newif\ifotherlistpage
+%%% defaults
+\contentspagetrue
+\figurespagefalse
+\tablespagefalse
+\dedicationpagefalse
+\quotationpagefalse
+\otherlistpagefalse
+\def\@otherlist{%  Call user's macro \otherlist **MS**
+  \otherlist
+  }
+
+
+%%% Title page commands
+\def\@title{Name your thesis!}
+\def\@author{Identify yourself!}
+\gdef\qualification#1{\@qualifications{#1}}
+\newsavebox{\@qual}
+\newif\ifqvoid
+\qvoidtrue
+\def\@qualifications#1{%
+  \ifqvoid
+  \sbox{\@qual}{\parbox{\textwidth}
+    {\begin{center}\@author\\\end{center}}}
+  \qvoidfalse
+  \fi
+  \sbox{\@qual}{\parbox{\textwidth}
+    {\begin{center}%
+        \usebox{\@qual}\\%[-10pt]% possibly reduce space
+        {#1}%
+      \end{center}}}%
+  }
+\def\entity#1{\gdef\@entity{#1}}
+\def\@entity{School}
+\def\dept#1{\gdef\@dept{#1}}
+\def\@dept{Computing Science}
+\def\faculty#1{\gdef\@faculty{#1}}
+\def\@faculty{Applied Sciences}
+\def\degree#1{\gdef\@degree{#1}}
+\def\@degree{\textsc{Bachelor of Science}}
+\def\endeavour#1{\gdef\@endeavour{#1}}
+\def\@endeavour{Report}
+\def\submitdate#1{\gdef\@submitdate{#1}}
+\def\@submitdate{Fill in month and year of Approval!}
+\def\copyrightyear#1{\gdef\@copyrightyear{\space #1}}
+\def\@copyrightyear{Fill in year of Approval!}
+
+%%%%%%%%%% Title page
+\def\titlep{%
+  \typeout{Title page.}
+  \thispagestyle{empty}%
+  \begingroup
+  \null\vfill % stretchable white space
+%%  You might want to change \Large to \large below if you're using 12pt
+%%  as the basic font size.
+
+%% title element
+  \begin{center}
+    \renewcommand{\baselinestretch}{\doublestretch}\normalsize
+      \Large\bfseries\uppercase\expandafter{\@title}
+    \par\renewcommand{\baselinestretch}{\textstretch}\normalsize
+  \end{center}
+  \vskip.25in %% not less than this after title
+  \begin{center}
+    \normalfont\upshape by
+  \end{center}
+  %\vfill
+  
+%% Previous degrees element
+  \vspace*{-1\baselineskip} %% pushes author + quals up; adjust amount
+  \begin{center}
+  \usebox{\@qual}
+  \end{center}
+  %\vskip \mySkip
+  %\vfill
+  
+%% ``in partial'' element
+  \begin{center}
+      {\scshape
+          a \@endeavour\  submitted in partial fulfillment\\
+      of the requirements for the SFU-ZU Dual Degree of\\}
+      \expandafter{\@degree}\\
+      in the \expandafter{\@entity} of \expandafter{\@dept}\\
+      Simon Fraser University \\
+      and \\
+      the College of Computer Science and Technology \\
+      Zhejiang University \\
+  \end{center}
+  \vskip \mySkip
+  %\vfill
+
+
+%% Copyright element
+  \begin{center}
+      \copyright\ \@author\ \@copyrightyear\\
+      SIMON FRASER UNIVERSITY AND ZHEJIANG UNIVERSITY \\
+      \@submitdate\\
+  \end{center}
+  \vskip \mySkip
+  \vfill 
+
+%% all rights reserved element
+  \begin{center}
+      \small
+      All rights reserved. This work may not be \\
+      reproduced in whole or in part, by photocopy \\
+      or other means, without the permission of the author. \\
+  \end{center}
+  \endgroup
+  \newpage%
+}
+\gdef\signatory#1{\@signatory{#1}}
+\newlength{\lwidth}% make enough space for the biggest label
+\settowidth{\lwidth}{\textbf{Examining committee: }}
+\addtolength{\lwidth}{3\labelsep}% change 3 to adjust spacing
+\def\apdesclabel#1{\hspace\labelsep \bfseries #1:\hfill}
+\def\apdesc{\list{}{\leftmargin\apdescmargin
+    \labelwidth\leftmargin \advance\labelwidth -\labelsep
+\let\makelabel\apdesclabel}}
+\let\endapdesc\endlist
+\newdimen\apdescmargin
+\apdescmargin=\lwidth
+\newsavebox{\@apitems}
+\def\@signatory#1{%
+    \sbox{\@apitems}{%
+        \begin{minipage}[t]{3.5in}\parindent=0pt
+            \usebox{\@apitems}%
+            \vspace{\myAppSkip}\\%- adjust 0.5in to 0.35in to change spacing between committee members. Caution
+            \underline{\hspace{3.5in}}\\
+            #1%
+        \end{minipage}%
+    }
+}
+
+%%%%%%%%%% Approval page
+\def\approvalpage{%
+  \typeout{Approval page.}
+  \begingroup
+  \begin{center}
+    {\large\bfseries APPROVAL}
+  \end{center}
+  \addcontentsline{toc}{chapter}{Approval}
+  \vskip.25in
+  \begin{apdesc}
+    \item[Name] \@author
+    \item[Degree] \@degree
+    \item[Title of \@endeavour] DORI: Distributed Outdoor Robotic Instruments \\
+        Hardware Design
+  \end{apdesc}
+  \vskip.25in
+  \begin{apdesc}
+    \item[Examining Committee]
+      \usebox{\@apitems}
+  \end{apdesc}
+  \vskip.25in
+  \vfill
+  \begin{apdesc}
+    \item[Date Approved] \ \hrulefill\
+  \end{apdesc}
+  \endgroup
+  \vfil
+  \addtolength{\textheight}{-\headkeep}
+                % Else the following page number too low **MS**
+  \newpage%
+}
+
+
+%%%%%%% Typeset Title and Approval pages
+\newlength{\headkeep}
+\def\beforepreface{%
+  \pagenumbering{roman}
+  \pagestyle{plain}
+  \setlength{\headkeep}{\headsep}% keep old value
+  \setlength{\headsep}{0pt}% make more space for text
+  \addtolength{\textheight}{\headkeep}
+  \titlep%
+  \approvalpage%
+  \setlength{\headsep}{\headkeep}%% restore \headsep (\textheight
+                                 %% adjusted by \approvalpage)
+}
+
+%%%%%%%%% Abstract, Acknowledgment, and (optional) Preface
+\def\prefacesection#1{%
+  \typeout{#1.}
+  \chapter*{#1}
+  \addcontentsline{toc}{chapter}{#1}
+}
+
+%%%%%%%% (optional) Dedication and Quotation pages
+\def\dedication#1{\gdef\@dedication{#1}}
+\def\@dedication{You forgot to do\\ your own dedication!}
+\def\thesquot#1{\gdef\@thesquot{#1}}
+\def\@thesquot{``You forgot to do\\ your own quotation!''\\[5pt]%
+  --- My Work, \textsc{I.~M.~Author}, 2001}
+\newcommand{\dedicquotation}{%
+  \ifdedicationpage
+     \newpage
+     \typeout{Dedication.}
+     \vspace*{\stretch{2}}
+     \begin{flushright}\itshape
+       \expandafter\@dedication
+     \end{flushright}
+     \addcontentsline{toc}{chapter}{Dedication}
+     \vspace*{\stretch{3}}
+  \fi
+  \ifquotationpage
+     \newpage
+     \typeout{Quotation.}
+     \vspace*{\stretch{1}}
+     \begin{flushright}\slshape
+       \expandafter\@thesquot
+     \end{flushright}
+     \addcontentsline{toc}{chapter}{Quotation}
+     \vspace*{\stretch{3}}
+  \fi
+}
+
+%%%%%%%% Typeset list of Contents, Figures, Tables, etc.
+\def\lists{%
+  \ifcontentspage
+    \newpage%
+    \typeout{Contents.}
+    \addcontentsline{toc}{chapter}{Contents}
+    \tableofcontents%
+    \newpage%
+  \fi
+  \iftablespage
+    \addvspace{10pt}
+    \typeout{Tables.}
+    \addcontentsline{toc}{chapter}{List of Tables}
+    \listoftables%
+    \newpage%
+  \fi
+  \iffigurespage
+    \addvspace{10pt}
+    \typeout{Figures.}
+    \addcontentsline{toc}{chapter}{List of Figures}
+    \listoffigures%
+    \newpage%
+  \fi
+  \ifotherlistpage
+    \addvspace{10pt}
+    \typeout{Other list.}
+%%     \addcontentsline{toc}{chapter}{Name of my list}
+    \@otherlist%
+    \newpage%
+  \fi
+}
+
+%%%%%%%% Transition to main text
+\newcommand{\beforetext}{%
+  \newpage%
+  \if@twoside %% coordinate twoside option with two-sided printing
+    \ifodd\c@page
+    \else
+      \thispagestyle{empty}
+      \null\vfill
+      \newpage%
+    \fi
+  \fi
+  \pagenumbering{arabic}
+  \pagestyle{headings}
+}
+
+%%%% backward compatibility with sfuthesis.sty
+\let\approvalitem\signatory
+
+%%%%%%%%%%% Leftovers from sfuthesis.sty
+%%%
+%%%  This stuff is for using endnotes instead of footnotes. It's probably
+%%%  useless but I left it here. It's not self-sufficient, you'd
+%%%  have to load also ``endnotes.sty'' package and probably fool
+%%%  around with the way how things look --- not worth the trouble
+%%%  if you don't have to!
+%%\def\enoteformat{\rightskip\z@ \leftskip\z@ \parindent=1.8em
+%%  \leavevmode\textindent{\@theenmark.}}
+%%\def\enotesize{\normalsize}
+%%\def\notesname{}
+%%\def\printendnotes{%
+%%  \typeout{Endnotes for chapter \thechapter.}
+%%  \chapter*{Notes for Chapter \thechapter}
+%%  \addcontentsline{toc}{section}{Notes for Chapter \thechapter}
+%%  \begingroup
+%%  \parskip 2ex
+%%  \theendnotes%
+%%  \endgroup
+%%  \setcounter{endnote}{0}
+%%}
+%%\def\printallendnotes{%
+%%  \typeout{Endnotes.}
+%%  \chapter*{Notes}
+%%  \addcontentsline{toc}{chapter}{Notes}
+%%  \begingroup
+%%  \parskip 2ex
+%%  \theendnotes%
+%%  \endgroup
+%%}
+\endinput
+%%
+%% End of file `csthesis.sty'.

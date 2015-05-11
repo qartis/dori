@@ -1,0 +1,43 @@
+\iffalse
+\documentclass{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes,arrows}
+
+\begin{document}
+\fi
+
+\tikzstyle{block} = [draw, rectangle, minimum height=3em, minimum width=6em]
+\tikzstyle{sum} = [draw, circle, node distance=1cm]
+\tikzstyle{input} = [coordinate]
+\tikzstyle{output} = [coordinate]
+\tikzstyle{pinstyle} = [pin edge={to-,thin,black}]
+\tikzstyle{every node}=[font=\scriptsize]
+
+% The block diagram code is probably more verbose than necessary
+\begin{tikzpicture}[arrows=-triangle 45, node distance=2cm]
+    % We start by placing the blocks
+    \node [input, name=input] {};
+    \node [sum, right of=input] (sum) {};
+    \node [block, right of=sum] (controller) {Controller};
+    \node [block, right of=controller, node distance=3cm] (system) {System};
+    % We draw an edge between the controller and system block to 
+    % calculate the coordinate u. We need it to place the measurement block. 
+    \draw [] (controller) -- node[name=u] {} (system);
+    \node [output, right of=system] (output) {};
+    \coordinate [below of=u] (tmp);
+
+    % Once the nodes are placed, connecting them is easy. 
+    \draw [draw] (input) -- node {} (sum);
+    \draw [] (sum) -- node {} (controller);
+    \draw [] (system) -- node [name=y] {}(output);
+    \draw [] (y) |- (tmp) -| node[pos=0.99] {} 
+        node [near end] {} (sum);
+\end{tikzpicture}
+
+
+
+
+
+\iffalse
+\end{document}
+\fi

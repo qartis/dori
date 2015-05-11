@@ -1,0 +1,29 @@
+%% Copyright 1998 Pepe Kubon
+%%
+%% `bibl.tex' --- bibliography for thes-full.tex, thes-short-tex from
+%%                the `csthesis' bundle
+%%
+%% You are allowed to distribute this file together with all files
+%% mentioned in READ.ME.
+%%
+%% You are not allowed to modify its contents.
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%       Bibliography
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\nocite{*}     % everything cited automatically
+
+\renewcommand{\baselinestretch}{\tighttextstretch} %% get smaller spacing
+\normalsize
+
+\bibliographystyle{plain}   %% dash under repeated name, von ignored
+\addcontentsline{toc}{chapter}{Bibliography}
+\typeout{Bibliography}
+\bibliography{files/thes-both}
+\renewcommand{\baselinestretch}{\textstretch} %% get normal spacing
+\normalsize
+
