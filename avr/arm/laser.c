@@ -16,6 +16,9 @@
 
 #define LASER_MAX_LINE_LEN 64
 
+#define UT390_CMD_SINGLESHOT "*00004#"
+#define UT390_CMD_RAPIDFIRE  "*00084553#"
+
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
 volatile uint16_t dist_mm;
@@ -104,16 +107,15 @@ uint8_t has_power(void)
 {
     uint8_t i;
     uint32_t v_ref;
-
-#define SAMPLES 4
+    uint8_t samples = 4;
 
     v_ref = 0;
 
-    for (i = 0; i < SAMPLES; i++) {
+    for (i = 0; i < samples; i++) {
         v_ref += adc_read(6);
     }
 
-    v_ref /= SAMPLES;
+    v_ref /= samples;
 
     return v_ref > 400;
 }
@@ -160,7 +162,7 @@ uint16_t measure_once(void)
     dist_mm = 0;
     error_flag = 0;
 
-    print_P(PSTR("*00004#"));
+    print_P(PSTR(UT390_CMD_SINGLESHOT));
 
     /* 1200 * 5 = 6000 ms */
     retry = 1200;
@@ -190,7 +192,7 @@ void laser_begin_rapidfire(void)
         laser_on();
     }
 
-    print_P(PSTR("*00084553#"));
+    print_P(PSTR(UT390_CMD_RAPIDFIRE));
 }
 
 uint8_t __do_measure(laser_callback_t cb, uint16_t end_angle)
